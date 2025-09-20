@@ -22,7 +22,7 @@ const stats = [
 
 const faqs = [
   {
-    question: "What if I don&rsquo;t know what my major will be yet? What if I change my mind?",
+    question: "What if I don't know what my major will be yet? What if I change my mind?",
     answer:
       "Though it may help for increased planning and schedule optimization, knowing your major is not required. The program is set up so that changes to your major will have a minimal impact on your timeframe.",
   },
@@ -52,7 +52,7 @@ const faqs = [
       'No. There is no differentiation on your degree whether all credits are earned at one university or across multiple institutions.',
   },
   {
-    question: "What if I don&rsquo;t pass a class? How much more challenging are dual credit courses?",
+    question: "What if I don't pass a class? How much more challenging are dual credit courses?",
     answer:
       'Dual credit courses can be more challenging mentally, but from a time and workload standpoint they are often easier or less time consuming. Ultimately, success comes down to attending class and doing the work.',
   },
@@ -62,14 +62,14 @@ const faqs = [
       'Not at all. Dual credit opportunities are available in small towns and online. If you live in a rural area, we help you find options nearby or through virtual programs.',
   },
   {
-    question: "My situation is different, but I&rsquo;m interested. Should I still schedule a call?",
+    question: "My situation is different, but I'm interested. Should I still schedule a call?",
     answer:
-      "Yes. We&rsquo;ll talk through your specific needs and be upfront about the best path forward—whether that&rsquo;s with us or another solution.",
+      "Yes. We'll talk through your specific needs and be upfront about the best path forward—whether that's with us or another solution.",
   },
   {
     question: 'Money back guarantee?',
     answer:
-      "Yes. If we don&rsquo;t save you more than the cost of our service, we&rsquo;ll refund everything you&rsquo;ve paid.",
+      "Yes. If we don't save you more than the cost of our service, we'll refund everything you've paid.",
   },
   {
     question: 'Do I have to pay this all at once? Do you offer financing or payment plans?',
