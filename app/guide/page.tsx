@@ -45,12 +45,6 @@ export default function Guide() {
                 Guide
               </Button>
             </Link>
-            <CalBookingButton variant="ghost" className="text-white text-base">
-              Sign Up
-            </CalBookingButton>
-            <CalBookingButton variant="ghost" className="text-white text-base">
-              Contact
-            </CalBookingButton>
           </nav>
           <Button
             variant="ghost"
@@ -78,12 +72,6 @@ export default function Guide() {
                 Guide
               </Button>
             </Link>
-            <CalBookingButton variant="ghost" className="text-white text-base">
-              Sign Up
-            </CalBookingButton>
-            <CalBookingButton variant="ghost" className="text-white text-base">
-              Contact
-            </CalBookingButton>
           </div>
         )}
       </header>
@@ -103,11 +91,6 @@ export default function Guide() {
                 <Button asChild className="bg-white text-[#080b53] hover:bg-blue-100 font-semibold px-8 py-6 text-lg shadow-lg">
                   <Link href={whopCheckoutLink} target="_blank" rel="noopener noreferrer">
                     Purchase the guide ($10)
-                  </Link>
-                </Button>
-                <Button asChild className="bg-white/15 hover:bg-white/25 text-white font-semibold px-8 py-6 text-lg">
-                  <Link href={whopCheckoutLink} target="_blank" rel="noopener noreferrer">
-                    Sign Up
                   </Link>
                 </Button>
               </div>

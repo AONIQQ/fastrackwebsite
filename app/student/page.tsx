@@ -118,9 +118,6 @@ export default function StudentPage() {
             <CalBookingButton variant="ghost" className="text-white text-base">
               Sign Up
             </CalBookingButton>
-            <CalBookingButton variant="ghost" className="text-white text-base">
-              Contact
-            </CalBookingButton>
           </nav>
           <Button variant="ghost" className="md:hidden text-white p-2" onClick={toggleMenu} aria-label="Toggle menu">
             {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
@@ -140,9 +137,6 @@ export default function StudentPage() {
             </Link>
             <CalBookingButton variant="ghost" className="text-white text-base">
               Sign Up
-            </CalBookingButton>
-            <CalBookingButton variant="ghost" className="text-white text-base">
-              Contact
             </CalBookingButton>
           </div>
         )}
