@@ -2,29 +2,21 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Button } from "@/components/ui/button"
+import CalBookingButton from '@/components/cal/CalBookingButton'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Moon, Sun, Menu, X } from "lucide-react"
+import { Menu, X } from "lucide-react"
 
 export default function Pricing() {
-  const [theme, setTheme] = useState('dark')
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', theme === 'dark')
-  }, [theme])
-
-  const toggleTheme = () => {
-    setTheme(theme === 'dark' ? 'light' : 'dark')
-  }
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen)
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 text-gray-900 dark:bg-[#080b53] dark:text-white transition-colors duration-300">
+    <div className="min-h-screen bg-gray-100 text-gray-900 transition-colors duration-300">
       <header className="bg-[#080b53] text-white p-4 sticky top-0 z-50">
         <div className="container mx-auto flex justify-between items-center">
           <Link href="/" className="flex items-center space-x-2">
@@ -35,41 +27,45 @@ export default function Pricing() {
               <Button variant="ghost" className="text-white text-base">
                 Home
               </Button>
-            </Link>   
-            <Link href="/signup">
+            </Link>
+            <Link href="/student">
               <Button variant="ghost" className="text-white text-base">
-                Sign Up
+                Student
               </Button>
             </Link>
-            <Button variant="ghost" className="text-white p-2" onClick={toggleTheme} aria-label="Toggle theme">
-              {theme === 'dark' ? (
-                <Sun className="h-[1.2rem] w-[1.2rem]" />
-              ) : (
-                <Moon className="h-[1.2rem] w-[1.2rem]" />
-              )}
-              <span className="sr-only">Toggle theme</span>
-            </Button>
+            <Link href="/guide">
+              <Button variant="ghost" className="text-white text-base">
+                Guide
+              </Button>
+            </Link>
+            <CalBookingButton variant="ghost" className="text-white text-base">
+              Sign Up
+            </CalBookingButton>
           </nav>
           <Button variant="ghost" className="md:hidden text-white p-2" onClick={toggleMenu} aria-label="Toggle menu">
             {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
           </Button>
         </div>
         {isMenuOpen && (
-          <div className="md:hidden mt-4 flex flex-col items-center">
-          <Link href="/" className="mb-2">
-            <Button variant="ghost" className="text-white text-base">
-              Home
-            </Button>
-          </Link>   
-          <Link href="/signup" className="mb-2">
-            <Button variant="ghost" className="text-white text-base">
+          <div className="md:hidden mt-4 flex flex-col items-center space-y-2">
+            <Link href="/">
+              <Button variant="ghost" className="text-white text-base">
+                Home
+              </Button>
+            </Link>
+            <Link href="/student">
+              <Button variant="ghost" className="text-white text-base">
+                Student
+              </Button>
+            </Link>
+            <Link href="/guide">
+              <Button variant="ghost" className="text-white text-base">
+                Guide
+              </Button>
+            </Link>
+            <CalBookingButton variant="ghost" className="text-white text-base">
               Sign Up
-            </Button>
-          </Link>
-           
-            <Button variant="ghost" className="text-white p-2 w-full" onClick={toggleTheme} aria-label="Toggle theme">
-              {theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-            </Button>
+            </CalBookingButton>
           </div>
         )}
       </header>
@@ -79,7 +75,7 @@ export default function Pricing() {
           Pricing
         </h1>
         
-        <Card className="mb-8 rounded-xl overflow-hidden dark:bg-[#1a1d6c] shadow-lg border border-gray-200 dark:border-gray-700">
+        <Card className="mb-8 rounded-xl overflow-hidden bg-white shadow-lg border border-gray-200">
           <CardContent className="p-6 text-center">
             <p className="text-lg mb-4">
               The cost for the online program is $500 per counselor or educator and includes access to the training materials until the end of the calendar year.
@@ -94,11 +90,9 @@ export default function Pricing() {
         </Card>
 
         <div className="text-center mb-12">
-          <Link href="/signup">
-            <Button className="bg-[#605dba] hover:bg-[#4e4a9e] text-white text-xl px-12 py-6 rounded-xl">
-              Sign Up
-            </Button>
-          </Link>
+          <CalBookingButton className="bg-[#605dba] hover:bg-[#4e4a9e] text-white text-xl px-12 py-6 rounded-xl">
+            Sign Up
+          </CalBookingButton>
         </div>
 
         <h2 className="text-3xl sm:text-4xl font-semibold text-center mb-8">
@@ -106,7 +100,7 @@ export default function Pricing() {
         </h2>
 
         <div className="grid md:grid-cols-2 gap-6">
-          <Card className="rounded-xl overflow-hidden dark:bg-[#1a1d6c] shadow-lg border border-gray-200 dark:border-gray-700">
+          <Card className="rounded-xl overflow-hidden bg-white shadow-lg border border-gray-200">
             <CardHeader className="bg-[#080b53] text-white">
               <CardTitle className="text-2xl">Foundations and Corporations</CardTitle>
             </CardHeader>
@@ -117,7 +111,7 @@ export default function Pricing() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-xl overflow-hidden dark:bg-[#1a1d6c] shadow-lg border border-gray-200 dark:border-gray-700">
+          <Card className="rounded-xl overflow-hidden bg-white shadow-lg border border-gray-200">
             <CardHeader className="bg-[#080b53] text-white">
               <CardTitle className="text-2xl">Local Education Agencies (LEAs) and School District Partnerships</CardTitle>
             </CardHeader>
@@ -128,7 +122,7 @@ export default function Pricing() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-xl overflow-hidden dark:bg-[#1a1d6c] shadow-lg border border-gray-200 dark:border-gray-700">
+          <Card className="rounded-xl overflow-hidden bg-white shadow-lg border border-gray-200">
             <CardHeader className="bg-[#080b53] text-white">
               <CardTitle className="text-2xl">Federal and State Initiatives</CardTitle>
             </CardHeader>
@@ -139,7 +133,7 @@ export default function Pricing() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-xl overflow-hidden dark:bg-[#1a1d6c] shadow-lg border border-gray-200 dark:border-gray-700">
+          <Card className="rounded-xl overflow-hidden bg-white shadow-lg border border-gray-200">
             <CardHeader className="bg-[#080b53] text-white">
               <CardTitle className="text-2xl">District General Funds</CardTitle>
             </CardHeader>
@@ -150,7 +144,7 @@ export default function Pricing() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-xl overflow-hidden dark:bg-[#1a1d6c] shadow-lg border border-gray-200 dark:border-gray-700">
+          <Card className="rounded-xl overflow-hidden bg-white shadow-lg border border-gray-200">
             <CardHeader className="bg-[#080b53] text-white">
               <CardTitle className="text-2xl">Community Support</CardTitle>
             </CardHeader>
@@ -161,7 +155,7 @@ export default function Pricing() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-xl overflow-hidden dark:bg-[#1a1d6c] shadow-lg border border-gray-200 dark:border-gray-700">
+          <Card className="rounded-xl overflow-hidden bg-white shadow-lg border border-gray-200">
             <CardHeader className="bg-[#080b53] text-white">
               <CardTitle className="text-2xl">Alumni Donations</CardTitle>
             </CardHeader>
@@ -172,7 +166,7 @@ export default function Pricing() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-xl overflow-hidden dark:bg-[#1a1d6c] shadow-lg border border-gray-200 dark:border-gray-700">
+          <Card className="rounded-xl overflow-hidden bg-white shadow-lg border border-gray-200">
             <CardHeader className="bg-[#080b53] text-white">
               <CardTitle className="text-2xl">Workforce Development Grants</CardTitle>
             </CardHeader>
@@ -183,7 +177,7 @@ export default function Pricing() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-xl overflow-hidden dark:bg-[#1a1d6c] shadow-lg border border-gray-200 dark:border-gray-700">
+          <Card className="rounded-xl overflow-hidden bg-white shadow-lg border border-gray-200">
             <CardHeader className="bg-[#080b53] text-white">
               <CardTitle className="text-2xl">Public-Private Partnerships</CardTitle>
             </CardHeader>
@@ -194,7 +188,7 @@ export default function Pricing() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-xl overflow-hidden dark:bg-[#1a1d6c] shadow-lg border border-gray-200 dark:border-gray-700">
+          <Card className="rounded-xl overflow-hidden bg-white shadow-lg border border-gray-200">
             <CardHeader className="bg-[#080b53] text-white">
               <CardTitle className="text-2xl">Education Service Agencies (ESAs)</CardTitle>
             </CardHeader>
@@ -205,7 +199,7 @@ export default function Pricing() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-xl overflow-hidden dark:bg-[#1a1d6c] shadow-lg border border-gray-200 dark:border-gray-700">
+          <Card className="rounded-xl overflow-hidden bg-white shadow-lg border border-gray-200">
             <CardHeader className="bg-[#080b53] text-white">
               <CardTitle className="text-2xl">State Innovation and Opportunity Grants</CardTitle>
             </CardHeader>
@@ -216,7 +210,7 @@ export default function Pricing() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-xl overflow-hidden dark:bg-[#1a1d6c] shadow-lg border border-gray-200 dark:border-gray-700">
+          <Card className="rounded-xl overflow-hidden bg-white shadow-lg border border-gray-200">
             <CardHeader className="bg-[#080b53] text-white">
               <CardTitle className="text-2xl">Local Colleges and Universities</CardTitle>
             </CardHeader>
@@ -227,7 +221,7 @@ export default function Pricing() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-xl overflow-hidden dark:bg-[#1a1d6c] shadow-lg border border-gray-200 dark:border-gray-700">
+          <Card className="rounded-xl overflow-hidden bg-white shadow-lg border border-gray-200">
             <CardHeader className="bg-[#080b53] text-white">
               <CardTitle className="text-2xl">Title Funds</CardTitle>
             </CardHeader>
@@ -240,11 +234,9 @@ export default function Pricing() {
         </div>
 
         <div className="text-center mt-12">
-          <Link href="/signup">
-            <Button className="bg-[#605dba] hover:bg-[#4e4a9e] text-white text-xl px-12 py-6 rounded-xl">
-              Sign Up
-            </Button>
-          </Link>
+          <CalBookingButton className="bg-[#605dba] hover:bg-[#4e4a9e] text-white text-xl px-12 py-6 rounded-xl">
+            Sign Up
+          </CalBookingButton>
         </div>
       </main>
 
@@ -258,6 +250,9 @@ export default function Pricing() {
               info@fastrack.school<br />
               605-884-6550
             </address>
+            <Link href="/privacypolicy" className="mt-4 text-sm underline">
+              Privacy Policy
+            </Link>
           </div>
         </div>
       </footer>

@@ -1,30 +1,22 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Button } from "@/components/ui/button"
+import CalBookingButton from '@/components/cal/CalBookingButton'
 import { Card, CardContent } from "@/components/ui/card"
-import { Moon, Sun, Menu, X } from "lucide-react"
+import { Menu, X } from "lucide-react"
 
 export default function ThankYou() {
-  const [theme, setTheme] = useState('dark')
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', theme === 'dark')
-  }, [theme])
-
-  const toggleTheme = () => {
-    setTheme(theme === 'dark' ? 'light' : 'dark')
-  }
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen)
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 text-gray-900 dark:bg-[#080b53] dark:text-white transition-colors duration-300">
+    <div className="min-h-screen bg-gray-100 text-gray-900 transition-colors duration-300">
       <header className="bg-[#080b53] text-white p-4 sticky top-0 z-50">
         <div className="container mx-auto flex justify-between items-center">
           <Link href="/" className="flex items-center space-x-2">
@@ -35,41 +27,50 @@ export default function ThankYou() {
               <Button variant="ghost" className="text-white text-base">
                 Pricing
               </Button>
-            </Link>   
+            </Link>
+            <Link href="/student">
+              <Button variant="ghost" className="text-white text-base">
+                Student
+              </Button>
+            </Link>
+            <Link href="/guide">
+              <Button variant="ghost" className="text-white text-base">
+                Guide
+              </Button>
+            </Link>
             <Link href="/">
               <Button variant="ghost" className="text-white text-base">
                 Home
               </Button>
             </Link>
-            <Button variant="ghost" className="text-white p-2" onClick={toggleTheme} aria-label="Toggle theme">
-              {theme === 'dark' ? (
-                <Sun className="h-[1.2rem] w-[1.2rem]" />
-              ) : (
-                <Moon className="h-[1.2rem] w-[1.2rem]" />
-              )}
-              <span className="sr-only">Toggle theme</span>
-            </Button>
           </nav>
           <Button variant="ghost" className="md:hidden text-white p-2" onClick={toggleMenu} aria-label="Toggle menu">
             {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
           </Button>
         </div>
         {isMenuOpen && (
-         <div className="md:hidden mt-4 flex flex-col items-center">
-           <Link href="/pricing" className="mb-2">
-             <Button variant="ghost" className="text-white text-base">
-               Pricing
-             </Button>
-           </Link>   
-           <Link href="/" className="mb-2">
-             <Button variant="ghost" className="text-white text-base">
-               Home
-             </Button>
-           </Link>
-           <Button variant="ghost" className="text-white p-2 w-full" onClick={toggleTheme} aria-label="Toggle theme">
-             {theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-           </Button>
-         </div>
+          <div className="md:hidden mt-4 flex flex-col items-center space-y-2">
+            <Link href="/pricing">
+              <Button variant="ghost" className="text-white text-base">
+                Pricing
+              </Button>
+            </Link>
+            <Link href="/student">
+              <Button variant="ghost" className="text-white text-base">
+                Student
+              </Button>
+            </Link>
+            <Link href="/guide">
+              <Button variant="ghost" className="text-white text-base">
+                Guide
+              </Button>
+            </Link>
+            <Link href="/">
+              <Button variant="ghost" className="text-white text-base">
+                Home
+              </Button>
+            </Link>
+          </div>
         )}
       </header>
 
@@ -91,15 +92,18 @@ export default function ThankYou() {
         <div className="container mx-auto px-4">
           <div className="flex flex-col items-center">
             <Image src="/logo.png" alt="Fastrack Logo" width={200} height={200} className="mb-4" />
-            <Button variant="ghost" className="text-white mb-4 text-base bg-[#605dba] hover:bg-[#4e4a9e]">
+            <CalBookingButton className="text-white mb-4 text-base bg-[#605dba] hover:bg-[#4e4a9e]">
               Contact Us
-            </Button>
+            </CalBookingButton>
             <address className="text-center not-italic text-sm sm:text-base">
               1007 N Orange St<br />
               Wilmington, Delaware<br />
               info@fastrack.school<br />
               605-884-6550
             </address>
+            <Link href="/privacypolicy" className="mt-4 text-sm underline">
+              Privacy Policy
+            </Link>
           </div>
         </div>
       </footer>

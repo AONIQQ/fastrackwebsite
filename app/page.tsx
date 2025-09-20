@@ -2,29 +2,21 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Button } from "@/components/ui/button"
+import CalBookingButton from '@/components/cal/CalBookingButton'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Moon, Sun, Menu, X } from "lucide-react"
+import { Menu, X } from "lucide-react"
 
 export default function Home() {
-  const [theme, setTheme] = useState('dark')
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', theme === 'dark')
-  }, [theme])
-
-  const toggleTheme = () => {
-    setTheme(theme === 'dark' ? 'light' : 'dark')
-  }
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen)
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 text-gray-900 dark:bg-[#080b53] dark:text-white transition-colors duration-300">
+    <div className="min-h-screen bg-gray-100 text-gray-900 transition-colors duration-300">
       <header className="bg-[#080b53] text-white p-4 sticky top-0 z-50">
         <div className="container mx-auto flex justify-between items-center">
           <div className="flex items-center space-x-2">
@@ -35,41 +27,45 @@ export default function Home() {
               <Button variant="ghost" className="text-white text-base">
                 Pricing
               </Button>
-            </Link>   
-            <Link href="/signup">
+            </Link>
+            <Link href="/student">
               <Button variant="ghost" className="text-white text-base">
-                Sign Up
+                Student
               </Button>
             </Link>
-      
-            <Button variant="ghost" className="text-white p-2" onClick={toggleTheme} aria-label="Toggle theme">
-              {theme === 'dark' ? (
-                <Sun className="h-[1.2rem] w-[1.2rem]" />
-              ) : (
-                <Moon className="h-[1.2rem] w-[1.2rem]" />
-              )}
-              <span className="sr-only">Toggle theme</span>
-            </Button>
+            <Link href="/guide">
+              <Button variant="ghost" className="text-white text-base">
+                Guide
+              </Button>
+            </Link>
+            <CalBookingButton variant="ghost" className="text-white text-base">
+              Sign Up
+            </CalBookingButton>
           </nav>
           <Button variant="ghost" className="md:hidden text-white p-2" onClick={toggleMenu} aria-label="Toggle menu">
             {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
           </Button>
         </div>
         {isMenuOpen && (
-          <div className="md:hidden mt-4 flex flex-col items-center">
-            <Link href="/pricing" className="mb-2">
+          <div className="md:hidden mt-4 flex flex-col items-center space-y-2">
+            <Link href="/pricing">
               <Button variant="ghost" className="text-white text-base">
                 Pricing
               </Button>
-            </Link>   
-            <Link href="/signup" className="mb-2">
+            </Link>
+            <Link href="/student">
               <Button variant="ghost" className="text-white text-base">
-                Sign Up
+                Student
               </Button>
             </Link>
-            <Button variant="ghost" className="text-white p-2 w-full" onClick={toggleTheme} aria-label="Toggle theme">
-              {theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-            </Button>
+            <Link href="/guide">
+              <Button variant="ghost" className="text-white text-base">
+                Guide
+              </Button>
+            </Link>
+            <CalBookingButton variant="ghost" className="text-white text-base">
+              Sign Up
+            </CalBookingButton>
           </div>
         )}
       </header>
@@ -87,7 +83,7 @@ export default function Home() {
             See how our training impacts each party involved
           </h2>
           <div className="grid md:grid-cols-12 gap-6 mb-8">
-            <Card className="md:col-span-3 rounded-xl overflow-hidden dark:bg-[#1a1d6c] shadow-lg border border-gray-200 dark:border-gray-700">
+            <Card className="md:col-span-3 rounded-xl overflow-hidden bg-white shadow-lg border border-gray-200">
               <CardContent className="p-6">
                 <div className="flex justify-center mb-4">
                   <Image src="/student.png" alt="Students" width={100} height={100} className="rounded-full" style={{ borderRadius: '50%', width: '100px', height: '100px', objectFit: 'cover' }} />
@@ -105,7 +101,7 @@ export default function Home() {
               </CardContent>
             </Card>
 
-            <Card className="md:col-span-3 rounded-xl overflow-hidden dark:bg-[#1a1d6c] shadow-lg border border-gray-200 dark:border-gray-700">
+            <Card className="md:col-span-3 rounded-xl overflow-hidden bg-white shadow-lg border border-gray-200">
               <CardContent className="p-6">
                 <div className="flex justify-center mb-4">
                   <Image src="/counselor.png" alt="Counselor" width={100} height={100} className="rounded-full" />
@@ -119,7 +115,7 @@ export default function Home() {
               </CardContent>
             </Card>
 
-            <Card className="md:col-span-6 rounded-xl overflow-hidden dark:bg-[#1a1d6c] shadow-lg border border-gray-200 dark:border-gray-700">
+            <Card className="md:col-span-6 rounded-xl overflow-hidden bg-white shadow-lg border border-gray-200">
               <CardContent className="p-6">
                 <div className="flex justify-center mb-4">
                   <Image src="/principal.png" alt="School Leadership" width={100} height={100} className="rounded-full" />
@@ -181,7 +177,7 @@ export default function Home() {
               </div>
             </div>
             <div className="md:w-1/2">
-              <Card className="mb-4 rounded-xl overflow-hidden dark:bg-[#1a1d6c] shadow-lg border border-gray-200 dark:border-gray-700">
+              <Card className="mb-4 rounded-xl overflow-hidden bg-white shadow-lg border border-gray-200">
                 <CardHeader className="bg-[#080b53] text-white">
                   <CardTitle className="text-2xl">Increased Graduation Rates</CardTitle>
                 </CardHeader>
@@ -190,7 +186,7 @@ export default function Home() {
                   <p className="text-sm">Dual enrollment has a positive impact on high school graduation rates, college enrollment percentages, college success metrics, college completion rates, and increased student academic performance in both high school and college. (New Directions for higher education)</p>
                 </CardContent>
               </Card>
-              <Card className="rounded-xl overflow-hidden dark:bg-[#1a1d6c] shadow-lg border border-gray-200 dark:border-gray-700">
+              <Card className="rounded-xl overflow-hidden bg-white shadow-lg border border-gray-200">
                 <CardHeader className="bg-[#080b53] text-white">
                   <CardTitle className="text-2xl">Shortened College Graduation Time</CardTitle>
                 </CardHeader>
@@ -202,7 +198,7 @@ export default function Home() {
             </div>
           </div>
           <div className="grid md:grid-cols-2 gap-6 mt-8">
-            <Card className="rounded-xl overflow-hidden dark:bg-[#1a1d6c] shadow-lg border border-gray-200 dark:border-gray-700">
+            <Card className="rounded-xl overflow-hidden bg-white shadow-lg border border-gray-200">
               <CardHeader className="bg-[#080b53] text-white">
                 <CardTitle className="text-2xl">Reduced Costs</CardTitle>
               </CardHeader>
@@ -214,7 +210,7 @@ export default function Home() {
                 <p className="text-sm sm:text-base">Taking dual credit courses is a great solution to assist underprivileged and first generation college students in affording their college degree, as it can be 25-50% cheaper.</p>
               </CardContent>
             </Card>
-            <Card className="rounded-xl overflow-hidden dark:bg-[#1a1d6c] shadow-lg border border-gray-200 dark:border-gray-700">
+            <Card className="rounded-xl overflow-hidden bg-white shadow-lg border border-gray-200">
               <CardHeader className="bg-[#080b53] text-white">
                 <CardTitle className="text-2xl">Scholarship and College Application Enhancement</CardTitle>
               </CardHeader>
@@ -222,7 +218,7 @@ export default function Home() {
                 <p className="text-sm sm:text-base">Dual enrollment significantly enhances students&apos; opportunities for scholarships and strengthens their college applications. A study by the Community College Research Center found that students who participated in dual enrollment were 12% more likely to apply to and be admitted to moderately or highly selective colleges compared to their peers who did not participate​ (Academic Commons)​ (ERIC). This increased likelihood of admission to selective institutions can make students more competitive candidates for merit-based scholarships, further enhancing their college applications and reducing the cost of their education.</p>
               </CardContent>
             </Card>
-            <Card className="rounded-xl overflow-hidden dark:bg-[#1a1d6c] shadow-lg border border-gray-200 dark:border-gray-700">
+            <Card className="rounded-xl overflow-hidden bg-white shadow-lg border border-gray-200">
               <CardHeader className="bg-[#080b53] text-white">
                 <CardTitle className="text-2xl">Higher Career Preparation</CardTitle>
               </CardHeader>
@@ -230,7 +226,7 @@ export default function Home() {
                 <p className="text-sm sm:text-base">Dual enrollment programs not only boost academic success but also provide students with early exposure to career-focused courses. This enables students to better connect their high school education to future career pathways​ (ED Blog).</p>
               </CardContent>
             </Card>
-            <Card className="rounded-xl overflow-hidden dark:bg-[#1a1d6c] shadow-lg border border-gray-200 dark:border-gray-700">
+            <Card className="rounded-xl overflow-hidden bg-white shadow-lg border border-gray-200">
               <CardHeader className="bg-[#080b53] text-white">
                 <CardTitle className="text-2xl">Increased College Readiness</CardTitle>
               </CardHeader>
@@ -240,7 +236,7 @@ export default function Home() {
                 <p className="text-sm sm:text-base">Additionally, 88% of dual enrollment students demonstrated higher levels of college persistence, maintaining continuous enrollment from their first to second year of college​ (Colleges of Distinction). These statistics underscore the effectiveness of dual enrollment in equipping students with the academic skills and habits necessary for college-level work.</p>
               </CardContent>
             </Card>
-            <Card className="rounded-xl overflow-hidden dark:bg-[#1a1d6c] shadow-lg border border-gray-200 dark:border-gray-700">
+            <Card className="rounded-xl overflow-hidden bg-white shadow-lg border border-gray-200">
               <CardHeader className="bg-[#080b53] text-white">
                 <CardTitle className="text-2xl">Student Satisfaction</CardTitle>
               </CardHeader>
@@ -259,7 +255,7 @@ export default function Home() {
             We have compiled data from counselors via studies, surveys, and questionnaires. When Counselors are asked to describe what aspects of their job they are struggling with, there are three top responses. Our training addresses these challenges directly with proven solutions. Additionally, our experience in providing schedule-building services to students who couldn&apos;t get expert advice from their counselors has given us deep, targeted insights into best practices that counselors can adopt for better outcomes.
           </p>
           <div className="grid md:grid-cols-3 gap-6">
-            <Card className="rounded-xl overflow-hidden dark:bg-[#1a1d6c] shadow-lg border border-gray-200 dark:border-gray-700">
+            <Card className="rounded-xl overflow-hidden bg-white shadow-lg border border-gray-200">
               <CardHeader className="bg-[#080b53] text-white">
                 <CardTitle className="text-2xl">Heavy Workloads and Limited Time</CardTitle>
               </CardHeader>
@@ -267,7 +263,7 @@ export default function Home() {
                 <p className="text-sm sm:text-base">Counselors often handle too many students, with national ratios averaging 385 students per counselor, far above the recommended 250:1 ratio. This limits their ability to provide individualized attention and can lead to burnout. Many counselors say its very difficult for them to complete all of their responsibilities because of time constraints. ​(National Education Association | NEA).</p>
               </CardContent>
             </Card>
-            <Card className="rounded-xl overflow-hidden dark:bg-[#1a1d6c] shadow-lg border border-gray-200 dark:border-gray-700">
+            <Card className="rounded-xl overflow-hidden bg-white shadow-lg border border-gray-200">
               <CardHeader className="bg-[#080b53] text-white">
                 <CardTitle className="text-2xl">Staying up to date on College and Career Guidance</CardTitle>
               </CardHeader>
@@ -275,7 +271,7 @@ export default function Home() {
                 <p className="text-sm sm:text-base">With an evolving landscape of higher education and career options, counselors often struggle to stay updated and provide accurate, personalized advice. Training programs focused on staying current with trends and leveraging data to guide students greatly improve outcomes​ (SchoolCounselor_CA).</p>
               </CardContent>
             </Card>
-            <Card className="rounded-xl overflow-hidden dark:bg-[#1a1d6c] shadow-lg border border-gray-200 dark:border-gray-700">
+            <Card className="rounded-xl overflow-hidden bg-white shadow-lg border border-gray-200">
               <CardHeader className="bg-[#080b53] text-white">
                 <CardTitle className="text-2xl">Student Motivation</CardTitle>
               </CardHeader>
@@ -296,7 +292,7 @@ export default function Home() {
             For your convenience, these materials are accessible anytime and can be completed at your own pace through our online portal. We also offer live training via webinar, or in-person training, if that&apos;s a better fit for your needs. Live or in person modalities will require prior coordination before enrollment.
           </p>
           <div className="grid md:grid-cols-2 gap-6">
-            <Card className="rounded-xl overflow-hidden dark:bg-[#1a1d6c] shadow-lg border border-gray-200 dark:border-gray-700">
+            <Card className="rounded-xl overflow-hidden bg-white shadow-lg border border-gray-200">
               <CardHeader className="bg-[#080b53] text-white">
                 <CardTitle className="text-2xl">Education</CardTitle>
               </CardHeader>
@@ -308,7 +304,7 @@ export default function Home() {
                 </ul>
               </CardContent>
             </Card>
-            <Card className="rounded-xl overflow-hidden dark:bg-[#1a1d6c] shadow-lg border border-gray-200 dark:border-gray-700">
+            <Card className="rounded-xl overflow-hidden bg-white shadow-lg border border-gray-200">
               <CardHeader className="bg-[#080b53] text-white">
                 <CardTitle className="text-2xl">Training</CardTitle>
               </CardHeader>
@@ -319,7 +315,7 @@ export default function Home() {
                 </ul>
               </CardContent>
             </Card>
-            <Card className="rounded-xl overflow-hidden dark:bg-[#1a1d6c] shadow-lg border border-gray-200 dark:border-gray-700">
+            <Card className="rounded-xl overflow-hidden bg-white shadow-lg border border-gray-200">
               <CardHeader className="bg-[#080b53] text-white">
                 <CardTitle className="text-2xl">Tools</CardTitle>
               </CardHeader>
@@ -332,7 +328,7 @@ export default function Home() {
                 </ul>
               </CardContent>
             </Card>
-            <Card className="rounded-xl overflow-hidden dark:bg-[#1a1d6c] shadow-lg border border-gray-200 dark:border-gray-700">
+            <Card className="rounded-xl overflow-hidden bg-white shadow-lg border border-gray-200">
               <CardHeader className="bg-[#080b53] text-white">
                 <CardTitle className="text-2xl">Support</CardTitle>
               </CardHeader>
@@ -364,12 +360,12 @@ export default function Home() {
           <div className="grid grid-cols-2 sm:flex sm:flex-wrap justify-center items-center gap-8">
             <Image src="/aera.png" alt="AERA Logo" width={200} height={100} className="w-full sm:w-auto max-w-[200px]" />
             <Image src="/nea.png" alt="NEA Logo" width={200} height={100} className="w-full sm:w-auto max-w-[200px]" />
-            <Image 
-              src={theme === 'dark' ? "/pdkinvert.png" : "/pdk.png"} 
-              alt="PDK Logo" 
-              width={200} 
-              height={100} 
-              className="w-full sm:w-auto max-w-[200px]" 
+            <Image
+              src="/pdk.png"
+              alt="PDK Logo"
+              width={200}
+              height={100}
+              className="w-full sm:w-auto max-w-[200px]"
             />
             <Image src="/edrising.png" alt="Educators Rising Logo" width={200} height={100} className="w-full sm:w-auto max-w-[200px]" />
           </div>
@@ -386,6 +382,9 @@ export default function Home() {
               info@fastrack.school<br />
               605-884-6550
             </address>
+            <Link href="/privacypolicy" className="mt-4 text-sm underline">
+              Privacy Policy
+            </Link>
           </div>
         </div>
       </footer>
