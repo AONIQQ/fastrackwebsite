@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import Link from 'next/link'
 
 const WHOP_CHECKOUT_URL = 'https://whop.com/checkout/4DXyLzCDqEtib03t4d-fKRL-ukfw-a2np-khb2B9MVaq84/'
@@ -125,6 +126,18 @@ function CTAButton({
 export default function Guide() {
   return (
     <div className="bg-slate-50 text-gray-900">
+      <header className="bg-[#080b53] shadow-sm">
+        <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 px-4 py-4 sm:flex-row sm:justify-between sm:px-6 lg:px-8">
+          <div className="flex items-center gap-3">
+            <Image src="/logo.png" alt="Fastrack logo" width={160} height={160} className="rounded-full object-cover" />
+          </div>
+          <CTAButton
+            label="Get the Fastrack Guide – $47 Instant Download"
+            className="w-full text-center text-sm sm:w-auto sm:text-base"
+            variant="secondary"
+          />
+        </div>
+      </header>
       <section className="bg-white">
         <div className="mx-auto grid max-w-6xl gap-10 px-4 py-16 sm:px-6 lg:px-8 md:grid-cols-2 md:items-center md:gap-16 md:py-24">
           <div>
