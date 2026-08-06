@@ -204,7 +204,9 @@ export default function Calculator() {
     setIsSubmitting(false)
   }
 
-  const navLinks = [['/', 'Home'], ['/counselors', 'Counselors'], ['/guide', 'Guide'], ['/pricing', 'Pricing']]
+  // Pricing is counselor-only ($500/seat) and now lives under /counselors, so it
+  // is deliberately absent from the parent-facing nav.
+  const navLinks = [['/', 'Home'], ['/counselors', 'Counselors'], ['/guide', 'Guide']]
 
   const hint = !state ? 'Choose a state to begin.'
     : !residency ? 'Now choose your residency status.'

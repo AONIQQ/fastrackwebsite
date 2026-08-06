@@ -133,11 +133,6 @@ export default function PrivacyPolicy() {
                 Calculator
               </Button>
             </Link>
-            <Link href="/pricing">
-              <Button variant="ghost" className="text-white text-base">
-                Pricing
-              </Button>
-            </Link>
           </nav>
           <Button
             variant="ghost"
@@ -168,11 +163,6 @@ export default function PrivacyPolicy() {
             <Link href="/calculator" className="w-full flex justify-center">
               <Button variant="ghost" className="text-white text-base">
                 Calculator
-              </Button>
-            </Link>
-            <Link href="/pricing" className="w-full flex justify-center">
-              <Button variant="ghost" className="text-white text-base">
-                Pricing
               </Button>
             </Link>
           </div>
