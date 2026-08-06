@@ -6,493 +6,492 @@ import Link from 'next/link'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
-import { ChevronDown, Menu, X } from 'lucide-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import { Menu, X } from 'lucide-react'
 import Script from 'next/script'
+import { CollegeCombobox, type CollegeOption } from './CollegeCombobox'
 
-type CalculatorData = {
-  inStateTuition: string
-  outOfStateTuition: string
-  averageSalary6: string
-  averageSalary10: string
-  costOfLiving: string
-  timeToRecoupInState: string
-  timeToRecoupOutOfState: string
-  leftoverSavings: string
-  potentialSavingsInState: string
-  potentialSavingsOutOfState: string
+const STATE_NAMES: Record<string, string> = {
+  AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California',
+  CO: 'Colorado', CT: 'Connecticut', DE: 'Delaware', DC: 'District of Columbia',
+  FL: 'Florida', GA: 'Georgia', HI: 'Hawaii', ID: 'Idaho', IL: 'Illinois',
+  IN: 'Indiana', IA: 'Iowa', KS: 'Kansas', KY: 'Kentucky', LA: 'Louisiana',
+  ME: 'Maine', MD: 'Maryland', MA: 'Massachusetts', MI: 'Michigan', MN: 'Minnesota',
+  MS: 'Mississippi', MO: 'Missouri', MT: 'Montana', NE: 'Nebraska', NV: 'Nevada',
+  NH: 'New Hampshire', NJ: 'New Jersey', NM: 'New Mexico', NY: 'New York',
+  NC: 'North Carolina', ND: 'North Dakota', OH: 'Ohio', OK: 'Oklahoma', OR: 'Oregon',
+  PA: 'Pennsylvania', PR: 'Puerto Rico', RI: 'Rhode Island', SC: 'South Carolina',
+  SD: 'South Dakota', TN: 'Tennessee', TX: 'Texas', UT: 'Utah', VT: 'Vermont',
+  VA: 'Virginia', WA: 'Washington', WV: 'West Virginia', WI: 'Wisconsin', WY: 'Wyoming',
 }
 
-type TuitionAndSalary = {
-  inStateTuitionTotal: number
-  outOfStateTuitionTotal: number
-  averageSalary6: number
-  averageSalary10: number
+type PathResult = { years: number; totalCost: number; yearsToRecoup: number | null; recoupLabel: string }
+
+type RoiResult = {
+  college: { id: number; name: string; state: string; city: string | null }
+  residency: 'inState' | 'outOfState'
+  costBasis: 'net_price' | 'published_tuition'
+  annualCost: number
+  averageSalary: number | null
+  costOfLiving: number | null
+  discretionaryIncome: number | null
+  standard: PathResult
+  fastrack: PathResult
+  savings: number
+  yearsSaved: number
+  earlyEarnings: number | null
+  totalAdvantage: number | null
+  notes: string[]
 }
 
-const formatCurrency = (value: number) => `$${value.toLocaleString()}`
+const money = (v: number | null | undefined) =>
+  v == null ? '—' : `$${Math.round(v).toLocaleString('en-US')}`
 
-export default function Home() {
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <span className="block text-xs font-medium uppercase tracking-wider text-slate-500">{label}</span>
+      {children}
+    </div>
+  )
+}
+
+export default function Calculator() {
+  const [states, setStates] = useState<{ state: string; college_count: number }[]>([])
   const [state, setState] = useState('')
-  const [stateStatus, setStateStatus] = useState('')
-  const [college, setCollege] = useState('')
-  const [colleges, setColleges] = useState<string[]>([])
-  const [calculatorData, setCalculatorData] = useState<CalculatorData>({
-    inStateTuition: '',
-    outOfStateTuition: '',
-    averageSalary6: '',
-    averageSalary10: '',
-    costOfLiving: '',
-    timeToRecoupInState: '',
-    timeToRecoupOutOfState: '',
-    leftoverSavings: '',
-    potentialSavingsInState: '',
-    potentialSavingsOutOfState: '',
-  })
+  const [residency, setResidency] = useState<'' | 'inState' | 'outOfState'>('')
+  const [colleges, setColleges] = useState<CollegeOption[]>([])
+  const [college, setCollege] = useState<CollegeOption | null>(null)
+
+  const [result, setResult] = useState<RoiResult | null>(null)
   const [isCollegesLoading, setIsCollegesLoading] = useState(false)
+  const [isResultLoading, setIsResultLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false)
   const [email, setEmail] = useState('')
   const [phoneNumber, setPhoneNumber] = useState('')
+  const [smsConsent, setSmsConsent] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
 
-  const emailShouldBeInsertedRef = useRef(false)
-
-  const states = ["AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA", "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ", "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY"]
+  const leadShouldBeInsertedRef = useRef(false)
+  const attributionRef = useRef<{ referrer: string; utm: Record<string, string> }>({ referrer: '', utm: {} })
+  const pendingCollegeIdRef = useRef<number | null>(null)
 
   useEffect(() => {
-    if (state) {
-      setCollege('')
-      fetchColleges(state)
-    } else {
-      setColleges([])
-      setIsCollegesLoading(false)
-    }
+    const params = new URLSearchParams(window.location.search)
+    const utm: Record<string, string> = {}
+    params.forEach((v, k) => { if (k.startsWith('utm_') || k === 'gclid' || k === 'fbclid') utm[k] = v })
+    attributionRef.current = { referrer: document.referrer || '', utm }
+
+    // Deep links, so a result can be shared, bookmarked, or linked from an email
+    // or ad straight to a specific school:
+    //   /calculator?state=PA&residency=inState&collegeId=214777
+    const s = params.get('state')
+    const r = params.get('residency')
+    if (s && /^[A-Za-z]{2}$/.test(s)) setState(s.toUpperCase())
+    if (r === 'inState' || r === 'outOfState') setResidency(r)
+    const cid = params.get('collegeId')
+    if (cid && /^\d+$/.test(cid)) pendingCollegeIdRef.current = Number(cid)
+  }, [])
+
+  useEffect(() => {
+    fetch('/api/states')
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => {
+        if (!Array.isArray(d)) return
+        // The API orders by state code, which reads as "Alaska, Alabama,
+        // Arkansas, Arizona" once codes become names. Sort on what is displayed.
+        setStates([...d].sort((a, b) =>
+          (STATE_NAMES[a.state] ?? a.state).localeCompare(STATE_NAMES[b.state] ?? b.state)))
+      })
+      .catch(() => setStates([]))
+  }, [])
+
+  useEffect(() => {
+    if (!state) { setColleges([]); setCollege(null); return }
+    setCollege(null)
+    setResult(null)
+    setIsCollegesLoading(true)
+    setError(null)
+    fetch(`/api/colleges?state=${encodeURIComponent(state)}&full=1`)
+      .then((r) => { if (!r.ok) throw new Error(); return r.json() })
+      .then((d) => {
+        const list: CollegeOption[] = Array.isArray(d) ? d : []
+        setColleges(list)
+        // Resolve a deep-linked ?collegeId= once its state's list has arrived.
+        const pending = pendingCollegeIdRef.current
+        if (pending != null) {
+          const match = list.find((c) => c.id === pending)
+          if (match) setCollege(match)
+          pendingCollegeIdRef.current = null
+        }
+      })
+      .catch(() => {
+        setColleges([])
+        setError('We could not load colleges for that state. Please try again.')
+      })
+      .finally(() => setIsCollegesLoading(false))
   }, [state])
 
-  const toggleMenu = () => {
-    setIsMenuOpen(!isMenuOpen)
-  }
-
-  const fetchColleges = async (stateAbbreviation: string) => {
-    const endpointUrl = `/api/colleges?state=${encodeURIComponent(stateAbbreviation)}`
+  const saveLead = useCallback(async (roi: RoiResult, contact: { email: string; phone: string; sms: boolean }) => {
     try {
-      setIsCollegesLoading(true)
-      const response = await fetch(endpointUrl, { cache: 'no-store' })
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-      const collegeList = await response.json()
-      if (Array.isArray(collegeList)) {
-        setColleges(collegeList)
-      } else {
-        console.error('Unexpected colleges payload:', collegeList)
-        setColleges([])
-      }
-    } catch (error) {
-      console.error('Error fetching colleges:', error)
-      setColleges([])
+      await fetch('/api/insertEmailDocument', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: contact.email,
+          phone: contact.phone,
+          smsConsent: contact.sms,
+          state,
+          residency,
+          college: roi.college.name,
+          referrer: attributionRef.current.referrer,
+          utm: attributionRef.current.utm,
+          annualCost: roi.annualCost,
+          standardTotal: roi.standard.totalCost,
+          standardRecoup: roi.standard.recoupLabel,
+          fastrackTotal: roi.fastrack.totalCost,
+          fastrackRecoup: roi.fastrack.recoupLabel,
+          savings: roi.savings,
+          earlyEarnings: roi.earlyEarnings,
+          totalAdvantage: roi.totalAdvantage,
+          yearsSaved: roi.yearsSaved,
+          costBasis: roi.costBasis,
+        }),
+      })
+    } catch {
+      // A failed lead write must never block the user from seeing results.
+    }
+  }, [residency, state])
+
+  const fetchRoi = useCallback(async (target: CollegeOption, res: 'inState' | 'outOfState') => {
+    setIsResultLoading(true)
+    setError(null)
+    try {
+      const r = await fetch(`/api/roi?id=${target.id}&residency=${res}`)
+      if (!r.ok) throw new Error()
+      const roi: RoiResult = await r.json()
+      setResult(roi)
+      return roi
+    } catch {
+      setResult(null)
+      setError('We could not calculate results for that school. Please try another.')
+      return null
     } finally {
-      setIsCollegesLoading(false)
+      setIsResultLoading(false)
     }
-  }
+  }, [])
 
-  const insertEmailAndChoice = useCallback(
-    async (snapshot?: CalculatorData) => {
-      const email = sessionStorage.getItem('session-email')
-      if (!email || !emailShouldBeInsertedRef.current || !snapshot) return
-
-      const endpointUrl = `/api/insertEmailDocument`
-      const insertUserChoiceData = {
-        email,
-        phone: phoneNumber,
-        state,
-        residency: stateStatus,
-        college,
-        ...snapshot,
-      }
-
-      try {
-        const response = await fetch(endpointUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(insertUserChoiceData),
-        })
-        if (response.ok) {
-          console.log('Successfully inserted user choice!')
-          emailShouldBeInsertedRef.current = false
-        } else {
-          throw new Error('Failed to insert user choice')
-        }
-      } catch (error) {
-        console.error('Error inserting data to user choice', error)
-      }
-    },
-    [college, phoneNumber, state, stateStatus]
-  )
-
-  const fetchCostOfLivingData = useCallback(
-    async (stateAbbreviation: string, baseData: TuitionAndSalary) => {
-      const endpointUrl = `/api/costOfLiving?state=${encodeURIComponent(stateAbbreviation)}`
-      try {
-        const response = await fetch(endpointUrl, { cache: 'no-store' })
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`)
-        }
-        const costOfLiving = await response.json()
-
-        if (typeof costOfLiving !== 'number') {
-          throw new Error('Unexpected cost of living payload')
-        }
-
-        const averageSalary = (baseData.averageSalary6 + baseData.averageSalary10) / 2
-        const leftoverSavings = averageSalary - costOfLiving
-
-        let timeToRecoupInState = 'No leftover savings per year, payoff will be extremely difficult'
-        let timeToRecoupOutOfState = 'No leftover savings per year, payoff will be extremely difficult'
-
-        if (leftoverSavings > 0) {
-          const yearsToRecoupInState = Math.floor(baseData.inStateTuitionTotal / leftoverSavings)
-          const yearsToRecoupOutOfState = Math.floor(baseData.outOfStateTuitionTotal / leftoverSavings)
-          timeToRecoupInState = `${yearsToRecoupInState.toLocaleString()} years`
-          timeToRecoupOutOfState = `${yearsToRecoupOutOfState.toLocaleString()} years`
-        }
-
-        const updatedData: CalculatorData = {
-          inStateTuition: formatCurrency(baseData.inStateTuitionTotal),
-          outOfStateTuition: formatCurrency(baseData.outOfStateTuitionTotal),
-          averageSalary6: formatCurrency(baseData.averageSalary6),
-          averageSalary10: formatCurrency(baseData.averageSalary10),
-          costOfLiving: formatCurrency(costOfLiving),
-          leftoverSavings: formatCurrency(leftoverSavings),
-          timeToRecoupInState,
-          timeToRecoupOutOfState,
-          potentialSavingsInState: formatCurrency(baseData.inStateTuitionTotal / 2),
-          potentialSavingsOutOfState: formatCurrency(baseData.outOfStateTuitionTotal / 2),
-        }
-
-        setCalculatorData(updatedData)
-        insertEmailAndChoice(updatedData)
-      } catch (error) {
-        console.error('Error fetching cost of living data:', error)
-      }
-    },
-    [insertEmailAndChoice]
-  )
-
-  const fetchCollegeDetails = useCallback(
-    async (collegeName: string) => {
-      if (!state) {
-        console.warn('Cannot load college details without a selected state')
-        return
-      }
-
-      const endpointUrl = `/api/collegeDetails?college=${encodeURIComponent(collegeName)}`
-      try {
-        const response = await fetch(endpointUrl, { cache: 'no-store' })
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`)
-        }
-        const data = await response.json()
-        if (
-          data.latest_cost_tuition_in_state &&
-          data.latest_cost_tuition_out_of_state &&
-          data.latest_earnings_6_yrs_after_entry_median &&
-          data.latest_earnings_10_yrs_after_entry_median
-        ) {
-          const baseData: TuitionAndSalary = {
-            inStateTuitionTotal: data.latest_cost_tuition_in_state * 4,
-            outOfStateTuitionTotal: data.latest_cost_tuition_out_of_state * 4,
-            averageSalary6: data.latest_earnings_6_yrs_after_entry_median,
-            averageSalary10: data.latest_earnings_10_yrs_after_entry_median,
-          }
-
-          await fetchCostOfLivingData(state, baseData)
-        } else {
-          console.error('Some necessary data is missing for the selected college')
-        }
-      } catch (error) {
-        console.error('Error fetching college details:', error)
-      }
-    },
-    [fetchCostOfLivingData, state]
-  )
-
+  // Results need a college AND a residency. The old version rendered
+  // out-of-state figures whenever residency was still unset.
   useEffect(() => {
-    if (college) {
-      const sessionEmail = sessionStorage.getItem('session-email')
-      if (!sessionEmail) {
-        setIsEmailModalOpen(true)
-      } else {
-        fetchCollegeDetails(college)
-      }
-    }
-  }, [college, fetchCollegeDetails])
+    if (!college || !residency) return
+    if (!sessionStorage.getItem('session-email')) { setIsEmailModalOpen(true); return }
+    fetchRoi(college, residency)
+  }, [college, residency, fetchRoi])
 
-  const handleEmailSubmit = (e: React.FormEvent) => {
+  const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!college || !residency) return
+    setIsSubmitting(true)
     sessionStorage.setItem('session-email', email)
-    emailShouldBeInsertedRef.current = true
+    leadShouldBeInsertedRef.current = true
     setIsEmailModalOpen(false)
-    fetchCollegeDetails(college)
+    const roi = await fetchRoi(college, residency)
+    if (roi) await saveLead(roi, { email, phone: phoneNumber, sms: smsConsent })
+    setIsSubmitting(false)
   }
+
+  const navLinks = [['/', 'Home'], ['/student', 'Student'], ['/guide', 'Guide'], ['/pricing', 'Pricing']]
+
+  const hint = !state ? 'Choose a state to begin.'
+    : !residency ? 'Now choose your residency status.'
+    : !college ? 'Now pick a college. You can type to search.'
+    : ''
 
   return (
-    <div className="min-h-screen bg-[#f0f0f8] text-[#080b53] transition-colors duration-300">
-      <header className="bg-[#090b53] p-4 sticky top-0 z-50">
-        <div className="container mx-auto flex justify-between items-center">
-          <div className="flex items-center space-x-2">
-            <Link href="/">
-              <Image src="/logo.png" alt="Fastrack Logo" width={180} height={180} className="rounded-full cursor-pointer" />
-            </Link>
-          </div>
-          <nav className="hidden md:flex items-center space-x-4">
-            <Link href="/">
-              <Button variant="ghost" className="text-white text-base">
-                Home
-              </Button>
-            </Link>
-            <Link href="/student">
-              <Button variant="ghost" className="text-white text-base">
-                Student
-              </Button>
-            </Link>
-            <Link href="/guide">
-              <Button variant="ghost" className="text-white text-base">
-                Guide
-              </Button>
-            </Link>
-            <Link href="/pricing">
-              <Button variant="ghost" className="text-white text-base">
-                Pricing
-              </Button>
-            </Link>
+    <div className="min-h-screen bg-slate-50 text-[#080b53] antialiased">
+      <header className="bg-[#080b53] sticky top-0 z-40">
+        <div className="mx-auto max-w-6xl px-5 h-16 flex items-center justify-between">
+          <Link href="/" className="flex items-center">
+            <Image src="/logo.png" alt="Fastrack" width={140} height={40} className="h-9 w-auto" priority />
+          </Link>
+          <nav className="hidden md:flex items-center gap-1">
+            {navLinks.map(([href, label]) => (
+              <Link key={href} href={href}
+                className="px-3 py-2 text-sm font-medium text-white/80 hover:text-white transition-colors">
+                {label}
+              </Link>
+            ))}
           </nav>
-          <Button variant="ghost" className="md:hidden text-white p-2" onClick={toggleMenu} aria-label="Toggle menu">
-            {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-          </Button>
+          <button className="md:hidden text-white p-2 -mr-2" onClick={() => setIsMenuOpen(!isMenuOpen)} aria-label="Toggle menu">
+            {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
         </div>
         {isMenuOpen && (
-          <div className="md:hidden mt-4 flex flex-col items-center space-y-2">
-            <Link href="/">
-              <Button variant="ghost" className="text-white text-base">
-                Home
-              </Button>
-            </Link>
-            <Link href="/student">
-              <Button variant="ghost" className="text-white text-base">
-                Student
-              </Button>
-            </Link>
-            <Link href="/guide">
-              <Button variant="ghost" className="text-white text-base">
-                Guide
-              </Button>
-            </Link>
-            <Link href="/pricing">
-              <Button variant="ghost" className="text-white text-base">
-                Pricing
-              </Button>
-            </Link>
-          </div>
+          <nav className="md:hidden border-t border-white/10 px-5 pb-3 pt-1">
+            {navLinks.map(([href, label]) => (
+              <Link key={href} href={href} className="block py-2.5 text-sm font-medium text-white/80">{label}</Link>
+            ))}
+          </nav>
         )}
       </header>
 
-      <main className="container mx-auto p-4">
-        <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-md mt-8 p-6">
-          <h1 className="text-4xl font-bold text-center mb-6 bg-gradient-to-r from-[#080b53] to-[#605dba] text-transparent bg-clip-text">
-              College Return on Investment Calculator
+      {/* Caps at 4xl on laptops but keeps growing a little on large monitors and
+          TVs, where a 768px column stranded in the middle of a 2560px screen
+          looks broken. Type scales with it. */}
+      <main className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6 sm:py-12 lg:max-w-4xl lg:py-16 2xl:max-w-5xl">
+        <header className="mb-8 sm:mb-10">
+          <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#605dba] sm:text-xs">
+            College ROI Calculator
+          </p>
+          <h1 className="text-[1.75rem] font-bold leading-[1.15] tracking-tight text-[#080b53] sm:text-4xl lg:text-[2.75rem] 2xl:text-5xl">
+            What a degree really costs, and how long it takes to pay for itself.
           </h1>
-          <p className="text-center mb-8 text-[#080b53]">Select the state your desired college is in, your residency status, and the college using the dropdowns below to view your statistics</p>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-            <Select value={state || undefined} onValueChange={setState}>
-              <SelectTrigger className="w-full bg-[#f0f0f8] text-[#080b53] border-[#605dba] h-14 text-lg relative">
-                <SelectValue placeholder="Select a State" />
-                <ChevronDown className="h-4 w-4 opacity-50 absolute right-3" />
-              </SelectTrigger>
-              <SelectContent className="max-h-[300px] overflow-y-auto scrollbar-thin scrollbar-thumb-[#605dba] scrollbar-track-[#f0f0f8]">
-                {states.map(state => (
-                  <SelectItem key={state} value={state} className="text-lg">{state}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <p className="mt-4 max-w-2xl text-base leading-relaxed text-slate-600 sm:text-lg">
+            Pick a school and we&apos;ll show you the four-year number alongside what the same
+            degree costs if you finish in two.
+          </p>
+        </header>
 
-            <Select value={stateStatus || undefined} onValueChange={setStateStatus}>
-              <SelectTrigger className="w-full bg-[#f0f0f8] text-[#080b53] border-[#605dba] h-14 text-lg relative">
-                <SelectValue placeholder="Select Residency Status" />
-                <ChevronDown className="h-4 w-4 opacity-50 absolute right-3" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="inState" className="text-lg">In State</SelectItem>
-                <SelectItem value="outOfState" className="text-lg">Out of State</SelectItem>
-              </SelectContent>
-            </Select>
+        <section className="rounded-xl border border-slate-200 bg-white p-5 md:p-6 shadow-sm">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Field label="State">
+              <Select value={state || undefined} onValueChange={setState}>
+                <SelectTrigger className="h-12 w-full rounded-lg border-slate-300 bg-white text-base text-[#080b53] focus:ring-2 focus:ring-[#605dba]/30">
+                  <SelectValue placeholder="Select" />
+                </SelectTrigger>
+                <SelectContent className="max-h-[300px]">
+                  {states.map((s) => (
+                    <SelectItem key={s.state} value={s.state}>{STATE_NAMES[s.state] ?? s.state}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
 
-            <Select
-              value={state ? college || undefined : undefined}
-              onValueChange={setCollege}
-            >
-              <SelectTrigger className="w-full bg-[#f0f0f8] text-[#080b53] border-[#605dba] h-14 text-lg relative">
-                <SelectValue placeholder="Select a College" />
-                <ChevronDown className="h-4 w-4 opacity-50 absolute right-3" />
-              </SelectTrigger>
-              <SelectContent className="max-h-[300px] overflow-y-auto scrollbar-thin scrollbar-thumb-[#605dba] scrollbar-track-[#f0f0f8]">
-                {!state && (
-                  <SelectItem value="select-state" disabled className="text-lg">
-                    Select a state first
-                  </SelectItem>
-                )}
-                {state && isCollegesLoading && (
-                  <SelectItem value="loading" disabled className="text-lg">
-                    Loading colleges...
-                  </SelectItem>
-                )}
-                {state && !isCollegesLoading && colleges.length === 0 && (
-                  <SelectItem value="no-colleges" disabled className="text-lg">
-                    No colleges found for {state}
-                  </SelectItem>
-                )}
-                {state && !isCollegesLoading && colleges.map(collegeName => (
-                  <SelectItem key={collegeName} value={collegeName} className="text-lg">
-                    {collegeName}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Field label="Residency">
+              <Select value={residency || undefined} onValueChange={(v) => setResidency(v as 'inState' | 'outOfState')}>
+                <SelectTrigger className="h-12 w-full rounded-lg border-slate-300 bg-white text-base text-[#080b53] focus:ring-2 focus:ring-[#605dba]/30">
+                  <SelectValue placeholder="Select" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="inState">In state</SelectItem>
+                  <SelectItem value="outOfState">Out of state</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+
+            <Field label="College">
+              <CollegeCombobox
+                options={colleges}
+                value={college}
+                onChange={setCollege}
+                disabled={!state}
+                loading={isCollegesLoading}
+                placeholder={state ? 'Select' : 'Pick a state first'}
+                emptyLabel={`No colleges found in ${STATE_NAMES[state] ?? state}`}
+              />
+            </Field>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            <Card className="bg-white text-[#080b53] shadow-lg border-2 border-[#605dba] rounded-lg overflow-hidden transform transition-all hover:scale-105">
-              <CardHeader className="bg-[#090b53] text-white p-4">
-                <h3 className="text-lg font-semibold">Tuition for your selected school (4 years)</h3>
-              </CardHeader>
-              <CardContent className="p-4">
-                <p className="text-2xl font-bold">{stateStatus === 'inState'
-                  ? calculatorData.inStateTuition : calculatorData.outOfStateTuition}</p>
-              </CardContent>
-            </Card>
+          {hint && !isResultLoading && <p className="mt-4 text-sm text-slate-500">{hint}</p>}
 
-            <Card className="bg-white text-[#080b53] shadow-lg border-2 border-[#605dba] rounded-lg overflow-hidden transform transition-all hover:scale-105">
-              <CardHeader className="bg-[#090b53] text-white p-4">
-                <h3 className="text-lg font-semibold">Average Salary 6 years after enrollment</h3>
-              </CardHeader>
-              <CardContent className="p-4">
-                <p className="text-2xl font-bold">{calculatorData.averageSalary6}</p>
-              </CardContent>
-            </Card>
+          {error && (
+            <p className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800 border border-red-200">{error}</p>
+          )}
+        </section>
 
-            <Card className="bg-white text-[#080b53] shadow-lg border-2 border-[#605dba] rounded-lg overflow-hidden transform transition-all hover:scale-105">
-              <CardHeader className="bg-[#090b53] text-white p-4">
-                <h3 className="text-lg font-semibold">Average Salary 10 years after enrollment</h3>
-              </CardHeader>
-              <CardContent className="p-4">
-                <p className="text-2xl font-bold">{calculatorData.averageSalary10}</p>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-white text-[#080b53] shadow-lg border-2 border-[#605dba] rounded-lg overflow-hidden transform transition-all hover:scale-105">
-              <CardHeader className="bg-[#090b53] text-white p-4">
-                <h3 className="text-lg font-semibold">Average yearly cost of living in the selected state for 1 person</h3>
-              </CardHeader>
-              <CardContent className="p-4">
-                <p className="text-2xl font-bold">{calculatorData.costOfLiving}</p>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-white text-[#080b53] shadow-lg border-2 border-[#605dba] rounded-lg overflow-hidden transform transition-all hover:scale-105">
-              <CardHeader className="bg-[#090b53] text-white p-4">
-                <h3 className="text-lg font-semibold">Leftover savings after cost of living per year</h3>
-              </CardHeader>
-              <CardContent className="p-4">
-                <p className="text-2xl font-bold">{calculatorData.leftoverSavings}</p>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-white text-[#080b53] shadow-lg border-2 border-[#605dba] rounded-lg overflow-hidden transform transition-all hover:scale-105">
-              <CardHeader className="bg-[#090b53] text-white p-4">
-                <h3 className="text-lg font-semibold">Time it will take to recoup the funds that were spent on your degree</h3>
-              </CardHeader>
-              <CardContent className="p-4">
-                <p className="text-2xl font-bold">
-                  {stateStatus === 'inState' ? calculatorData.timeToRecoupInState : calculatorData.timeToRecoupOutOfState}
-                </p>
-              </CardContent>
-            </Card>
+        {isResultLoading && (
+          <div className="mt-8 space-y-3" aria-busy="true">
+            <div className="h-48 rounded-xl border border-slate-200 bg-white animate-pulse" />
+            <div className="h-24 rounded-xl border border-slate-200 bg-white animate-pulse" />
           </div>
+        )}
 
-          <h2 className="text-2xl font-bold mb-4 text-center text-[#080b53]">Savings by following our system:</h2>
-          <Card className="bg-white text-[#080b53] shadow-lg border-2 border-[#605dba] rounded-lg overflow-hidden transform transition-all hover:scale-105 mb-8">
-            <CardHeader className="bg-[#090b53] text-white p-4">
-              <h3 className="text-lg font-semibold">Potential savings by enrolling in dual credit courses and completing your bachelors degree in two years instead of four</h3>
-            </CardHeader>
-            <CardContent className="p-4">
-              <p className="text-2xl font-bold">
-                {stateStatus === 'inState' ? calculatorData.potentialSavingsInState : calculatorData.potentialSavingsOutOfState}
+        {result && !isResultLoading && (
+          <div className="mt-8 space-y-6">
+            {/* One aligned comparison rather than two floating cards. Same rows,
+                same baseline, so the eye reads across and the gap is the point. */}
+            <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+              <div className="border-b border-slate-200 px-5 py-4">
+                <h2 className="text-lg font-semibold tracking-tight">{result.college.name}</h2>
+                {result.college.city && (
+                  <p className="text-sm text-slate-500">
+                    {result.college.city}, {result.college.state} &middot;{' '}
+                    {result.residency === 'inState' ? 'In state' : 'Out of state'}
+                  </p>
+                )}
+              </div>
+
+              {/* The label column is dropped below `sm`. At 375px a three-column
+                  layout squeezes six-figure numbers into two characters per line;
+                  stacking the label above the pair keeps the comparison readable. */}
+              <table className="w-full table-fixed">
+                <thead>
+                  <tr className="border-b border-slate-200 bg-slate-50/70">
+                    <th className="hidden w-2/5 px-5 py-3 sm:table-cell" />
+                    <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-600 sm:px-5 sm:text-xs">
+                      Four years
+                    </th>
+                    <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-[#1a6b3c] sm:px-5 sm:text-xs">
+                      With Fastrack
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {([
+                    ['Total cost of the degree', money(result.standard.totalCost), money(result.fastrack.totalCost)],
+                    ['Years of income to earn it back', result.standard.recoupLabel, result.fastrack.recoupLabel],
+                  ] as const).map(([label, a, b], i) => (
+                    <React.Fragment key={label}>
+                      <tr className="sm:hidden">
+                        <td colSpan={2} className={`px-4 pt-4 text-sm text-slate-600 ${i > 0 ? 'border-t border-slate-100' : ''}`}>
+                          {label}
+                        </td>
+                      </tr>
+                      <tr className={i > 0 ? 'sm:border-t sm:border-slate-100' : ''}>
+                        <td className="hidden px-5 py-4 text-sm text-slate-600 sm:table-cell">{label}</td>
+                        <td className="px-4 pb-4 pt-1 text-right text-lg font-semibold tabular-nums text-[#080b53] sm:px-5 sm:py-4 sm:text-2xl lg:text-[1.75rem]">
+                          {a}
+                        </td>
+                        <td className="px-4 pb-4 pt-1 text-right text-lg font-semibold tabular-nums text-[#1a6b3c] sm:px-5 sm:py-4 sm:text-2xl lg:text-[1.75rem]">
+                          {b}
+                        </td>
+                      </tr>
+                    </React.Fragment>
+                  ))}
+                </tbody>
+              </table>
+            </section>
+
+            <section className="rounded-xl bg-[#080b53] px-6 py-7 text-white">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/60">Total advantage</p>
+              <p className="mt-1.5 text-4xl md:text-5xl font-bold tracking-tight tabular-nums">
+                {money(result.totalAdvantage)}
               </p>
-            </CardContent>
-          </Card>
-
-          <Dialog open={isEmailModalOpen} onOpenChange={setIsEmailModalOpen}>
-            <DialogContent className="bg-white border-2 border-[#605dba]">
-              <DialogHeader>
-                <DialogTitle className="text-[#080b53]">Enter your details</DialogTitle>
-                <DialogDescription className="text-[#605dba]">
-                  Please enter your email address and phone number. Your results will be shown immediately after providing your details and you will also receive a copy via email along with our ebook on how to achieve these college savings for completely FREE.
-                </DialogDescription>
-              </DialogHeader>
-              <form onSubmit={handleEmailSubmit}>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <label htmlFor="email" className="text-sm font-medium leading-none text-[#080b53]">Email</label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="Enter your email"
-                      required
-                      className="border-[#605dba] bg-[#f0f0f8] text-[#080b53]"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label htmlFor="phone" className="text-sm font-medium leading-none text-[#080b53]">Phone Number</label>
-                    <Input
-                      id="phone"
-                      type="tel"
-                      value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
-                      placeholder="Enter your phone number"
-                      className="border-[#605dba] bg-[#f0f0f8] text-[#080b53]"
-                    />
-                  </div>
+              <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 border-t border-white/15 pt-5">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-sm text-white/70">Tuition and living costs saved</span>
+                  <span className="text-base font-semibold tabular-nums">{money(result.savings)}</span>
                 </div>
-                <DialogFooter className="mt-6">
-                  <Button type="submit" className="bg-[#605dba] hover:bg-[#080b53] text-white">Submit</Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
-        </div>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-sm text-white/70">{result.yearsSaved} extra years of earnings</span>
+                  <span className="text-base font-semibold tabular-nums">{money(result.earlyEarnings)}</span>
+                </div>
+              </div>
+            </section>
+
+            {/* Grid gap + inner borders rather than `divide-*`, which only draws
+                between DOM siblings and so leaves the 2-column mobile layout with
+                horizontal rules but no vertical one. */}
+            <section className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-slate-200 bg-slate-200 sm:grid-cols-4">
+              {([
+                ['Cost per year', money(result.annualCost)],
+                ['Typical salary', money(result.averageSalary)],
+                ['Cost of living', money(result.costOfLiving)],
+                ['Left over yearly', money(result.discretionaryIncome)],
+              ] as const).map(([label, value]) => (
+                <div key={label} className="bg-white px-4 py-4 sm:px-5">
+                  <p className="text-[11px] uppercase tracking-wider text-slate-500 sm:text-xs">{label}</p>
+                  <p className="mt-1 text-base font-semibold tabular-nums sm:text-lg">{value}</p>
+                </div>
+              ))}
+            </section>
+
+            <section className="rounded-xl border border-[#605dba]/30 bg-[#605dba]/5 px-6 py-7 text-center">
+              <h2 className="text-xl md:text-2xl font-bold tracking-tight">
+                {money(result.totalAdvantage)} and {result.yearsSaved} years, back in your pocket.
+              </h2>
+              <p className="mx-auto mt-2.5 max-w-lg text-slate-600 leading-relaxed">
+                None of it is automatic. It depends on choosing dual-credit courses that actually
+                transfer into the degree — which is exactly what we map out, course by course.
+              </p>
+              <Link href="/student" className="mt-5 inline-block">
+                <Button className="h-12 rounded-lg bg-[#605dba] px-7 text-base font-semibold text-white hover:bg-[#080b53] transition-colors">
+                  Book a free planning session
+                </Button>
+              </Link>
+            </section>
+
+            <ul className="space-y-1.5 text-xs leading-relaxed text-slate-500">
+              {result.notes.map((n) => <li key={n}>{n}</li>)}
+              <li>
+                Cost and earnings data from the U.S. Department of Education College Scorecard.
+                Fastrack figures assume {result.fastrack.years} years of enrolment plus 60 dual-credit
+                hours at $80 per credit. Individual results vary with state, school and course selection.
+              </li>
+            </ul>
+          </div>
+        )}
       </main>
 
-      <footer className="bg-[#090b53] text-white py-8 mt-12">
-        <div className="container mx-auto px-4">
-          <div className="flex flex-col items-center">
-            <Image src="/logo.png" alt="Fastrack Logo" width={200} height={200} className="mb-4" />
-            <address className="text-center not-italic text-sm sm:text-base">
-              1007 N Orange St<br />
-              Wilmington, Delaware<br />
-              info@fastrack.school
-            </address>
-            <Link href="/privacypolicy" className="mt-4 text-sm underline">
-              Privacy Policy
-            </Link>
-          </div>
+      {/* Navy, not white — the logo artwork is white and disappears on a light ground. */}
+      <footer className="mt-16 bg-[#080b53]">
+        <div className="mx-auto max-w-6xl px-5 py-10 flex flex-col items-center gap-4 text-center">
+          <Image src="/logo.png" alt="Fastrack" width={140} height={40} className="h-8 w-auto" />
+          <address className="not-italic text-sm leading-relaxed text-white/60">
+            1007 N Orange St, Wilmington, Delaware<br />
+            <a href="mailto:info@fastrack.school" className="hover:text-white">info@fastrack.school</a>
+          </address>
+          <Link href="/privacypolicy" className="text-xs text-white/40 hover:text-white">Privacy Policy</Link>
         </div>
       </footer>
+
+      <Dialog open={isEmailModalOpen} onOpenChange={setIsEmailModalOpen}>
+        <DialogContent className="sm:max-w-md rounded-xl border-slate-200 bg-white p-6">
+          <DialogHeader className="space-y-2 text-left">
+            <DialogTitle className="text-xl font-bold tracking-tight text-[#080b53]">
+              Where should we send your results?
+            </DialogTitle>
+            <DialogDescription className="text-slate-600 leading-relaxed">
+              Your numbers appear as soon as you submit. We&apos;ll also email you a copy along with
+              our free guide on how families actually capture these savings.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleEmailSubmit} className="mt-2 space-y-4">
+            <div className="space-y-1.5">
+              <label htmlFor="email" className="block text-xs font-medium uppercase tracking-wider text-slate-500">
+                Email
+              </label>
+              <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com" required autoComplete="email"
+                className="h-11 rounded-lg border-slate-300 text-base" />
+            </div>
+
+            <div className="space-y-1.5">
+              <label htmlFor="phone" className="block text-xs font-medium uppercase tracking-wider text-slate-500">
+                Phone <span className="normal-case tracking-normal text-slate-400">(optional)</span>
+              </label>
+              <Input id="phone" type="tel" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)}
+                placeholder="(555) 123-4567" autoComplete="tel"
+                className="h-11 rounded-lg border-slate-300 text-base" />
+            </div>
+
+            {phoneNumber.trim() && (
+              <label className="flex items-start gap-2.5 rounded-lg bg-slate-50 p-3 cursor-pointer">
+                <input type="checkbox" checked={smsConsent} onChange={(e) => setSmsConsent(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#605dba] focus:ring-[#605dba]" />
+                <span className="text-xs leading-relaxed text-slate-600">
+                  Text me my results and occasional college-planning tips. Message and data rates may
+                  apply. Reply STOP at any time to opt out.
+                </span>
+              </label>
+            )}
+
+            <Button type="submit" disabled={isSubmitting}
+              className="h-11 w-full rounded-lg bg-[#605dba] text-base font-semibold text-white hover:bg-[#080b53] transition-colors disabled:opacity-60">
+              {isSubmitting ? 'Calculating…' : 'Show my results'}
+            </Button>
+
+            <p className="text-center text-xs text-slate-400">
+              We never sell your information. <Link href="/privacypolicy" className="underline hover:text-[#605dba]">Privacy Policy</Link>
+            </p>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <Script id="neverbounce" strategy="afterInteractive">
         {`

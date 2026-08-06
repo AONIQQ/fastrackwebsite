@@ -1,29 +1,35 @@
 import { NextResponse } from 'next/server'
+import { getCollegeNamesByState, getCollegesByState } from '@/lib/db'
 
-const API_BASE_URL = 'https://us-east-1.aws.data.mongodb-api.com/app/roitoolapp-jnjed/endpoint'
+// Reference data changes only when scripts/load-colleges.mjs runs.
+export const revalidate = 86400
 
+/**
+ *  GET /api/colleges?state=PA         -> string[]  (legacy shape, still supported)
+ *  GET /api/colleges?state=PA&full=1  -> { id, name, city, student_size }[]
+ *
+ * The `full` shape carries the id, so the calculator can resolve a school by
+ * primary key instead of by name. Name lookup is ambiguous — several states have
+ * multiple campuses sharing a name.
+ */
 export async function GET(request: Request) {
-  console.log('GET /api/colleges route hit')
   const { searchParams } = new URL(request.url)
   const state = searchParams.get('state')
+  const full = searchParams.get('full')
 
   if (!state) {
-    console.log('State parameter missing')
     return NextResponse.json({ error: 'State parameter is required' }, { status: 400 })
   }
 
-  try {
-    console.log(`Fetching colleges for state: ${state}`)
-    const response = await fetch(`${API_BASE_URL}/colleges?state=${encodeURIComponent(state)}`)
-    
-    if (!response.ok) {
-      console.log(`Error response from MongoDB: ${response.status}`)
-      throw new Error(`HTTP error! status: ${response.status}`)
-    }
+  if (!/^[A-Za-z]{2}$/.test(state)) {
+    return NextResponse.json({ error: 'State must be a 2-letter code' }, { status: 400 })
+  }
 
-    const data = await response.json()
-    console.log(`Successfully fetched colleges for ${state}`)
-    return NextResponse.json(data)
+  try {
+    if (full) {
+      return NextResponse.json(await getCollegesByState(state))
+    }
+    return NextResponse.json(await getCollegeNamesByState(state))
   } catch (error) {
     console.error('Error fetching colleges:', error)
     return NextResponse.json({ error: 'Failed to fetch colleges' }, { status: 500 })

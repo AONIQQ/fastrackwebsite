@@ -36,3 +36,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# migration artifacts
+/migration-backup/
+
+# env pulls
+.env.pull
+.env*.local
