@@ -165,3 +165,47 @@ export async function leadStats() {
   `) as { total: number; unique_emails: number; last_30d: number; with_phone: number }[];
   return rows[0];
 }
+
+export async function insertSignup(s: {
+  schoolDistrict?: string | null;
+  state?: string | null;
+  attendeeNames?: string | null;
+  attendeeEmails?: string | null;
+  attendeeCount?: string | null;
+  pocName?: string | null;
+  pocEmail?: string | null;
+  userAgent?: string | null;
+}) {
+  const rows = (await sql`
+    insert into signups (
+      school_district, state, attendee_names, attendee_emails,
+      attendee_count, poc_name, poc_email, user_agent
+    )
+    values (
+      ${s.schoolDistrict ?? null},
+      ${s.state ? String(s.state).toUpperCase().slice(0, 2) : null},
+      ${s.attendeeNames ?? null},
+      ${s.attendeeEmails ?? null},
+      ${s.attendeeCount ?? null},
+      ${s.pocName ?? null},
+      ${s.pocEmail ?? null},
+      ${s.userAgent ?? null}
+    )
+    returning id, created_at
+  `) as { id: number; created_at: string }[];
+  return rows[0];
+}
+
+export async function markSignupNotified(id: number) {
+  await sql`update signups set notified_at = now() where id = ${id}`;
+}
+
+export async function listSignups(limit = 500) {
+  return (await sql`
+    select id, school_district, state, attendee_names, attendee_emails,
+           attendee_count, poc_name, poc_email, notified_at, created_at
+    from signups
+    order by created_at desc
+    limit ${limit}
+  `) as Record<string, unknown>[];
+}
