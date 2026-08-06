@@ -7,7 +7,7 @@ const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
   title: 'Fastrack',
-  description: 'Data-Supported Training for High School Counselors',
+  description: 'Dual credit planning that helps high school students earn real college credit, graduate sooner, and save on tuition.',
 }
 
 export default function RootLayout({

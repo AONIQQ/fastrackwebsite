@@ -2,7 +2,6 @@ import Image from 'next/image'
 import Link from 'next/link'
 
 const WHOP_CHECKOUT_URL = 'https://whop.com/checkout/4DXyLzCDqEtib03t4d-fKRL-ukfw-a2np-khb2B9MVaq84/'
-const VSL_VIDEO_URL = 'https://www.youtube.com/embed/VIDEO_ID'
 
 const benefitBullets = [
   'Cut 1–2 years off a bachelor’s without being a genius or burning out',
@@ -162,19 +161,6 @@ export default function Guide() {
             </div>
           </div>
           <div className="space-y-5">
-            <p className="text-sm font-semibold uppercase tracking-wide text-[#080b53]">
-              Free video: How we shaved 2 years off our college (and how your kid can too)
-            </p>
-            <div className="relative w-full overflow-hidden rounded-2xl bg-black shadow-2xl pb-[56.25%]">
-              <iframe
-                src={VSL_VIDEO_URL}
-                title="Fastrack 2-Year Degree VSL"
-                className="absolute inset-0 h-full w-full"
-                frameBorder="0"
-                loading="lazy"
-                allowFullScreen
-              />
-            </div>
             <div className="space-y-2">
               <CTAButton label="Get the Fastrack Guide – $47 Instant Download" variant="secondary" />
               <p className="text-center text-sm text-gray-600">PDF guide, lifetime access, updates included</p>
