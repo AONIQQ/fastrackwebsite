@@ -1,13 +1,51 @@
 import nodemailer from 'nodemailer'
 import { google } from 'googleapis'
+import { Resend } from 'resend'
 
 const OAuth2 = google.auth.OAuth2
 
 /**
- * Shared Gmail transporter. Previously this was inlined in /api/send-email and
- * used only by the counselor signup form, so the calculator's promise that
- * "you will also receive a copy via email" was never actually kept.
+ * Two providers, tried in order.
+ *
+ * Resend first, when RESEND_API_KEY is present. Gmail SMTP is a poor transport
+ * for transactional mail anyway — it is rate limited, it has no delivery
+ * telemetry, and bouncing marketing volume through the same mailbox the
+ * business reads puts the primary domain's reputation at risk.
+ *
+ * Gmail OAuth is the fallback and is what the site used exclusively. Note that
+ * its refresh token had silently expired (`invalid_grant`), which meant every
+ * email the site tried to send — including the counselor signup notification —
+ * failed with no visible symptom. Refresh tokens for apps in Google's "Testing"
+ * publishing status expire after 7 days; published-app tokens expire on
+ * password change or 6 months of disuse. Either way this WILL happen again, so
+ * failures are now logged loudly and surfaced to the caller.
  */
+
+export type SendArgs = {
+  to: string
+  subject: string
+  text: string
+  html?: string
+  replyTo?: string
+}
+
+function fromAddress() {
+  return process.env.EMAIL_FROM || process.env.EMAIL_USER || 'info@fastrack.school'
+}
+
+async function sendViaResend(args: SendArgs) {
+  const resend = new Resend(process.env.RESEND_API_KEY!)
+  const { error } = await resend.emails.send({
+    from: process.env.RESEND_FROM || `Fastrack <${fromAddress()}>`,
+    to: args.to,
+    subject: args.subject,
+    text: args.text,
+    html: args.html,
+    replyTo: args.replyTo,
+  })
+  if (error) throw new Error(`Resend: ${error.message}`)
+}
+
 export async function getTransporter() {
   const { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN, EMAIL_USER } = process.env
 
@@ -36,6 +74,48 @@ export async function getTransporter() {
       accessToken: accessToken?.token || '',
     },
   })
+}
+
+async function sendViaGmail(args: SendArgs) {
+  const transporter = await getTransporter()
+  await transporter.sendMail({
+    from: fromAddress(),
+    to: args.to,
+    replyTo: args.replyTo,
+    subject: args.subject,
+    text: args.text,
+    html: args.html,
+  })
+}
+
+/** Single entry point. Throws only if every configured provider fails. */
+export async function sendMail(args: SendArgs): Promise<void> {
+  const errors: string[] = []
+
+  if (process.env.RESEND_API_KEY) {
+    try {
+      await sendViaResend(args)
+      return
+    } catch (err) {
+      errors.push(`resend: ${(err as Error).message}`)
+    }
+  }
+
+  try {
+    await sendViaGmail(args)
+    return
+  } catch (err) {
+    const message = (err as Error).message
+    errors.push(`gmail: ${message}`)
+    if (message.includes('invalid_grant')) {
+      console.error(
+        '[mail] GOOGLE_REFRESH_TOKEN is expired or revoked. Re-authorise at ' +
+          'https://developers.google.com/oauthplayground, or set RESEND_API_KEY to bypass Gmail entirely.',
+      )
+    }
+  }
+
+  throw new Error(`All mail providers failed — ${errors.join('; ')}`)
 }
 
 const money = (v: number | null | undefined) =>
@@ -164,9 +244,7 @@ function resultsText(r: ResultsEmail) {
 
 /** Sends the prospect their own results. */
 export async function sendResultsEmail(r: ResultsEmail) {
-  const transporter = await getTransporter()
-  await transporter.sendMail({
-    from: process.env.EMAIL_FROM,
+  await sendMail({
     to: r.to,
     replyTo: 'info@fastrack.school',
     subject: `${r.collegeName}: ${money(r.totalAdvantage)} and ${r.yearsSaved} years back`,
@@ -184,9 +262,7 @@ export async function notifyNewLead(lead: {
   college?: string | null
   totalAdvantage?: number | null
 }) {
-  const transporter = await getTransporter()
-  await transporter.sendMail({
-    from: process.env.EMAIL_FROM,
+  await sendMail({
     to: process.env.LEAD_NOTIFY_TO || 'info@fastrack.school',
     replyTo: lead.email,
     subject: `New calculator lead: ${lead.email}${lead.state ? ` (${lead.state})` : ''}`,

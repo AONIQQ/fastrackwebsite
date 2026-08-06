@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { waitUntil } from '@vercel/functions'
 import { insertLead, markResultsEmailSent } from '@/lib/db'
 import { sendResultsEmail, notifyNewLead } from '@/lib/mail'
 import { sendSms, resultsSms } from '@/lib/sms'
@@ -40,9 +41,10 @@ export async function POST(request: Request) {
       utm: utm && typeof utm === 'object' ? utm : null,
     })
 
-    // Respond as soon as the lead is durable. Delivery is best-effort and must
-    // never make the user wait or fail their result — the whole point is that
-    // the lead is already saved by the time any of this runs.
+    // Respond as soon as the lead is durable, but hand the delivery work to
+    // waitUntil. A bare floating promise does not survive here: the serverless
+    // function is frozen the moment the response is returned, so the mail calls
+    // were being killed mid-flight and every results email was silently lost.
     const collegeName = str(college) ?? 'your school'
     const totalAdvantage = num(snapshot.totalAdvantage)
 
@@ -62,7 +64,7 @@ export async function POST(request: Request) {
         yearsSaved: num(snapshot.yearsSaved) ?? 2,
       }
 
-      await Promise.allSettled([
+      const outcomes = await Promise.allSettled([
         sendResultsEmail(results).then(() => markResultsEmailSent(lead.id)),
         notifyNewLead({
           email: results.to,
@@ -77,9 +79,13 @@ export async function POST(request: Request) {
           ? sendSms(String(phone), resultsSms(collegeName, totalAdvantage))
           : Promise.resolve(false),
       ])
+
+      for (const o of outcomes) {
+        if (o.status === 'rejected') console.error('[lead delivery]', lead.id, o.reason)
+      }
     }
 
-    deliver().catch((err) => console.error('[lead delivery]', err))
+    waitUntil(deliver().catch((err) => console.error('[lead delivery]', err)))
 
     return NextResponse.json({ ok: true, id: lead.id })
   } catch (error) {

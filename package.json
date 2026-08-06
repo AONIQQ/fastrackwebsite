@@ -17,6 +17,7 @@
     "@radix-ui/react-slot": "^1.1.0",
     "@radix-ui/react-toast": "^1.2.1",
     "@vercel/analytics": "^1.6.1",
+    "@vercel/functions": "^3.8.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "dotenv": "^16.4.5",
@@ -26,6 +27,7 @@
     "nodemailer": "^6.9.15",
     "react": "^18",
     "react-dom": "^18",
+    "resend": "^6.18.1",
     "tailwind-merge": "^2.5.2",
     "tailwindcss-animate": "^1.0.7"
   },

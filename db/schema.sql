@@ -83,3 +83,24 @@ create table if not exists data_sources (
   row_count    integer,
   notes        text
 );
+
+-- Counselor / district signup form submissions.
+--
+-- The form previously only sent an email. When the Gmail refresh token expired
+-- every submission vanished silently, so it is now persisted first and the
+-- notification is best-effort on top.
+create table if not exists signups (
+  id               bigserial primary key,
+  school_district  text,
+  state            char(2),
+  attendee_names   text,
+  attendee_emails  text,
+  attendee_count   text,
+  poc_name         text,
+  poc_email        text,
+  notified_at      timestamptz,
+  user_agent       text,
+  created_at       timestamptz not null default now()
+);
+
+create index if not exists signups_created_at_idx on signups (created_at desc);
