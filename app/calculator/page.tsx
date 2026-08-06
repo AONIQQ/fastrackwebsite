@@ -204,7 +204,7 @@ export default function Calculator() {
     setIsSubmitting(false)
   }
 
-  const navLinks = [['/', 'Home'], ['/student', 'Student'], ['/guide', 'Guide'], ['/pricing', 'Pricing']]
+  const navLinks = [['/', 'Home'], ['/counselors', 'Counselors'], ['/guide', 'Guide'], ['/pricing', 'Pricing']]
 
   const hint = !state ? 'Choose a state to begin.'
     : !residency ? 'Now choose your residency status.'
@@ -408,7 +408,7 @@ export default function Calculator() {
                 None of it is automatic. It depends on choosing dual-credit courses that actually
                 transfer into the degree — which is exactly what we map out, course by course.
               </p>
-              <Link href="/student" className="mt-5 inline-block">
+              <Link href="/" className="mt-5 inline-block">
                 <Button className="h-12 rounded-lg bg-[#605dba] px-7 text-base font-semibold text-white hover:bg-[#080b53] transition-colors">
                   Book a free planning session
                 </Button>

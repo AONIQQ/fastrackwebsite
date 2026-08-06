@@ -94,14 +94,19 @@ export default function SignUpForm() {
                 Pricing
               </Button>
             </Link>
-            <Link href="/student">
+            <Link href="/counselors">
               <Button variant="ghost" className="text-white text-base">
-                Student
+                Counselors
               </Button>
             </Link>
             <Link href="/guide">
               <Button variant="ghost" className="text-white text-base">
                 Guide
+              </Button>
+            </Link>
+            <Link href="/calculator">
+              <Button variant="ghost" className="text-white text-base">
+                Calculator
               </Button>
             </Link>
             <Link href="/">
@@ -121,14 +126,19 @@ export default function SignUpForm() {
                 Pricing
               </Button>
             </Link>
-            <Link href="/student">
+            <Link href="/counselors">
               <Button variant="ghost" className="text-white text-base">
-                Student
+                Counselors
               </Button>
             </Link>
             <Link href="/guide">
               <Button variant="ghost" className="text-white text-base">
                 Guide
+              </Button>
+            </Link>
+            <Link href="/calculator">
+              <Button variant="ghost" className="text-white text-base">
+                Calculator
               </Button>
             </Link>
             <Link href="/">

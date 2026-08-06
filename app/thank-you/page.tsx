@@ -28,9 +28,9 @@ export default function ThankYou() {
                 Pricing
               </Button>
             </Link>
-            <Link href="/student">
+            <Link href="/counselors">
               <Button variant="ghost" className="text-white text-base">
-                Student
+                Counselors
               </Button>
             </Link>
             <Link href="/guide">
@@ -60,9 +60,9 @@ export default function ThankYou() {
                 Pricing
               </Button>
             </Link>
-            <Link href="/student">
+            <Link href="/counselors">
               <Button variant="ghost" className="text-white text-base">
-                Student
+                Counselors
               </Button>
             </Link>
             <Link href="/guide">
