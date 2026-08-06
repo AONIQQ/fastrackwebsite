@@ -106,9 +106,15 @@ export async function insertLead(lead: {
   college?: string | null;
   snapshot?: unknown;
   userAgent?: string | null;
+  smsConsent?: boolean;
+  referrer?: string | null;
+  utm?: Record<string, string> | null;
 }) {
   const rows = (await sql`
-    insert into leads (email, phone, state, residency, college, snapshot, user_agent)
+    insert into leads (
+      email, phone, state, residency, college, snapshot, user_agent,
+      sms_consent, referrer, utm
+    )
     values (
       ${lead.email},
       ${lead.phone ?? null},
@@ -116,11 +122,18 @@ export async function insertLead(lead: {
       ${lead.residency ?? null},
       ${lead.college ?? null},
       ${JSON.stringify(lead.snapshot ?? {})}::jsonb,
-      ${lead.userAgent ?? null}
+      ${lead.userAgent ?? null},
+      ${lead.smsConsent ?? false},
+      ${lead.referrer ?? null},
+      ${lead.utm ? JSON.stringify(lead.utm) : null}::jsonb
     )
     returning id, created_at
   `) as { id: number; created_at: string }[];
   return rows[0];
+}
+
+export async function markResultsEmailSent(id: number) {
+  await sql`update leads set results_email_sent_at = now() where id = ${id}`;
 }
 
 export async function listLeads(limit = 500, offset = 0) {

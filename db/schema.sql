@@ -53,8 +53,23 @@ create table if not exists leads (
   -- so a change to the calculator's output shape never drops a lead on the floor.
   snapshot      jsonb,
   user_agent    text,
-  created_at    timestamptz not null default now()
+  created_at    timestamptz not null default now(),
+
+  -- Proof the lead ticked the SMS box. Under the TCPA a marketing text without
+  -- prior express written consent is $500-$1,500 in statutory damages per
+  -- message, so this column is the record that consent existed. Nothing may
+  -- text a lead where this is false.
+  sms_consent   boolean not null default false,
+
+  -- Attribution. Previously nothing recorded where a lead came from, which made
+  -- it impossible to tell which channel was working.
+  referrer      text,
+  utm           jsonb,
+
+  results_email_sent_at timestamptz
 );
+
+create index if not exists leads_sms_consent_idx on leads (sms_consent) where sms_consent;
 
 create index if not exists leads_email_idx      on leads (lower(email));
 create index if not exists leads_created_at_idx on leads (created_at desc);

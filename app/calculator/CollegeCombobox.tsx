@@ -102,30 +102,30 @@ export function CollegeCombobox({
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="w-full h-14 px-3 flex items-center justify-between rounded-md border border-[#605dba] bg-[#f0f0f8] text-[#080b53] text-lg disabled:opacity-50 disabled:cursor-not-allowed text-left"
+        className="flex h-12 w-full items-center justify-between rounded-lg border border-slate-300 bg-white px-3 text-left text-base text-[#080b53] transition-shadow focus:outline-none focus:ring-2 focus:ring-[#605dba]/30 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        <span className={value ? 'truncate' : 'truncate text-[#605dba]'}>
+        <span className={value ? 'truncate' : 'truncate text-slate-400'}>
           {loading ? 'Loading colleges…' : value ? value.name : placeholder}
         </span>
         <ChevronDown className="h-4 w-4 opacity-50 shrink-0 ml-2" />
       </button>
 
       {open && !disabled && (
-        <div className="absolute z-50 mt-1 w-full rounded-md border border-[#605dba] bg-white shadow-lg">
-          <div className="flex items-center gap-2 border-b border-[#e0e0f0] px-3 py-2">
-            <Search className="h-4 w-4 text-[#605dba] shrink-0" />
+        <div className="absolute z-50 mt-1.5 w-full overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg ring-1 ring-black/5">
+          <div className="flex items-center gap-2 border-b border-slate-200 px-3 py-2.5">
+            <Search className="h-4 w-4 shrink-0 text-slate-400" />
             <input
               ref={inputRef}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={onKeyDown}
               placeholder="Type to search…"
-              className="w-full bg-transparent text-[#080b53] outline-none text-base"
+              className="w-full bg-transparent text-base text-[#080b53] outline-none placeholder:text-slate-400"
               aria-label="Search colleges"
             />
             {query && (
               <button type="button" onClick={() => setQuery('')} aria-label="Clear search">
-                <X className="h-4 w-4 text-[#605dba]" />
+                <X className="h-4 w-4 text-slate-400 hover:text-slate-600" />
               </button>
             )}
           </div>
@@ -138,25 +138,25 @@ export function CollegeCombobox({
                 aria-selected={value?.id === o.id}
                 onMouseEnter={() => setHighlight(i)}
                 onClick={() => commit(o)}
-                className={`px-3 py-2 cursor-pointer text-base ${
+                className={`cursor-pointer px-3 py-2.5 text-base ${
                   i === highlight ? 'bg-[#605dba] text-white' : 'text-[#080b53]'
                 }`}
               >
                 <span className="block truncate">{o.name}</span>
                 {o.city && (
-                  <span className={`block text-xs ${i === highlight ? 'text-white/80' : 'text-[#605dba]'}`}>
+                  <span className={`block text-xs ${i === highlight ? 'text-white/75' : 'text-slate-500'}`}>
                     {o.city}
                   </span>
                 )}
               </li>
             ))}
             {filtered.length === 0 && (
-              <li className="px-3 py-3 text-base text-[#605dba]">{emptyLabel}</li>
+              <li className="px-3 py-3 text-base text-slate-500">{emptyLabel}</li>
             )}
           </ul>
 
           {filtered.length > 0 && (
-            <div className="border-t border-[#e0e0f0] px-3 py-1.5 text-xs text-[#605dba]">
+            <div className="border-t border-slate-200 px-3 py-2 text-xs text-slate-500">
               {filtered.length.toLocaleString()} of {options.length.toLocaleString()}
             </div>
           )}
