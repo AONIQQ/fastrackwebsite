@@ -38,6 +38,11 @@ export default function ThankYou() {
                 Guide
               </Button>
             </Link>
+            <Link href="/calculator">
+              <Button variant="ghost" className="text-white text-base">
+                Calculator
+              </Button>
+            </Link>
             <Link href="/">
               <Button variant="ghost" className="text-white text-base">
                 Home
@@ -63,6 +68,11 @@ export default function ThankYou() {
             <Link href="/guide">
               <Button variant="ghost" className="text-white text-base">
                 Guide
+              </Button>
+            </Link>
+            <Link href="/calculator">
+              <Button variant="ghost" className="text-white text-base">
+                Calculator
               </Button>
             </Link>
             <Link href="/">

@@ -144,23 +144,66 @@ const SITE = 'https://www.fastrack.school'
 function resultsHtml(r: ResultsEmail) {
   const row = (label: string, a: string, b: string) => `
     <tr>
-      <td style="padding:12px 16px;border-bottom:1px solid #e6e6ef;color:#5a5a78;font-size:14px;">${esc(label)}</td>
-      <td style="padding:12px 16px;border-bottom:1px solid #e6e6ef;text-align:right;font-size:16px;font-weight:600;color:#b3261e;">${esc(a)}</td>
-      <td style="padding:12px 16px;border-bottom:1px solid #e6e6ef;text-align:right;font-size:16px;font-weight:600;color:#1a6b3c;">${esc(b)}</td>
+      <td class="lbl" style="padding:12px 16px;border-bottom:1px solid #e6e6ef;color:#5a5a78;font-size:14px;">${esc(label)}</td>
+      <td class="col-a" style="padding:12px 16px;border-bottom:1px solid #e6e6ef;text-align:right;font-size:16px;font-weight:600;color:#b3261e;">${esc(a)}</td>
+      <td class="col-b" style="padding:12px 16px;border-bottom:1px solid #e6e6ef;text-align:right;font-size:16px;font-weight:600;color:#1a6b3c;">${esc(b)}</td>
     </tr>`
 
   return `<!doctype html>
-<html><body style="margin:0;background:#f0f0f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f0f0f8;padding:24px 12px;">
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!--
+  Declaring color-scheme is what stops Gmail and Apple Mail from applying their
+  own blanket colour inversion. Without it those clients invert the whole email
+  themselves and the palette comes out wrong — light text on light panels, and
+  the navy blocks flipped to pale lilac.
+-->
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<style>
+  :root { color-scheme: light dark; supported-color-schemes: light dark; }
+
+  @media (prefers-color-scheme: dark) {
+    .bg      { background:#0b0b17 !important; }
+    .card    { background:#15152c !important; }
+    .head    { color:#f0f0f8 !important; }
+    .body    { color:#b9b9d4 !important; }
+    .lbl     { color:#9a9ab8 !important; border-bottom-color:#2a2a4a !important; }
+    .col-a   { color:#ff9a92 !important; border-bottom-color:#2a2a4a !important; }
+    .col-b   { color:#6ee7a0 !important; border-bottom-color:#2a2a4a !important; }
+    .colhead-a { color:#ff9a92 !important; }
+    .colhead-b { color:#6ee7a0 !important; }
+    .rule    { border-top-color:#2a2a4a !important; }
+    .muted   { color:#8686a6 !important; }
+    .muted a { color:#8686a6 !important; }
+  }
+
+  /* Outlook.com dark mode uses its own attribute hooks. */
+  [data-ogsc] .bg    { background:#0b0b17 !important; }
+  [data-ogsc] .card  { background:#15152c !important; }
+  [data-ogsc] .head  { color:#f0f0f8 !important; }
+  [data-ogsc] .body  { color:#b9b9d4 !important; }
+  [data-ogsc] .lbl   { color:#9a9ab8 !important; }
+  [data-ogsc] .col-a { color:#ff9a92 !important; }
+  [data-ogsc] .col-b { color:#6ee7a0 !important; }
+  [data-ogsc] .muted { color:#8686a6 !important; }
+</style>
+</head>
+<body class="bg" style="margin:0;background:#f0f0f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="bg" bgcolor="#f0f0f8" style="background:#f0f0f8;padding:24px 12px;">
     <tr><td align="center">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden;">
-        <tr><td style="background:#080b53;padding:24px;">
-          <p style="margin:0;color:#ffffff;font-size:20px;font-weight:700;letter-spacing:-0.01em;">Fastrack</p>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="card" bgcolor="#ffffff" style="max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden;">
+
+        <!-- Brand bar. Already navy, so it reads correctly in both schemes. -->
+        <tr><td bgcolor="#080b53" style="background:#080b53;padding:22px 24px;">
+          <img src="${SITE}/logo.png" width="132" alt="Fastrack" style="display:block;border:0;height:auto;max-width:132px;">
         </td></tr>
 
         <tr><td style="padding:28px 24px 8px;">
-          <h1 style="margin:0 0 8px;font-size:22px;line-height:1.3;color:#080b53;">Your results for ${esc(r.collegeName)}</h1>
-          <p style="margin:0;color:#5a5a78;font-size:15px;line-height:1.6;">
+          <h1 class="head" style="margin:0 0 8px;font-size:22px;line-height:1.3;color:#080b53;">Your results for ${esc(r.collegeName)}</h1>
+          <p class="body" style="margin:0;color:#5a5a78;font-size:15px;line-height:1.6;">
             Here is what that degree costs on the standard four-year path, and what the same degree costs finishing in two.
           </p>
         </td></tr>
@@ -168,9 +211,9 @@ function resultsHtml(r: ResultsEmail) {
         <tr><td style="padding:20px 8px 4px;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
             <tr>
-              <th style="padding:8px 16px;text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:0.06em;color:#8a8aa8;font-weight:600;"></th>
-              <th style="padding:8px 16px;text-align:right;font-size:12px;text-transform:uppercase;letter-spacing:0.06em;color:#b3261e;font-weight:600;">4 years</th>
-              <th style="padding:8px 16px;text-align:right;font-size:12px;text-transform:uppercase;letter-spacing:0.06em;color:#1a6b3c;font-weight:600;">With Fastrack</th>
+              <th style="padding:8px 16px;text-align:left;font-size:12px;"></th>
+              <th class="colhead-a" style="padding:8px 16px;text-align:right;font-size:12px;text-transform:uppercase;letter-spacing:0.06em;color:#b3261e;font-weight:600;">4 years</th>
+              <th class="colhead-b" style="padding:8px 16px;text-align:right;font-size:12px;text-transform:uppercase;letter-spacing:0.06em;color:#1a6b3c;font-weight:600;">With Fastrack</th>
             </tr>
             ${row('Total cost', money(r.standardTotal), money(r.fastrackTotal))}
             ${row('Time to earn it back', r.standardRecoup, r.fastrackRecoup)}
@@ -178,7 +221,7 @@ function resultsHtml(r: ResultsEmail) {
         </td></tr>
 
         <tr><td style="padding:20px 24px 0;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#080b53;border-radius:10px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#080b53" style="background:#080b53;border-radius:10px;">
             <tr><td style="padding:20px 24px;text-align:center;">
               <p style="margin:0 0 4px;color:#b9b9e0;font-size:13px;text-transform:uppercase;letter-spacing:0.06em;">Total advantage</p>
               <p style="margin:0;color:#ffffff;font-size:34px;font-weight:700;letter-spacing:-0.02em;">${esc(money(r.totalAdvantage))}</p>
@@ -190,26 +233,27 @@ function resultsHtml(r: ResultsEmail) {
         </td></tr>
 
         <tr><td style="padding:24px;">
-          <p style="margin:0 0 16px;color:#5a5a78;font-size:15px;line-height:1.6;">
-            The savings are real but they are not automatic — they depend on picking dual-credit courses that actually transfer into your degree.
-            That is the part families get wrong, and it is what we build for you.
+          <p class="body" style="margin:0 0 16px;color:#5a5a78;font-size:15px;line-height:1.6;">
+            The savings are real but they are not automatic — they depend on picking dual-credit courses that actually
+            transfer into your degree. That is the part families get wrong, and it is what we build for you.
           </p>
           <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
-            <tr><td style="background:#605dba;border-radius:8px;">
+            <tr><td bgcolor="#605dba" style="background:#605dba;border-radius:8px;">
               <a href="${SITE}/student" style="display:inline-block;padding:14px 28px;color:#ffffff;font-size:16px;font-weight:600;text-decoration:none;">Book a free planning session</a>
             </td></tr>
           </table>
           <p style="margin:20px 0 0;text-align:center;font-size:14px;">
-            <a href="${SITE}/guide" style="color:#605dba;">Or start with the step-by-step guide &rarr;</a>
+            <a href="${SITE}/calculator" style="color:#605dba;">Run the numbers for another school &rarr;</a>
           </p>
         </td></tr>
 
-        <tr><td style="padding:16px 24px 24px;border-top:1px solid #e6e6ef;">
-          <p style="margin:0;color:#8a8aa8;font-size:12px;line-height:1.6;">
-            Figures use average net price and median post-enrollment earnings from the U.S. Department of Education College Scorecard,
-            and assume 60 dual-credit hours at $80 per credit. Individual results vary with state, school and course selection.
+        <tr><td class="rule" style="padding:16px 24px 24px;border-top:1px solid #e6e6ef;">
+          <p class="muted" style="margin:0;color:#8a8aa8;font-size:12px;line-height:1.6;">
+            Figures use average net price and median post-enrollment earnings from the U.S. Department of Education
+            College Scorecard, and assume 60 dual-credit hours at $80 per credit. Individual results vary with state,
+            school and course selection.
           </p>
-          <p style="margin:12px 0 0;color:#8a8aa8;font-size:12px;">
+          <p class="muted" style="margin:12px 0 0;color:#8a8aa8;font-size:12px;">
             Fastrack &middot; 1007 N Orange St, Wilmington, Delaware &middot;
             <a href="mailto:info@fastrack.school" style="color:#8a8aa8;">info@fastrack.school</a>
           </p>
@@ -219,7 +263,6 @@ function resultsHtml(r: ResultsEmail) {
   </table>
 </body></html>`
 }
-
 function resultsText(r: ResultsEmail) {
   return [
     `Your results for ${r.collegeName}`,

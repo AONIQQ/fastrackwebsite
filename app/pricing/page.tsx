@@ -38,6 +38,11 @@ export default function Pricing() {
                 Guide
               </Button>
             </Link>
+            <Link href="/calculator">
+              <Button variant="ghost" className="text-white text-base">
+                Calculator
+              </Button>
+            </Link>
             <CalBookingButton variant="ghost" className="text-white text-base">
               Sign Up
             </CalBookingButton>
@@ -61,6 +66,11 @@ export default function Pricing() {
             <Link href="/guide">
               <Button variant="ghost" className="text-white text-base">
                 Guide
+              </Button>
+            </Link>
+            <Link href="/calculator">
+              <Button variant="ghost" className="text-white text-base">
+                Calculator
               </Button>
             </Link>
             <CalBookingButton variant="ghost" className="text-white text-base">
