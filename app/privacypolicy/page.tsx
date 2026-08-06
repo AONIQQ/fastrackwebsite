@@ -128,6 +128,11 @@ export default function PrivacyPolicy() {
                 Guide
               </Button>
             </Link>
+            <Link href="/calculator">
+              <Button variant="ghost" className="text-white text-base">
+                Calculator
+              </Button>
+            </Link>
             <Link href="/pricing">
               <Button variant="ghost" className="text-white text-base">
                 Pricing
@@ -158,6 +163,11 @@ export default function PrivacyPolicy() {
             <Link href="/guide" className="w-full flex justify-center">
               <Button variant="ghost" className="text-white text-base">
                 Guide
+              </Button>
+            </Link>
+            <Link href="/calculator" className="w-full flex justify-center">
+              <Button variant="ghost" className="text-white text-base">
+                Calculator
               </Button>
             </Link>
             <Link href="/pricing" className="w-full flex justify-center">
