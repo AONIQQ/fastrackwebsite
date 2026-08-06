@@ -25,9 +25,13 @@ create table if not exists colleges (
 
 create index if not exists colleges_state_idx on colleges (state);
 
--- The calculator looks colleges up by name, not id, so this index carries the
--- hot path. Case-insensitive to survive encoding differences in the old data.
-create unique index if not exists colleges_name_state_idx on colleges (lower(name), state);
+-- The calculator looks colleges up by name, not id, so these carry the hot path.
+-- Case-insensitive to survive encoding differences in the source data.
+--
+-- Deliberately NOT unique: chains legitimately operate several same-named
+-- campuses within one state (e.g. "Brittany Beauty Academy", NY). getCollegeByName
+-- disambiguates by enrollment size instead.
+create index if not exists colleges_name_state_idx on colleges (lower(name), state);
 create index if not exists colleges_name_idx on colleges (lower(name));
 
 create table if not exists cost_of_living (

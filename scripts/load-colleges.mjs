@@ -46,8 +46,13 @@ async function fetchPage(page) {
     _fields: FIELDS.join(','),
     _per_page: String(PER_PAGE),
     _page: String(page),
-    // Degree-granting, predominantly bachelor's-or-above, currently operating.
-    'school.degrees_awarded.predominant__range': '3..4',
+    // Currently operating institutions only.
+    //
+    // Deliberately NOT filtered by predominant degree type. Filtering to
+    // bachelor's-predominant would drop community colleges, and those are where
+    // dual credit is actually taken — the whole premise of the product. The
+    // /api/colleges route decides what is selectable; the loader's job is to
+    // never lose a row that was previously available.
     'school.operating': '1',
   });
 
