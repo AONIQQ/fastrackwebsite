@@ -131,14 +131,14 @@ export default function Guide() {
             <Image src="/logo.png" alt="Fastrack logo" width={160} height={160} className="rounded-full object-cover" />
           </div>
           <CTAButton
-            label="Get the Fastrack Guide – $47 Instant Download"
+            label="Get the Fastrack Guide ($47 Instant Download)"
             className="w-full text-center text-sm sm:w-auto sm:text-base"
             variant="secondary"
           />
         </div>
       </header>
       <section className="bg-white">
-        <div className="mx-auto grid max-w-6xl gap-10 px-4 py-16 sm:px-6 lg:px-8 md:grid-cols-2 md:items-center md:gap-16 md:py-24">
+        <div className="mx-auto max-w-3xl px-4 py-16 text-center sm:px-6 lg:px-8 md:py-24">
           <div>
             <h1 className="text-4xl font-semibold tracking-tight text-[#080b53] sm:text-5xl">
               Graduate College in 2 Years and Save Up to 50% on Tuition
@@ -147,7 +147,7 @@ export default function Guide() {
               A step-by-step guide that shows you exactly how I finished a bachelor’s in 2 years and how your
               kid can do the same using dual-credit, AP, CLEP, summer, and online classes.
             </p>
-            <ul className="mt-8 space-y-4 text-base text-gray-800">
+            <ul className="mx-auto mt-8 max-w-xl space-y-4 text-left text-base text-gray-800">
               {benefitBullets.map((item) => (
                 <li key={item} className="flex gap-3">
                   <span className="mt-1 h-2 w-2 rounded-full bg-[#f8b84a]" aria-hidden />
@@ -156,14 +156,8 @@ export default function Guide() {
               ))}
             </ul>
             <div className="mt-10 space-y-2">
-              <CTAButton label="Get the Fastrack Guide – $47 Instant Download" />
+              <CTAButton label="Get the Fastrack Guide ($47 Instant Download)" />
               <p className="text-sm text-gray-600">PDF guide, lifetime access, updates included</p>
-            </div>
-          </div>
-          <div className="space-y-5">
-            <div className="space-y-2">
-              <CTAButton label="Get the Fastrack Guide – $47 Instant Download" variant="secondary" />
-              <p className="text-center text-sm text-gray-600">PDF guide, lifetime access, updates included</p>
             </div>
           </div>
         </div>
@@ -192,7 +186,7 @@ export default function Guide() {
             You do not need a “perfect student” to make this work. You do need a motivated kid (roughly 3.0–3.5+ GPA and
             willing to work) and a clear plan.
           </p>
-          <CTAButton label="Get the Fastrack Guide – $47" variant="secondary" />
+          <CTAButton label="Get the Fastrack Guide, $47" variant="secondary" />
         </div>
       </section>
 
@@ -242,7 +236,7 @@ export default function Guide() {
           <h2 className="text-3xl font-semibold text-[#080b53]">Who’s Behind Fastrack?</h2>
           <div className="grid gap-8 md:grid-cols-2">
             <article className="rounded-3xl bg-white p-8 shadow-lg">
-              <h3 className="text-2xl font-semibold text-[#080b53]">Andrew – Founder of Fastrack</h3>
+              <h3 className="text-2xl font-semibold text-[#080b53]">Andrew, Founder of Fastrack</h3>
               <p className="mt-4 text-gray-700">
                 I’m Andrew. I finished my bachelor’s in computer science in 2 years by stacking dual-credit and university courses. I started taking college classes as a high-school sophomore, walked into
                 a full bachelor’s by 20, and used the time and money I saved to start businesses and travel instead of
@@ -266,7 +260,7 @@ export default function Guide() {
         <div className="mx-auto max-w-4xl space-y-6 px-4 sm:px-6 lg:px-8">
           <h2 className="text-3xl font-semibold text-[#080b53]">What Happens When You Buy</h2>
           <ol className="list-decimal space-y-6 pl-6 text-gray-800">
-            <li>You click “Get the Fastrack Guide – $47” and complete checkout.</li>
+            <li>You click “Get the Fastrack Guide, $47” and complete checkout.</li>
             <li>You get instant access to the PDF guide plus any future updates.</li>
             <li>
               Inside the guide, you’ll see links to optional extras like:
@@ -284,7 +278,7 @@ export default function Guide() {
             You can do this entire process yourself with the guide. If you ever want more help later, you’ll also see
             options for higher-touch support.
           </p>
-          <CTAButton label="Get the Fastrack Guide – $47" />
+          <CTAButton label="Get the Fastrack Guide, $47" />
         </div>
       </section>
 
@@ -308,7 +302,7 @@ export default function Guide() {
           <p className="text-lg text-blue-100">
             Get the exact strategy, templates, and checklist to plan it out in a weekend.
           </p>
-          <CTAButton label="Get the Fastrack Guide – $47 Instant Download" variant="secondary" className="mx-auto" />
+          <CTAButton label="Get the Fastrack Guide ($47 Instant Download)" variant="secondary" className="mx-auto" />
         </div>
       </section>
 

@@ -4,6 +4,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import CalBookingButton from '@/components/cal/CalBookingButton'
+import SiteFooter from '@/components/SiteFooter'
 import { Check } from 'lucide-react'
 
 const CHECKOUT_URL = process.env.NEXT_PUBLIC_CREDIT_MAP_CHECKOUT_URL
@@ -34,7 +35,7 @@ const guarantees = [
 
 export default function CreditMap() {
   return (
-    <div className="min-h-screen bg-gray-100 text-gray-900">
+    <div className="flex min-h-screen flex-col bg-gray-100 text-gray-900">
       <header className="bg-[#080b53] text-white p-4 sticky top-0 z-50">
         <div className="container mx-auto flex justify-between items-center">
           <Link href="/" className="flex items-center space-x-2">
@@ -46,9 +47,9 @@ export default function CreditMap() {
                 Calculator
               </Button>
             </Link>
-            <Link href="/student">
+            <Link href="/">
               <Button variant="ghost" className="text-white text-base">
-                Student
+                Home
               </Button>
             </Link>
             <Link href="/guide">
@@ -63,7 +64,7 @@ export default function CreditMap() {
       <main className="pb-20">
         <section className="bg-[#080b53] text-white">
           <div className="container mx-auto px-4 py-16 md:py-24">
-            <div className="max-w-3xl">
+            <div className="mx-auto max-w-3xl text-center">
               <p className="uppercase text-sm tracking-wider text-blue-200">The Fastrack Credit Map</p>
               <h1 className="mt-4 text-3xl sm:text-4xl md:text-5xl font-bold leading-tight">
                 A done-for-you dual credit plan where every course actually counts
@@ -73,7 +74,7 @@ export default function CreditMap() {
                 student&rsquo;s degree. We build your student&rsquo;s complete course-by-course plan against the real
                 catalogs, transfer agreements, and degree requirements, so nothing they take is wasted.
               </p>
-              <div className="mt-8 flex flex-col sm:flex-row gap-4">
+              <div className="mt-8 flex flex-col justify-center gap-4 sm:flex-row">
                 {CHECKOUT_URL ? (
                   <a href={CHECKOUT_URL}>
                     <Button className="bg-white text-[#080b53] hover:bg-blue-100 font-semibold px-8 py-6 text-lg">
@@ -95,7 +96,7 @@ export default function CreditMap() {
         </section>
 
         <section className="container mx-auto px-4 py-16">
-          <h2 className="text-3xl md:text-4xl font-semibold">What you get</h2>
+          <h2 className="text-center text-3xl md:text-4xl font-semibold">What you get</h2>
           <ul className="mt-8 grid gap-4 md:grid-cols-2">
             {deliverables.map((item) => (
               <li key={item} className="flex items-start gap-3 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
@@ -108,7 +109,7 @@ export default function CreditMap() {
 
         <section className="bg-white py-16">
           <div className="container mx-auto px-4">
-            <h2 className="text-3xl md:text-4xl font-semibold">Our guarantees</h2>
+            <h2 className="text-center text-3xl md:text-4xl font-semibold">Our guarantees</h2>
             <div className="mt-8 grid gap-6 md:grid-cols-3">
               {guarantees.map((g) => (
                 <div key={g.title} className="rounded-2xl border border-gray-200 bg-gray-50 p-6">
@@ -117,7 +118,7 @@ export default function CreditMap() {
                 </div>
               ))}
             </div>
-            <p className="mt-8 text-sm text-gray-500">
+            <p className="mx-auto mt-8 max-w-3xl text-center text-sm text-gray-500">
               Plans are drafted with AI-assisted research and reviewed line-by-line by a human before delivery. Final
               transfer decisions always rest with the receiving college; your plan tells you exactly what to confirm and
               with whom.
@@ -148,6 +149,7 @@ export default function CreditMap() {
           </div>
         </section>
       </main>
+      <SiteFooter />
     </div>
   )
 }

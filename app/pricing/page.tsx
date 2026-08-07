@@ -91,10 +91,10 @@ export default function Pricing() {
               The cost for the online program is $500 per counselor or educator and includes access to the training materials until the end of the calendar year.
             </p>
             <p className="text-lg mb-4">
-              Bulk pricing applies for district wide implementations of over 30 professionals. To receive more information, Inquire via email info@fastrack.school
+              Bulk pricing applies for district-wide implementations of over 30 professionals. To receive more information, inquire via email at info@fastrack.school
             </p>
             <p className="text-lg">
-              Payments will be accepted via card, ACH, paypal, and check. Invoice will be sent after form submission below.
+              Payments will be accepted via card, ACH, PayPal, and check. Invoice will be sent after form submission below.
             </p>
           </CardContent>
         </Card>

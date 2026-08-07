@@ -1,6 +1,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import type { Metadata } from 'next'
+import SiteFooter from '@/components/SiteFooter'
 import { STATE_NAMES, stateSlug } from '@/lib/states'
 
 export const metadata: Metadata = {
@@ -11,7 +12,7 @@ export const metadata: Metadata = {
 
 export default function SavingsIndex() {
   return (
-    <div className="min-h-screen bg-gray-100 text-gray-900">
+    <div className="flex min-h-screen flex-col bg-gray-100 text-gray-900">
       <header className="bg-[#080b53] text-white p-4 sticky top-0 z-50">
         <div className="container mx-auto flex justify-between items-center">
           <Link href="/" className="flex items-center space-x-2">
@@ -45,6 +46,7 @@ export default function SavingsIndex() {
           ))}
         </div>
       </main>
+      <SiteFooter />
     </div>
   )
 }

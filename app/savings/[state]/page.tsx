@@ -2,6 +2,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
+import SiteFooter from '@/components/SiteFooter'
 import { getStateSavingsStats, getTopCollegesForState } from '@/lib/db'
 import { STATE_NAMES, codeFromSlug, collegeSlug, stateSlug } from '@/lib/states'
 
@@ -29,7 +30,7 @@ export default async function StateSavingsPage({ params }: { params: { state: st
   if (!colleges.length) notFound()
 
   return (
-    <div className="min-h-screen bg-gray-100 text-gray-900">
+    <div className="flex min-h-screen flex-col bg-gray-100 text-gray-900">
       <header className="bg-[#080b53] text-white p-4 sticky top-0 z-50">
         <div className="container mx-auto flex justify-between items-center">
           <Link href="/" className="flex items-center space-x-2">
@@ -151,6 +152,7 @@ export default async function StateSavingsPage({ params }: { params: { state: st
           </div>
         </section>
       </main>
+      <SiteFooter />
     </div>
   )
 }
