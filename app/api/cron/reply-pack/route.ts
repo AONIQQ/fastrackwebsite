@@ -10,9 +10,7 @@ export const maxDuration = 300
  * answers; the digest ships through the same tracked mail path as everything
  * else. No external schedulers, no scrapeable-site dependencies.
  */
-const PROMPT = `Find 4 to 6 forum threads posted in the LAST 2 DAYS where parents or students discuss: dual enrollment, AP vs dual credit, CLEP, college being unaffordable, or graduating college early. Look on Reddit (r/ApplyingToCollege, r/homeschool, r/Parenting, r/personalfinance and similar) and College Confidential.
-
-For each thread, output exactly this format:
+const PROMPT = `You draft community replies for Fastrack. For each thread in the research below, output exactly this format:
 
 THREAD: <title>
 URL: <direct link>
@@ -23,30 +21,44 @@ Separate threads with a line containing only: ---
 
 If you cannot find any genuinely recent threads, output NONE and then two evergreen post ideas in the same REPLY format.`
 
+
+async function gateway(model: string, prompt: string, maxTokens: number): Promise<string> {
+  const r = await fetch('https://ai-gateway.vercel.sh/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${process.env.AI_GATEWAY_API_KEY ?? ''}`,
+    },
+    body: JSON.stringify({ model, messages: [{ role: 'user', content: prompt }], max_tokens: maxTokens }),
+  })
+  if (!r.ok) throw new Error(`${model}: ${r.status}`)
+  const d = await r.json()
+  return d.choices?.[0]?.message?.content ?? ''
+}
+
+const FIND_PROMPT = `Search the web for 4 to 6 forum threads posted in the LAST 2 DAYS where parents or students discuss: dual enrollment, AP vs dual credit, CLEP, college being unaffordable, or graduating college early. Reddit (r/ApplyingToCollege, r/homeschool, r/Parenting, r/personalfinance and similar) and College Confidential. For each, report: exact title, direct URL, forum name, and a 2-3 sentence summary of what the poster is asking and any key details. Only include threads you actually found with working URLs.`
+
 async function draftPack(): Promise<{ ok: boolean; text: string; model: string }> {
-  for (const model of ['perplexity/sonar-pro', 'perplexity/sonar']) {
-    try {
-      const r = await fetch('https://ai-gateway.vercel.sh/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${process.env.AI_GATEWAY_API_KEY ?? process.env.VERCEL_OIDC_TOKEN ?? ''}`,
-        },
-        body: JSON.stringify({
-          model,
-          messages: [{ role: 'user', content: PROMPT }],
-          max_tokens: 3000,
-        }),
-      })
-      if (!r.ok) continue
-      const d = await r.json()
-      const text = d.choices?.[0]?.message?.content ?? ''
-      if (text.length > 100) return { ok: true, text, model }
-    } catch {
-      // try the next model
+  try {
+    // Stage 1: search-grounded research finds the threads.
+    let research = ''
+    for (const m of ['perplexity/sonar-pro', 'perplexity/sonar']) {
+      try {
+        research = await gateway(m, FIND_PROMPT, 2500)
+        if (research.length > 100) break
+      } catch {
+        // next
+      }
     }
+    if (research.length < 100) return { ok: false, text: '', model: 'none' }
+
+    // Stage 2: the writing model drafts every reply.
+    const text = await gateway('openai/gpt-5.6-luna', `${PROMPT}\n\nHere is today's research listing the real threads found (use ONLY these, do not invent threads):\n\n${research}`, 3000)
+    if (text.length > 100) return { ok: true, text, model: 'sonar-pro + gpt-5.6-luna' }
+    return { ok: false, text: '', model: 'none' }
+  } catch {
+    return { ok: false, text: '', model: 'none' }
   }
-  return { ok: false, text: '', model: 'none' }
 }
 
 function toDigest(text: string): { html: string; count: number } {

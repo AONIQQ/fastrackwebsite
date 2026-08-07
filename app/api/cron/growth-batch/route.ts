@@ -24,28 +24,38 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  const call = async (model: string, prompt: string, maxTokens: number) => {
+    const r = await fetch('https://ai-gateway.vercel.sh/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${process.env.AI_GATEWAY_API_KEY ?? ''}`,
+      },
+      body: JSON.stringify({ model, messages: [{ role: 'user', content: prompt }], max_tokens: maxTokens }),
+    })
+    if (!r.ok) throw new Error(String(r.status))
+    const d = await r.json()
+    return (d.choices?.[0]?.message?.content ?? '') as string
+  }
+
   let text = ''
   let model = 'none'
-  for (const m of ['perplexity/sonar-pro', 'perplexity/sonar']) {
-    try {
-      const r = await fetch('https://ai-gateway.vercel.sh/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${process.env.AI_GATEWAY_API_KEY ?? process.env.VERCEL_OIDC_TOKEN ?? ''}`,
-        },
-        body: JSON.stringify({ model: m, messages: [{ role: 'user', content: PROMPT }], max_tokens: 3500 }),
-      })
-      if (!r.ok) continue
-      const d = await r.json()
-      text = d.choices?.[0]?.message?.content ?? ''
-      if (text.length > 200) {
-        model = m
-        break
+  try {
+    let research = ''
+    for (const m of ['perplexity/sonar-pro', 'perplexity/sonar']) {
+      try {
+        research = await call(m, `Research for a growth report for fastrack.school (dual credit planning for parents of high schoolers, free calculator at fastrack.school/calculator). Find with real web search: (a) three online communities (Facebook groups, subreddits, forums, Discords) where parents of high schoolers or homeschool families discuss college costs or dual enrollment, with member counts and links and any posting rules; (b) three potential partners: homeschool bloggers, college-cost YouTubers, education podcasters, or co-op leaders, with audience sizes and public contact info where findable; (c) one specific, citable statistic about dual enrollment or college costs with its source. Report facts only, with URLs.`, 3000)
+        if (research.length > 200) break
+      } catch {
+        // next
       }
-    } catch {
-      // next model
     }
+    if (research.length > 200) {
+      text = await call('openai/gpt-5.6-luna', `${PROMPT}\n\nUse ONLY the following verified research (do not invent communities, people, or statistics):\n\n${research}`, 3500)
+      if (text.length > 200) model = 'sonar-pro + gpt-5.6-luna'
+    }
+  } catch {
+    // fall through to the failure alert
   }
 
   if (!text) {
