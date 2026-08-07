@@ -105,7 +105,7 @@ const policySections = [
       'If you have any questions about this Privacy Policy, the practices of this site, or your dealings with this site, please contact us:',
     ],
     contact: ['FASTRACK EDU LLC', 'info@fastrack.school'],
-    footerNote: 'This document was last updated on June 22, 2023.',
+    footerNote: 'This document was last updated on August 7, 2026.',
   },
 ]
 
@@ -186,7 +186,7 @@ export default function PrivacyPolicy() {
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-[#080b53]">
             Privacy Policy for FASTRACK EDU LLC
           </h1>
-          <p className="text-sm sm:text-base text-gray-500">Last updated: June 22, 2023</p>
+          <p className="text-sm sm:text-base text-gray-500">Last updated: August 7, 2026</p>
           <p className="text-base sm:text-lg text-gray-700">
             This Privacy Policy governs the way FASTRACK EDU LLC (&quot;us&quot;, &quot;we&quot;, or &quot;our&quot;) collects, uses, maintains, and
             discloses information collected from users (each, a &quot;User&quot;) of our college advisory services (&quot;Service&quot;).
