@@ -31,8 +31,8 @@ export const NURTURE_STEPS: { stage: number; afterDays: number; subject: string;
         p('<strong>1. Courses that transfer but do not count.</strong> The college accepts the credit, then files it as a free elective that satisfies nothing. The class was paid for twice.') +
         p('<strong>2. The wrong version of the right course.</strong> Many colleges run separate tracks for majors and non-majors. Taking the non-major version of a course your student needs for their major means retaking it.') +
         p('<strong>3. Planning against the wrong requirements.</strong> High school graduation requirements and college degree requirements are different lists. A schedule that only satisfies one wastes the other.') +
-        p('The free guide covers how to avoid all three:') +
-        btn(`${SITE}/fastrack-free-guide.pdf?${U('n1')}`, 'Get the free guide'),
+        p('The complete playbook, with the exact checklist we use, is the Fastrack Guide. It is \$47 and takes about a weekend to work through:') +
+        btn(`${SITE}/guide?${U('n1')}`, 'Get the Fastrack Guide (\$47)'),
     ),
   },
   {

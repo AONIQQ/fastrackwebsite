@@ -473,7 +473,7 @@ export default function Calculator() {
             </DialogTitle>
             <DialogDescription className="text-slate-600 leading-relaxed">
               Your numbers appear as soon as you submit. We&apos;ll also email you a copy along with
-              our free guide on how families actually capture these savings.
+              a short series on how families actually capture these savings.
             </DialogDescription>
           </DialogHeader>
 
