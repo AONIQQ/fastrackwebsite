@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { getStateSavingsStats, getTopCollegesForState } from '@/lib/db'
-import { STATE_NAMES, codeFromSlug, stateSlug } from '@/lib/states'
+import { STATE_NAMES, codeFromSlug, collegeSlug, stateSlug } from '@/lib/states'
 
 // ISR: rendered on first request (the DB is only reachable in the deployed
 // environment), then cached for a day.
@@ -86,7 +86,11 @@ export default async function StateSavingsPage({ params }: { params: { state: st
               <tbody>
                 {colleges.map((c) => (
                   <tr key={c.id} className="border-t border-gray-100">
-                    <td className="px-4 py-3 font-medium">{c.name}</td>
+                    <td className="px-4 py-3 font-medium">
+                      <Link href={`/college/${collegeSlug(c.id, c.name)}`} className="hover:text-[#605dba] hover:underline">
+                        {c.name}
+                      </Link>
+                    </td>
                     <td className="px-4 py-3 text-gray-600">{c.city ?? ''}</td>
                     <td className="px-4 py-3">{fmt(c.net_price)}</td>
                     <td className="px-4 py-3">

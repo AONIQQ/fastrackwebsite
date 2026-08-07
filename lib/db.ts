@@ -246,3 +246,10 @@ export async function getStateSavingsStats(state: string) {
   `) as { college_count: number; avg_net_price: number | null }[];
   return rows[0] ?? null;
 }
+
+/** Every selectable college, for the sitemap. */
+export async function getAllComputableColleges() {
+  return (await sql`
+    select id, name from colleges where ${sql.unsafe(COMPUTABLE)} order by id
+  `) as { id: number; name: string }[];
+}

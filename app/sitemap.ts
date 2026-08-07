@@ -1,9 +1,10 @@
 import type { MetadataRoute } from 'next'
-import { STATE_NAMES, stateSlug } from '@/lib/states'
+import { getAllComputableColleges } from '@/lib/db'
+import { STATE_NAMES, collegeSlug, stateSlug } from '@/lib/states'
 
 const SITE = 'https://www.fastrack.school'
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const statics = ['', '/calculator', '/credit-map', '/savings', '/guide', '/counselors', '/pricing'].map((p) => ({
     url: `${SITE}${p}`,
     changeFrequency: 'weekly' as const,
@@ -14,5 +15,15 @@ export default function sitemap(): MetadataRoute.Sitemap {
     changeFrequency: 'monthly' as const,
     priority: 0.7,
   }))
-  return [...statics, ...states]
+  let colleges: MetadataRoute.Sitemap = []
+  try {
+    colleges = (await getAllComputableColleges()).map((c) => ({
+      url: `${SITE}/college/${collegeSlug(c.id, c.name)}`,
+      changeFrequency: 'monthly' as const,
+      priority: 0.5,
+    }))
+  } catch {
+    // Local builds have no database; the deployed sitemap always does.
+  }
+  return [...statics, ...states, ...colleges]
 }

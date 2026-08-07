@@ -21,3 +21,7 @@ export function codeFromSlug(slug: string): string | null {
   const entry = Object.entries(STATE_NAMES).find(([code]) => stateSlug(code) === slug.toLowerCase())
   return entry ? entry[0] : null
 }
+
+export function collegeSlug(id: number, name: string): string {
+  return `${id}-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`
+}
