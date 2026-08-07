@@ -87,8 +87,8 @@ export default function CreditMap() {
                 )}
               </div>
               <p className="mt-4 text-sm text-blue-200">
-                For 11th and 12th graders (including homeschool). Currently serving select state and college pathways , 
-                if we can&rsquo;t verify your pathway, we&rsquo;ll tell you and refund you rather than guess.
+                For 11th and 12th graders (including homeschool). Currently serving select state and college pathways.
+                If we can&rsquo;t verify your pathway, we&rsquo;ll tell you and refund you rather than guess.
               </p>
             </div>
           </div>
