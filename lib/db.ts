@@ -256,23 +256,21 @@ export async function getAllComputableColleges() {
 
 /** Funnel view: where leads come from, how deep the drip has taken them, and sales. */
 export async function funnelStats() {
-  const [bySource, byStage, sales] = await Promise.all([
-    sql`
-      select coalesce(utm->>'utm_source', case when referrer <> '' then 'referral' else 'direct' end) as source,
-             count(*)::int as leads
-      from leads
-      where created_at >= '2026-08-06'
-      group by 1 order by leads desc limit 10
-    ` as Promise<{ source: string; leads: number }[]>,
-    sql`
-      select nurture_stage, count(*)::int as leads
-      from leads where created_at >= '2026-08-06'
-      group by 1 order by 1
-    ` as Promise<{ nurture_stage: number; leads: number }[]>,
-    sql`
-      select count(*)::int as count, coalesce(sum(amount_cents),0)::int as cents
-      from sales
-    ` as Promise<{ count: number; cents: number }[]>,
-  ]);
+  const bySource = (await sql`
+    select coalesce(utm->>'utm_source', case when referrer <> '' then 'referral' else 'direct' end) as source,
+           count(*)::int as leads
+    from leads
+    where created_at >= '2026-08-06'
+    group by 1 order by leads desc limit 10
+  `) as { source: string; leads: number }[];
+  const byStage = (await sql`
+    select nurture_stage, count(*)::int as leads
+    from leads where created_at >= '2026-08-06'
+    group by 1 order by 1
+  `) as { nurture_stage: number; leads: number }[];
+  const sales = (await sql`
+    select count(*)::int as count, coalesce(sum(amount_cents),0)::int as cents
+    from sales
+  `) as { count: number; cents: number }[];
   return { bySource, byStage, sales: sales[0] };
 }
