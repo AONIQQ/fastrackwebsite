@@ -4,14 +4,14 @@
  * Inert unless TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN and TWILIO_FROM_NUMBER are
  * all set, so deploying this changes nothing until those exist.
  *
- * IMPORTANT — this only ever fires when the lead ticked the consent box. Under
+ * IMPORTANT, this only ever fires when the lead ticked the consent box. Under
  * the TCPA, a marketing text without prior express WRITTEN consent carries
  * statutory damages of $500-$1,500 per message, and these are parents' personal
  * mobile numbers. The consent checkbox and the stored `sms_consent` flag are the
  * record that proves consent existed. Do not add a code path that texts someone
  * who did not tick it.
  *
- * Called with `await` deliberately omitted from the request path — a texting
+ * Called with `await` deliberately omitted from the request path, a texting
  * failure must never block a lead from being saved.
  */
 

@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: { params: { state: string } }
   }
 }
 
-const fmt = (n: number | null) => (n == null ? '—' : `$${n.toLocaleString()}`)
+const fmt = (n: number | null) => (n == null ? '-' : `$${n.toLocaleString()}`)
 
 export default async function StateSavingsPage({ params }: { params: { state: string } }) {
   const code = codeFromSlug(params.state)
@@ -60,7 +60,7 @@ export default async function StateSavingsPage({ params }: { params: { state: st
                 href={`/calculator?state=${code}&residency=inState`}
                 className="inline-block rounded-lg bg-white px-8 py-4 text-lg font-semibold text-[#080b53] hover:bg-blue-100"
               >
-                Run your student&rsquo;s numbers — free
+                Run your student&rsquo;s numbers for free
               </Link>
             </div>
           </div>
@@ -69,7 +69,7 @@ export default async function StateSavingsPage({ params }: { params: { state: st
         <section className="container mx-auto px-4 py-14">
           <h2 className="text-3xl font-semibold">What college actually costs in {name}</h2>
           <p className="mt-3 max-w-3xl text-gray-700">
-            Net price is what families actually pay per year after average aid — not the sticker price. Data comes from
+            Net price is what families actually pay per year after average aid, not the sticker price. Data comes from
             the U.S. Department of Education&rsquo;s College Scorecard. Pick a school to see the full savings math for
             your student.
           </p>
@@ -108,13 +108,13 @@ export default async function StateSavingsPage({ params }: { params: { state: st
           <div className="container mx-auto px-4">
             <h2 className="text-3xl font-semibold">The catch nobody tells {name} families</h2>
             <p className="mt-4 max-w-3xl text-gray-700">
-              Dual enrollment is bigger than ever — over 2.8 million high school students took college courses in
+              Dual enrollment is bigger than ever, over 2.8 million high school students took college courses in
               2023-24. But roughly 1 in 7 dual-enrollment courses is denied when the student transfers, most often
               because the course doesn&rsquo;t fit the degree they end up pursuing. Common courses like College Algebra
               are denied for degree applicability more than half the time at some schools.
             </p>
             <p className="mt-4 max-w-3xl text-gray-700">
-              The fix is picking courses against the actual transfer rules of the target college before enrolling —
+              The fix is picking courses against the actual transfer rules of the target college before enrolling , 
               which is exactly what a Fastrack Credit Map does.
             </p>
             <div className="mt-8 flex flex-col gap-4 sm:flex-row">

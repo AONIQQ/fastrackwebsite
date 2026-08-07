@@ -45,7 +45,7 @@ type RoiResult = {
 }
 
 const money = (v: number | null | undefined) =>
-  v == null ? '—' : `$${Math.round(v).toLocaleString('en-US')}`
+  v == null ? '-' : `$${Math.round(v).toLocaleString('en-US')}`
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -408,7 +408,7 @@ export default function Calculator() {
               </h2>
               <p className="mx-auto mt-2.5 max-w-lg text-slate-600 leading-relaxed">
                 None of it is automatic. It depends on choosing dual-credit courses that actually
-                transfer into the degree — which is exactly what we map out, course by course.
+                transfer into the degree, which is exactly what we map out, course by course.
               </p>
               <Link href="/" className="mt-5 inline-block">
                 <Button className="h-12 rounded-lg bg-[#605dba] px-7 text-base font-semibold text-white hover:bg-[#080b53] transition-colors">
@@ -429,7 +429,7 @@ export default function Calculator() {
         )}
       </main>
 
-      {/* Navy, not white — the logo artwork is white and disappears on a light ground. */}
+      {/* Navy, not white, the logo artwork is white and disappears on a light ground. */}
       <footer className="mt-16 bg-[#080b53]">
         <div className="mx-auto max-w-6xl px-5 py-10 flex flex-col items-center gap-4 text-center">
           <Image src="/logo.png" alt="Fastrack" width={140} height={40} className="h-8 w-auto" />

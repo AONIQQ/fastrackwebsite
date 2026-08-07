@@ -7,8 +7,8 @@ export const revalidate = 86400
 /**
  * One call for a full result.
  *
- * The original calculator made three sequential round trips — colleges, then
- * collegeDetails, then costOfLiving — each waterfalled on the last, each with
+ * The original calculator made three sequential round trips, colleges, then
+ * collegeDetails, then costOfLiving, each waterfalled on the last, each with
  * `cache: 'no-store'`. This replaces the last two with a single cached request
  * and moves the arithmetic server-side, so the numbers can't drift between what
  * the page renders and what gets written to the leads table.

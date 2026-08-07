@@ -6,7 +6,7 @@ import { STATE_NAMES, stateSlug } from '@/lib/states'
 export const metadata: Metadata = {
   title: 'Dual Credit College Savings by State | Fastrack',
   description:
-    'See what families actually pay for college in every state, and how much dual enrollment in high school can save — with real U.S. Department of Education net-price data.',
+    'See what families actually pay for college in every state, and how much dual enrollment in high school can save, with real U.S. Department of Education net-price data.',
 }
 
 export default function SavingsIndex() {
@@ -30,7 +30,7 @@ export default function SavingsIndex() {
           Dual credit savings, state by state
         </h1>
         <p className="mt-6 max-w-2xl text-lg text-gray-700">
-          Pick your state to see what college actually costs there — real net-price data for every major school — and
+          Pick your state to see what college actually costs there, real net-price data for every major school, and
           how much of it your student can avoid by earning college credit in high school.
         </p>
         <div className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">

@@ -8,13 +8,13 @@ const OAuth2 = google.auth.OAuth2
  * Two providers, tried in order.
  *
  * Resend first, when RESEND_API_KEY is present. Gmail SMTP is a poor transport
- * for transactional mail anyway — it is rate limited, it has no delivery
+ * for transactional mail anyway, it is rate limited, it has no delivery
  * telemetry, and bouncing marketing volume through the same mailbox the
  * business reads puts the primary domain's reputation at risk.
  *
  * Gmail OAuth is the fallback and is what the site used exclusively. Note that
  * its refresh token had silently expired (`invalid_grant`), which meant every
- * email the site tried to send — including the counselor signup notification —
+ * email the site tried to send, including the counselor signup notification , 
  * failed with no visible symptom. Refresh tokens for apps in Google's "Testing"
  * publishing status expire after 7 days; published-app tokens expire on
  * password change or 6 months of disuse. Either way this WILL happen again, so
@@ -115,11 +115,11 @@ export async function sendMail(args: SendArgs): Promise<void> {
     }
   }
 
-  throw new Error(`All mail providers failed — ${errors.join('; ')}`)
+  throw new Error(`All mail providers failed, ${errors.join('; ')}`)
 }
 
 const money = (v: number | null | undefined) =>
-  v == null ? '—' : `$${Math.round(v).toLocaleString('en-US')}`
+  v == null ? '-' : `$${Math.round(v).toLocaleString('en-US')}`
 
 const esc = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -157,7 +157,7 @@ function resultsHtml(r: ResultsEmail) {
 <!--
   Declaring color-scheme is what stops Gmail and Apple Mail from applying their
   own blanket colour inversion. Without it those clients invert the whole email
-  themselves and the palette comes out wrong — light text on light panels, and
+  themselves and the palette comes out wrong, light text on light panels, and
   the navy blocks flipped to pale lilac.
 -->
 <meta name="color-scheme" content="light dark">
@@ -234,7 +234,7 @@ function resultsHtml(r: ResultsEmail) {
 
         <tr><td style="padding:24px;">
           <p class="body" style="margin:0 0 16px;color:#5a5a78;font-size:15px;line-height:1.6;">
-            The savings are real but they are not automatic — they depend on picking dual-credit courses that actually
+            The savings are real but they are not automatic, they depend on picking dual-credit courses that actually
             transfer into your degree. That is the part families get wrong, and it is what we build for you.
           </p>
           <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
@@ -314,10 +314,10 @@ export async function notifyNewLead(lead: {
     subject: `New calculator lead: ${lead.email}${lead.state ? ` (${lead.state})` : ''}`,
     text: [
       `Email:     ${lead.email}`,
-      `Phone:     ${lead.phone || '—'}`,
-      `State:     ${lead.state || '—'}`,
-      `Residency: ${lead.residency || '—'}`,
-      `College:   ${lead.college || '—'}`,
+      `Phone:     ${lead.phone || '-'}`,
+      `State:     ${lead.state || '-'}`,
+      `Residency: ${lead.residency || '-'}`,
+      `College:   ${lead.college || '-'}`,
       `Advantage: ${money(lead.totalAdvantage)}`,
       '',
       `All leads: ${SITE}/admin/leads`,

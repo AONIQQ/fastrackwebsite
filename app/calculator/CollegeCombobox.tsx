@@ -8,7 +8,7 @@ export type CollegeOption = { id: number; name: string; city: string | null }
 /**
  * Type-to-filter college picker.
  *
- * The old plain <Select> listed every college in a state with no search — 400+
+ * The old plain <Select> listed every college in a state with no search, 400+
  * items in CA and NY, scrolled by hand on a phone. This is the single biggest
  * drop-off point in the funnel, so it gets a real combobox.
  */
@@ -39,7 +39,7 @@ export function CollegeCombobox({
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return options
-    // Prefix matches first — typing "penn" should surface Penn State before
+    // Prefix matches first, typing "penn" should surface Penn State before
     // "University of Pennsylvania".
     const starts: CollegeOption[] = []
     const contains: CollegeOption[] = []

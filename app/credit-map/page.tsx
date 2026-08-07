@@ -10,9 +10,9 @@ const CHECKOUT_URL = process.env.NEXT_PUBLIC_CREDIT_MAP_CHECKOUT_URL
 
 const deliverables = [
   'A term-by-term schedule from now through college graduation, with real course codes from your community college and target university',
-  'Every course mapped to the exact high school requirement and degree requirement it satisfies — no wasted credits',
+  'Every course mapped to the exact high school requirement and degree requirement it satisfies, no wasted credits',
   'A source link and retrieval date on every verified transfer line, so you can check our work',
-  'Anything we could not verify is flagged as an open question with the exact step to resolve it — never papered over',
+  'Anything we could not verify is flagged as an open question with the exact step to resolve it, never papered over',
   'A one-page "Confirm These Four Things" checklist for your school district and target college',
   'Delivered as a spreadsheet plus a PDF summary within 7 business days. No calls required.',
 ]
@@ -24,7 +24,7 @@ const guarantees = [
   },
   {
     title: 'Every verified line is sourced',
-    body: 'Each transfer equivalency we mark as verified carries a source URL and the date we checked it — or your money back.',
+    body: 'Each transfer equivalency we mark as verified carries a source URL and the date we checked it, or your money back.',
   },
   {
     title: 'We tell you what we don’t know',
@@ -69,7 +69,7 @@ export default function CreditMap() {
                 A done-for-you dual credit plan where every course actually counts
               </h1>
               <p className="mt-6 text-lg text-blue-100">
-                Roughly 1 in 7 dual-enrollment courses gets denied at transfer — usually because it doesn&rsquo;t fit the
+                Roughly 1 in 7 dual-enrollment courses gets denied at transfer, usually because it doesn&rsquo;t fit the
                 student&rsquo;s degree. We build your student&rsquo;s complete course-by-course plan against the real
                 catalogs, transfer agreements, and degree requirements, so nothing they take is wasted.
               </p>
@@ -77,7 +77,7 @@ export default function CreditMap() {
                 {CHECKOUT_URL ? (
                   <a href={CHECKOUT_URL}>
                     <Button className="bg-white text-[#080b53] hover:bg-blue-100 font-semibold px-8 py-6 text-lg">
-                      Get Your Credit Map — $497
+                      Get Your Credit Map ($497)
                     </Button>
                   </a>
                 ) : (
@@ -87,7 +87,7 @@ export default function CreditMap() {
                 )}
               </div>
               <p className="mt-4 text-sm text-blue-200">
-                For 11th and 12th graders (including homeschool). Currently serving select state and college pathways —
+                For 11th and 12th graders (including homeschool). Currently serving select state and college pathways , 
                 if we can&rsquo;t verify your pathway, we&rsquo;ll tell you and refund you rather than guess.
               </p>
             </div>
@@ -136,7 +136,7 @@ export default function CreditMap() {
               {CHECKOUT_URL ? (
                 <a href={CHECKOUT_URL}>
                   <Button className="bg-white text-[#080b53] hover:bg-blue-100 font-semibold px-8 py-6 text-lg">
-                    Get Your Credit Map — $497
+                    Get Your Credit Map ($497)
                   </Button>
                 </a>
               ) : (

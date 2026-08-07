@@ -5,7 +5,7 @@ import type { CollegeRow } from './db'
  *
  * The point of the tool is the contrast: doing college the normal way is
  * enormously expensive and takes a long time to pay back. So both paths are
- * computed side by side against the same inputs — the standard number is the
+ * computed side by side against the same inputs, the standard number is the
  * pain, the Fastrack number is the relief, and the gap between them is the
  * pitch. Nothing here softens the standard figure; it is computed honestly and
  * it is large because it is genuinely large.
@@ -13,12 +13,12 @@ import type { CollegeRow } from './db'
  * Three things this fixes versus the original client-side math:
  *
  * 1. It uses average NET PRICE, not published tuition. Net price is full cost of
- *    attendance minus grant aid — the number a family actually pays. It is
+ *    attendance minus grant aid, the number a family actually pays. It is
  *    usually HIGHER than tuition (Penn State: $20,644 tuition vs $32,875 net),
  *    because tuition excludes housing, food and books. So this is both more
  *    defensible and a bigger, truer pain number.
  *
- * 2. The old "potential savings" was `total / 2` — a flat halving asserted as a
+ * 2. The old "potential savings" was `total / 2`, a flat halving asserted as a
  *    calculation. The accelerated path is now modelled properly: two years of
  *    real campus cost plus the real cost of the dual-credit hours that replace
  *    the other two.
@@ -108,7 +108,7 @@ export function computeRoi(
     )
   } else {
     notes.push(
-      'Cost is based on average net price — full cost of attendance minus grant aid — which is what families actually pay.',
+      'Cost is based on average net price, full cost of attendance minus grant aid, which is what families actually pay.',
     )
   }
 
@@ -137,7 +137,7 @@ export function computeRoi(
         years,
         totalCost,
         yearsToRecoup: null,
-        recoupLabel: 'Never — typical earnings do not exceed cost of living',
+        recoupLabel: 'Never, typical earnings do not exceed cost of living',
       }
     }
     const y = Math.round((totalCost / discretionaryIncome) * 10) / 10

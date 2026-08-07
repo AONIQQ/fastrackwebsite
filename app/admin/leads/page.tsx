@@ -14,7 +14,7 @@ function LoginForm({ error }: { error?: boolean }) {
         method="POST"
         className="bg-white border-2 border-[#605dba] rounded-lg p-6 w-full max-w-sm space-y-4"
       >
-        <h1 className="text-xl font-bold text-[#080b53]">Fastrack — Leads</h1>
+        <h1 className="text-xl font-bold text-[#080b53]">Fastrack Leads</h1>
         {error && <p className="text-sm text-red-600">Incorrect token.</p>}
         <input
           type="password"
@@ -93,12 +93,12 @@ export default async function LeadsPage({
                       {l.email}
                     </a>
                   </td>
-                  <td className="p-3 whitespace-nowrap">{l.phone || '—'}</td>
-                  <td className="p-3">{l.state || '—'}</td>
+                  <td className="p-3 whitespace-nowrap">{l.phone || '-'}</td>
+                  <td className="p-3">{l.state || '-'}</td>
                   <td className="p-3">
-                    {l.residency === 'inState' ? 'In state' : l.residency === 'outOfState' ? 'Out of state' : '—'}
+                    {l.residency === 'inState' ? 'In state' : l.residency === 'outOfState' ? 'Out of state' : '-'}
                   </td>
-                  <td className="p-3">{l.college || '—'}</td>
+                  <td className="p-3">{l.college || '-'}</td>
                 </tr>
               ))}
               {leads.length === 0 && (

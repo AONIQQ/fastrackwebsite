@@ -88,7 +88,7 @@ export default function CounselorsPage() {
                 Data-Supported Training for High School Counselors
               </h1>
               <p className="mt-6 text-base sm:text-lg text-blue-100">
-                Empower your students to excel with our comprehensive Guidance Counselor Education and Training Program. Boost college readiness, increase college attendance and graduation rates, and elevate student career success through proven and data supported strategies. Our program equips high school counselors with the essential training, education, and tools needed to effectively manage their workload—particularly in the critical area of schedule building. With specialized training in creating optimal schedules that incorporate dual enrollment opportunities, counselors can significantly enhance student outcomes, ensuring a brighter future for every student they guide.
+                Empower your students to excel with our comprehensive Guidance Counselor Education and Training Program. Boost college readiness, increase college attendance and graduation rates, and elevate student career success through proven and data supported strategies. Our program equips high school counselors with the essential training, education, and tools needed to effectively manage their workload, particularly in the critical area of schedule building. With specialized training in creating optimal schedules that incorporate dual enrollment opportunities, counselors can significantly enhance student outcomes, ensuring a brighter future for every student they guide.
               </p>
             </div>
           </div>

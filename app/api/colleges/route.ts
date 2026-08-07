@@ -9,7 +9,7 @@ export const revalidate = 86400
  *  GET /api/colleges?state=PA&full=1  -> { id, name, city, student_size }[]
  *
  * The `full` shape carries the id, so the calculator can resolve a school by
- * primary key instead of by name. Name lookup is ambiguous — several states have
+ * primary key instead of by name. Name lookup is ambiguous, several states have
  * multiple campuses sharing a name.
  */
 export async function GET(request: Request) {

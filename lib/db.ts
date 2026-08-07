@@ -4,7 +4,7 @@ import { neon } from '@neondatabase/serverless';
 // connections across invocations or pays a handshake on every cold start; the HTTP
 // driver does neither, and this workload never needs a transaction.
 // Lazy init: `neon()` throws on a missing/empty URL, and the URL is only present in
-// the deployed environment — a module-scope call breaks local `next build`.
+// the deployed environment, a module-scope call breaks local `next build`.
 let _sql: ReturnType<typeof neon> | null = null;
 function client() {
   if (!_sql) _sql = neon(process.env.DATABASE_URL || process.env.POSTGRES_URL!);
@@ -31,8 +31,8 @@ export type CollegeRow = {
 
 /**
  * A college is only offered in the dropdown if we can actually compute a result
- * for it. The loader intentionally ingests every operating institution — around
- * 6,500, including certificate schools — and this is where that gets narrowed.
+ * for it. The loader intentionally ingests every operating institution, around
+ * 6,500, including certificate schools, and this is where that gets narrowed.
  */
 const COMPUTABLE = `
   coalesce(net_price, tuition_in, tuition_out) is not null

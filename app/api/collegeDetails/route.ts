@@ -19,7 +19,7 @@ export async function GET(request: Request) {
     }
 
     // Field names deliberately match the old Mongo documents so app/calculator
-    // keeps working untouched. The id and net-price fields are additive — the
+    // keeps working untouched. The id and net-price fields are additive, the
     // current client ignores them; the rewritten one should lead with net price.
     return NextResponse.json({
       id: row.id,

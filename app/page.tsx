@@ -11,7 +11,7 @@ const stats = [
   {
     value: '2.8M+',
     label: 'Students in Dual Enrollment',
-    subLabel: 'Nationwide in 2023-24 — and growing every year',
+    subLabel: 'Nationwide in 2023-24, and growing every year',
   },
   {
     value: '60+',
@@ -64,7 +64,7 @@ const faqs = [
   {
     question: "My situation is different, but I'm interested. Should I still schedule a call?",
     answer:
-      "Yes. We'll talk through your specific needs and be upfront about the best path forward—whether that's with us or another solution.",
+      "Yes. We'll talk through your specific needs and be upfront about the best path forward, whether that's with us or another solution.",
   },
   {
     question: 'Money back guarantee?',
@@ -158,7 +158,7 @@ export default function Home() {
             <div className="max-w-3xl">
               <p className="uppercase text-sm tracking-wider text-blue-200">Dual Credit Planning for Grades 8-11</p>
               <h1 className="mt-4 text-3xl sm:text-4xl md:text-5xl font-bold leading-tight">
-                Graduate college years early — with credits that actually count
+                Graduate college years early, with credits that actually count
               </h1>
               <p className="mt-6 text-lg text-blue-100">
                 We help motivated students earn their bachelor&rsquo;s degree in two years by building optimized high school schedules packed with the right dual credit courses.
@@ -189,7 +189,7 @@ export default function Home() {
                 We make it possible for students in 8th through 11th grade to earn their bachelor&rsquo;s degrees in two years by creating optimized high school schedules that utilize dual credit classes (classes that count for both high school and college credits).
               </p>
               <p className="text-lg text-gray-700">
-                Done right, dual credit can save families tens of thousands of dollars and let students start their careers years ahead of their peers — but only if every course transfers and applies to the degree. Roughly 1 in 7 dual-enrollment courses is denied at transfer, most often because it doesn&rsquo;t fit the student&rsquo;s degree requirements. Our job is making sure none of your student&rsquo;s courses are wasted.
+                Done right, dual credit can save families tens of thousands of dollars and let students start their careers years ahead of their peers, but only if every course transfers and applies to the degree. Roughly 1 in 7 dual-enrollment courses is denied at transfer, most often because it doesn&rsquo;t fit the student&rsquo;s degree requirements. Our job is making sure none of your student&rsquo;s courses are wasted.
               </p>
             </div>
             <div className="rounded-2xl bg-white p-8 shadow-lg">
@@ -205,7 +205,7 @@ export default function Home() {
                 If anything changes, we&rsquo;re by your side and will update your plan accordingly. Purchasing our one-on-one planning service gives you access to advisors who personally saved more than $70,000 by following this system.
               </p>
               <p className="mt-6 text-sm uppercase tracking-wide text-gray-500">
-                Every plan starts with a free planning session — no commitment required.
+                Every plan starts with a free planning session, no commitment required.
               </p>
             </div>
           </div>
