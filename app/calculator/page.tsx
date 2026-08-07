@@ -69,6 +69,9 @@ export default function Calculator() {
   const [error, setError] = useState<string | null>(null)
 
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false)
+  // Deep links prefill the form but must not throw a popup at someone who has
+  // not clicked anything. Direct picks in the UI count as intent; URL params do not.
+  const userIntentRef = useRef(false)
   const [email, setEmail] = useState('')
   const [phoneNumber, setPhoneNumber] = useState('')
   const [smsConsent, setSmsConsent] = useState(false)
@@ -188,9 +191,16 @@ export default function Calculator() {
   // out-of-state figures whenever residency was still unset.
   useEffect(() => {
     if (!college || !residency) return
-    if (!sessionStorage.getItem('session-email')) { setIsEmailModalOpen(true); return }
-    fetchRoi(college, residency)
+    if (sessionStorage.getItem('session-email')) { fetchRoi(college, residency); return }
+    if (userIntentRef.current) setIsEmailModalOpen(true)
   }, [college, residency, fetchRoi])
+
+  const requestResults = () => {
+    userIntentRef.current = true
+    if (!college || !residency) return
+    if (sessionStorage.getItem('session-email')) { fetchRoi(college, residency); return }
+    setIsEmailModalOpen(true)
+  }
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -214,7 +224,7 @@ export default function Calculator() {
     : ''
 
   return (
-    <div className="min-h-screen bg-slate-50 text-[#080b53] antialiased">
+    <div className="flex min-h-screen flex-col bg-slate-50 text-[#080b53] antialiased">
       <header className="bg-[#080b53] sticky top-0 z-40">
         <div className="mx-auto max-w-6xl px-5 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center">
@@ -244,10 +254,10 @@ export default function Calculator() {
       {/* Caps at 4xl on laptops but keeps growing a little on large monitors and
           TVs, where a 768px column stranded in the middle of a 2560px screen
           looks broken. Type scales with it. */}
-      <main className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6 sm:py-12 lg:max-w-4xl lg:py-16 2xl:max-w-5xl">
+      <main className="flex-1 mx-auto w-full max-w-2xl px-4 py-10 sm:px-6 sm:py-12 lg:max-w-4xl lg:py-16 2xl:max-w-5xl">
         <header className="mb-8 sm:mb-10">
           <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#605dba] sm:text-xs">
-            College ROI Calculator
+            Free Tool &middot; College ROI Calculator
           </p>
           <h1 className="text-[1.75rem] font-bold leading-[1.15] tracking-tight text-[#080b53] sm:text-4xl lg:text-[2.75rem] 2xl:text-5xl">
             What a degree really costs, and how long it takes to pay for itself.
@@ -261,7 +271,7 @@ export default function Calculator() {
         <section className="rounded-xl border border-slate-200 bg-white p-5 md:p-6 shadow-sm">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Field label="State">
-              <Select value={state || undefined} onValueChange={setState}>
+              <Select value={state || undefined} onValueChange={(v) => { userIntentRef.current = true; setState(v) }}>
                 <SelectTrigger className="h-12 w-full rounded-lg border-slate-300 bg-white text-base text-[#080b53] focus:ring-2 focus:ring-[#605dba]/30">
                   <SelectValue placeholder="Select" />
                 </SelectTrigger>
@@ -274,7 +284,7 @@ export default function Calculator() {
             </Field>
 
             <Field label="Residency">
-              <Select value={residency || undefined} onValueChange={(v) => setResidency(v as 'inState' | 'outOfState')}>
+              <Select value={residency || undefined} onValueChange={(v) => { userIntentRef.current = true; setResidency(v as 'inState' | 'outOfState') }}>
                 <SelectTrigger className="h-12 w-full rounded-lg border-slate-300 bg-white text-base text-[#080b53] focus:ring-2 focus:ring-[#605dba]/30">
                   <SelectValue placeholder="Select" />
                 </SelectTrigger>
@@ -289,7 +299,7 @@ export default function Calculator() {
               <CollegeCombobox
                 options={colleges}
                 value={college}
-                onChange={setCollege}
+                onChange={(c) => { userIntentRef.current = true; setCollege(c) }}
                 disabled={!state}
                 loading={isCollegesLoading}
                 placeholder={state ? 'Select' : 'Pick a state first'}
@@ -299,6 +309,18 @@ export default function Calculator() {
           </div>
 
           {hint && !isResultLoading && <p className="mt-4 text-sm text-slate-500">{hint}</p>}
+
+          {college && residency && !result && !isResultLoading && (
+            <div className="mt-5 flex justify-center">
+              <button
+                type="button"
+                onClick={requestResults}
+                className="rounded-lg bg-[#605dba] px-8 py-3 text-base font-semibold text-white hover:bg-[#4e4a9e]"
+              >
+                See my savings, free
+              </button>
+            </div>
+          )}
 
           {error && (
             <p className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800 border border-red-200">{error}</p>
@@ -430,7 +452,7 @@ export default function Calculator() {
       </main>
 
       {/* Navy, not white, the logo artwork is white and disappears on a light ground. */}
-      <footer className="mt-16 bg-[#080b53]">
+      <footer className="mt-auto bg-[#080b53] pt-0">
         <div className="mx-auto max-w-6xl px-5 py-10 flex flex-col items-center gap-4 text-center">
           <Image src="/logo.png" alt="Fastrack" width={140} height={40} className="h-8 w-auto" />
           <address className="not-italic text-sm leading-relaxed text-white/60">
