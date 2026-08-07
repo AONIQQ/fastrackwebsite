@@ -6,12 +6,16 @@
       "schedule": "0 15 * * *"
     },
     {
-      "path": "/api/cron/reply-pack",
-      "schedule": "0 13 * * *"
-    },
-    {
       "path": "/api/cron/growth-batch",
       "schedule": "0 13 * * 1"
+    },
+    {
+      "path": "/api/cron/community-poster",
+      "schedule": "30 14 * * *"
+    },
+    {
+      "path": "/api/cron/community-poster",
+      "schedule": "0 23 * * *"
     }
   ]
 }
