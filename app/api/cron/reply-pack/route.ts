@@ -10,7 +10,7 @@ export const maxDuration = 300
  * answers; the digest ships through the same tracked mail path as everything
  * else. No external schedulers, no scrapeable-site dependencies.
  */
-const PROMPT = `You draft community replies for Fastrack. For each thread in the research below, output exactly this format:
+const PROMPT = `For each thread found, output exactly this format:
 
 THREAD: <title>
 URL: <direct link>
@@ -22,39 +22,42 @@ Separate threads with a line containing only: ---
 If you cannot find any genuinely recent threads, output NONE and then two evergreen post ideas in the same REPLY format.`
 
 
-async function gateway(model: string, prompt: string, maxTokens: number): Promise<string> {
-  const r = await fetch('https://ai-gateway.vercel.sh/v1/chat/completions', {
+
+/** GPT-5.6 Luna with its native web-search tool, via the gateway's Responses API. */
+async function luna(prompt: string, maxTokens: number): Promise<string> {
+  const r = await fetch('https://ai-gateway.vercel.sh/v1/responses', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${process.env.AI_GATEWAY_API_KEY ?? ''}`,
     },
-    body: JSON.stringify({ model, messages: [{ role: 'user', content: prompt }], max_tokens: maxTokens }),
+    body: JSON.stringify({
+      model: 'openai/gpt-5.6-luna',
+      tools: [{ type: 'web_search' }],
+      max_output_tokens: maxTokens,
+      input: prompt,
+    }),
   })
-  if (!r.ok) throw new Error(`${model}: ${r.status}`)
+  if (!r.ok) throw new Error(`luna: ${r.status}`)
   const d = await r.json()
-  return d.choices?.[0]?.message?.content ?? ''
+  const texts: string[] = []
+  for (const o of d.output ?? []) {
+    if (o.type === 'message') {
+      for (const c of o.content ?? []) {
+        if (c.type === 'output_text') texts.push(c.text)
+      }
+    }
+  }
+  return texts.join('\n')
 }
-
-const FIND_PROMPT = `Search the web for 4 to 6 forum threads posted in the LAST 2 DAYS where parents or students discuss: dual enrollment, AP vs dual credit, CLEP, college being unaffordable, or graduating college early. Reddit (r/ApplyingToCollege, r/homeschool, r/Parenting, r/personalfinance and similar) and College Confidential. For each, report: exact title, direct URL, forum name, and a 2-3 sentence summary of what the poster is asking and any key details. Only include threads you actually found with working URLs.`
 
 async function draftPack(): Promise<{ ok: boolean; text: string; model: string }> {
   try {
-    // Stage 1: search-grounded research finds the threads.
-    let research = ''
-    for (const m of ['perplexity/sonar-pro', 'perplexity/sonar']) {
-      try {
-        research = await gateway(m, FIND_PROMPT, 2500)
-        if (research.length > 100) break
-      } catch {
-        // next
-      }
-    }
-    if (research.length < 100) return { ok: false, text: '', model: 'none' }
-
-    // Stage 2: the writing model drafts every reply.
-    const text = await gateway('openai/gpt-5.6-luna', `${PROMPT}\n\nHere is today's research listing the real threads found (use ONLY these, do not invent threads):\n\n${research}`, 3000)
-    if (text.length > 100) return { ok: true, text, model: 'sonar-pro + gpt-5.6-luna' }
+    const text = await luna(
+      `Search the web for 4 to 6 forum threads posted in the LAST 2 DAYS where parents or students discuss: dual enrollment, AP vs dual credit, CLEP, college being unaffordable, or graduating college early. Reddit (r/ApplyingToCollege, r/homeschool, r/Parenting, r/personalfinance and similar) and College Confidential. Use only threads you actually found with working URLs.\n\n${PROMPT}`,
+      4000,
+    )
+    if (text.length > 100) return { ok: true, text, model: 'gpt-5.6-luna' }
     return { ok: false, text: '', model: 'none' }
   } catch {
     return { ok: false, text: '', model: 'none' }

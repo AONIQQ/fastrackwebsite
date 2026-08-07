@@ -24,35 +24,33 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const call = async (model: string, prompt: string, maxTokens: number) => {
-    const r = await fetch('https://ai-gateway.vercel.sh/v1/chat/completions', {
+  let text = ''
+  let model = 'none'
+  try {
+    const r = await fetch('https://ai-gateway.vercel.sh/v1/responses', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${process.env.AI_GATEWAY_API_KEY ?? ''}`,
       },
-      body: JSON.stringify({ model, messages: [{ role: 'user', content: prompt }], max_tokens: maxTokens }),
+      body: JSON.stringify({
+        model: 'openai/gpt-5.6-luna',
+        tools: [{ type: 'web_search' }],
+        max_output_tokens: 5000,
+        input: `${PROMPT}\n\nUse real web search for every community, prospect, and statistic. Only include what you actually found, with URLs.`,
+      }),
     })
-    if (!r.ok) throw new Error(String(r.status))
-    const d = await r.json()
-    return (d.choices?.[0]?.message?.content ?? '') as string
-  }
-
-  let text = ''
-  let model = 'none'
-  try {
-    let research = ''
-    for (const m of ['perplexity/sonar-pro', 'perplexity/sonar']) {
-      try {
-        research = await call(m, `Research for a growth report for fastrack.school (dual credit planning for parents of high schoolers, free calculator at fastrack.school/calculator). Find with real web search: (a) three online communities (Facebook groups, subreddits, forums, Discords) where parents of high schoolers or homeschool families discuss college costs or dual enrollment, with member counts and links and any posting rules; (b) three potential partners: homeschool bloggers, college-cost YouTubers, education podcasters, or co-op leaders, with audience sizes and public contact info where findable; (c) one specific, citable statistic about dual enrollment or college costs with its source. Report facts only, with URLs.`, 3000)
-        if (research.length > 200) break
-      } catch {
-        // next
+    if (r.ok) {
+      const d = await r.json()
+      for (const o of d.output ?? []) {
+        if (o.type === 'message') {
+          for (const c of o.content ?? []) {
+            if (c.type === 'output_text') text += c.text
+          }
+        }
       }
-    }
-    if (research.length > 200) {
-      text = await call('openai/gpt-5.6-luna', `${PROMPT}\n\nUse ONLY the following verified research (do not invent communities, people, or statistics):\n\n${research}`, 3500)
-      if (text.length > 200) model = 'sonar-pro + gpt-5.6-luna'
+      if (text.length > 200) model = 'gpt-5.6-luna'
+      else text = ''
     }
   } catch {
     // fall through to the failure alert
