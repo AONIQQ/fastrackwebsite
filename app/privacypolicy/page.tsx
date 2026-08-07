@@ -24,6 +24,17 @@ const policyHighlights = [
 
 const policySections = [
   {
+    title: 'What We Collect and Why (Updated August 2026)',
+    paragraphs: [
+      'When you use our free college savings calculator, we collect your email address (and phone number if you choose to provide it) so we can send you your results, our free guide, and a short series of follow-up emails about college planning. We also record how you found us (for example, a search engine or an email link) so we know which of our efforts are useful.',
+      'Our emails contain standard delivery measurement: an invisible image that tells us an email was opened, and links that pass through our own server so we know they were clicked. We use this only to improve our emails. Every email includes a one-click unsubscribe link, and unsubscribing stops all marketing email immediately.',
+      'If you purchase a product, payment is processed by Stripe. We never see or store your card number. We record the fact of the purchase, the amount, and your email so we can deliver what you bought.',
+      'We use a small set of service providers to run this site: Vercel (hosting and anonymous traffic analytics), Neon (database), Resend and Google Workspace (email), and Stripe (payments). Each receives only what it needs to perform its function. We do not sell or rent personal information to anyone.',
+      'Our service is intended for parents and guardians. We do not knowingly collect personal information from children under 13. Information about students is provided to us by their parents for the purpose of education planning.',
+    ],
+  },
+
+  {
     title: '1. Introduction',
     paragraphs: [
       'This Privacy Policy outlines how we handle your personal and non-personal information when you use our Service.',

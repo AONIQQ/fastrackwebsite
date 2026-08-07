@@ -13,7 +13,7 @@ const wrap = (body: string) => `<!doctype html><html><body style="margin:0;paddi
 <tr><td style="padding:20px 32px;border-top:1px solid #e6e6ef;"><p style="margin:0;font-size:12px;line-height:1.6;color:#8a8aa8;">
 Fastrack LLC &middot; <a href="${SITE}" style="color:#8a8aa8;">fastrack.school</a><br>
 You are receiving this because you used the Fastrack college savings calculator.
-<a href="mailto:info@fastrack.school?subject=Unsubscribe" style="color:#8a8aa8;">Unsubscribe</a></p></td></tr>
+<a href="__UNSUB__" style="color:#8a8aa8;">Unsubscribe</a></p></td></tr>
 </table></td></tr></table><img src="__PIXEL__" width="1" height="1" alt="" style="display:block;"></body></html>`
 
 const p = (t: string) => `<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#26263a;">${t}</p>`
@@ -80,6 +80,7 @@ export async function sendNurtureStep(to: string, step: (typeof NURTURE_STEPS)[n
   // route every href through the click tracker (unsubscribe mailto stays direct)
   html = html.replace(/href="(https:\/\/[^"]+)"/g, (_m, dest) => `href="${trackLink(dest)}"`)
   html = html.replaceAll('__PIXEL__', `${SITE}/api/t/o?e=${e}&s=${stepTag}`)
+  html = html.replaceAll('__UNSUB__', `${SITE}/api/u?e=${e}`)
   await sendMail({
     to,
     subject: step.subject,

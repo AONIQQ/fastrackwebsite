@@ -24,6 +24,7 @@ export async function GET(request: Request) {
     from leads
     where created_at >= ${LAUNCH}
       and nurture_stage < ${NURTURE_STEPS.length}
+      and unsubscribed_at is null
     order by created_at
     limit 500
   `) as { id: number; email: string; created_at: string; nurture_stage: number }[]
