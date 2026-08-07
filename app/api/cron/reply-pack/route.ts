@@ -5,70 +5,76 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 300
 
 /**
- * Daily community reply pack: finds fresh Reddit threads where a Fastrack
- * answer genuinely helps, drafts the answer, and emails a paste-ready digest.
- * The human step shrinks to review-and-paste.
+ * Daily community reply pack, fully self-contained: a search-grounded model
+ * (Perplexity Sonar via the Vercel AI Gateway) finds fresh threads and drafts
+ * answers; the digest ships through the same tracked mail path as everything
+ * else. No external schedulers, no scrapeable-site dependencies.
  */
-const QUERIES = [
-  'dual enrollment worth it',
-  'college too expensive help',
-  'CLEP credits transfer',
-  'graduate college early high school credits',
-  'AP vs dual enrollment',
-]
+const PROMPT = `Find 4 to 6 forum threads posted in the LAST 2 DAYS where parents or students discuss: dual enrollment, AP vs dual credit, CLEP, college being unaffordable, or graduating college early. Look on Reddit (r/ApplyingToCollege, r/homeschool, r/Parenting, r/personalfinance and similar) and College Confidential.
 
-type Thread = { title: string; url: string; sub: string; selftext: string }
+For each thread, output exactly this format:
 
-async function findThreads(): Promise<Thread[]> {
-  const seen = new Set<string>()
-  const out: Thread[] = []
-  for (const q of QUERIES) {
+THREAD: <title>
+URL: <direct link>
+FORUM: <subreddit or forum name>
+REPLY: <a 120-180 word reply that answers the actual question first with specifics, sounds like a knowledgeable parent rather than a marketer, and only mentions the free calculator at fastrack.school/calculator or the state pages at fastrack.school/savings when genuinely relevant to the question. Never mention any paid product. No em dashes. Plain text.>
+
+Separate threads with a line containing only: ---
+
+If you cannot find any genuinely recent threads, output NONE and then two evergreen post ideas in the same REPLY format.`
+
+async function draftPack(): Promise<{ ok: boolean; text: string; model: string }> {
+  for (const model of ['perplexity/sonar-pro', 'perplexity/sonar']) {
     try {
-      const r = await fetch(
-        `https://www.reddit.com/search.json?q=${encodeURIComponent(q)}&sort=new&t=day&limit=5`,
-        { headers: { 'User-Agent': 'fastrack-reply-pack/1.0' } },
-      )
+      const r = await fetch('https://ai-gateway.vercel.sh/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${process.env.AI_GATEWAY_API_KEY ?? process.env.VERCEL_OIDC_TOKEN ?? ''}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: 'user', content: PROMPT }],
+          max_tokens: 3000,
+        }),
+      })
       if (!r.ok) continue
       const d = await r.json()
-      for (const c of d?.data?.children ?? []) {
-        const p = c.data
-        if (!p?.permalink || seen.has(p.permalink)) continue
-        seen.add(p.permalink)
-        out.push({
-          title: p.title ?? '',
-          url: `https://www.reddit.com${p.permalink}`,
-          sub: p.subreddit_name_prefixed ?? '',
-          selftext: (p.selftext ?? '').slice(0, 600),
-        })
-      }
+      const text = d.choices?.[0]?.message?.content ?? ''
+      if (text.length > 100) return { ok: true, text, model }
     } catch {
-      // one failed query never kills the pack
+      // try the next model
     }
   }
-  return out.slice(0, 6)
+  return { ok: false, text: '', model: 'none' }
 }
 
-async function draftAnswer(t: Thread): Promise<string> {
-  const prompt = `You help a parent-focused college planning company answer forum posts. Write a genuinely helpful 120-180 word reply to this post. Answer the actual question first with specifics. If naturally relevant, mention that fastrack.school/calculator is a free tool showing real net prices for 6,000+ colleges, or the free state pages at fastrack.school/savings. Never pitch a paid product. No em dashes. Plain text.\n\nSubreddit: ${t.sub}\nTitle: ${t.title}\nPost: ${t.selftext}`
-  try {
-    const r = await fetch('https://ai-gateway.vercel.sh/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${process.env.VERCEL_OIDC_TOKEN ?? ''}`,
-      },
-      body: JSON.stringify({
-        model: 'zai/glm-5.2-fast',
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 400,
-      }),
+function toDigest(text: string): { html: string; count: number } {
+  const blocks = text.split(/\n---\n?/).map((b) => b.trim()).filter(Boolean)
+  let count = 0
+  const cards = blocks
+    .map((b) => {
+      const title = b.match(/THREAD:\s*(.+)/)?.[1]
+      const url = b.match(/URL:\s*(\S+)/)?.[1]
+      const forum = b.match(/FORUM:\s*(.+)/)?.[1] ?? ''
+      const reply = b.match(/REPLY:\s*([\s\S]+)/)?.[1]?.trim()
+      if (!reply) return ''
+      count += 1
+      const head = url
+        ? `<a href="${url}">${title ?? url}</a>`
+        : (title ?? 'Post idea')
+      return `<div style="border:1px solid #e6e6ef;border-radius:8px;padding:16px;margin:16px 0;">
+        <p style="margin:0 0 4px;"><strong>${forum}</strong> ${head}</p>
+        <p style="white-space:pre-wrap;background:#f7f7fb;border-radius:6px;padding:12px;margin:8px 0 0;">${reply}</p>
+      </div>`
     })
-    if (!r.ok) throw new Error(String(r.status))
-    const d = await r.json()
-    return d.choices?.[0]?.message?.content ?? ''
-  } catch {
-    return '(draft unavailable, answer the question directly and link the calculator if relevant)'
-  }
+    .join('')
+  const html = `<div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;color:#26263a;">
+    <h2 style="color:#080b53;">Today's reply pack</h2>
+    <p>Paste, tweak one sentence so it sounds like you, submit.</p>
+    ${cards || `<p style="white-space:pre-wrap;">${text}</p>`}
+  </div>`
+  return { html, count }
 }
 
 export async function GET(request: Request) {
@@ -77,30 +83,24 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const threads = await findThreads()
-  if (threads.length === 0) return NextResponse.json({ threads: 0, sent: false })
+  const draft = await draftPack()
+  if (!draft.ok) {
+    await sendMail({
+      to: 'info@fastrack.school',
+      subject: 'Reply pack failed to generate today',
+      text: 'The AI gateway call failed on all models. Check Vercel AI Gateway credits and the AI_GATEWAY_API_KEY env var.',
+      replyTo: 'info@fastrack.school',
+    })
+    return NextResponse.json({ ok: false, reason: 'model unavailable' }, { status: 502 })
+  }
 
-  const drafted = await Promise.all(threads.map(async (t) => ({ ...t, answer: await draftAnswer(t) })))
-
-  const html = `<div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;color:#26263a;">
-    <h2 style="color:#080b53;">Today's reply pack (${drafted.length} threads)</h2>
-    <p>Paste, tweak a sentence so it sounds like you, submit. Ten minutes total.</p>
-    ${drafted
-      .map(
-        (t) => `<div style="border:1px solid #e6e6ef;border-radius:8px;padding:16px;margin:16px 0;">
-      <p style="margin:0 0 4px;"><strong>${t.sub}</strong>: <a href="${t.url}">${t.title}</a></p>
-      <p style="white-space:pre-wrap;background:#f7f7fb;border-radius:6px;padding:12px;margin:8px 0 0;">${t.answer}</p>
-    </div>`,
-      )
-      .join('')}
-  </div>`
-
+  const { html, count } = toDigest(draft.text)
   await sendMail({
     to: 'info@fastrack.school',
-    subject: `Reply pack: ${drafted.length} threads to answer today`,
+    subject: `Reply pack: ${count || 'post ideas'} for today`,
     html,
-    text: drafted.map((t) => `${t.url}\n${t.answer}\n`).join('\n---\n'),
+    text: draft.text,
     replyTo: 'info@fastrack.school',
   })
-  return NextResponse.json({ threads: drafted.length, sent: true })
+  return NextResponse.json({ ok: true, threads: count, model: draft.model })
 }
