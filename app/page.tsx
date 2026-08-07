@@ -9,14 +9,14 @@ import { Menu, Star, X } from 'lucide-react'
 
 const stats = [
   {
-    value: '$70,000+',
-    label: 'Average Potential Savings',
-    subLabel: 'Based on Education Data Initiative',
+    value: '2.8M+',
+    label: 'Students in Dual Enrollment',
+    subLabel: 'Nationwide in 2023-24 — and growing every year',
   },
   {
-    value: '100+',
-    label: 'Pleased Customers',
-    subLabel: 'Families trusting Fastrack to guide their journey',
+    value: '60+',
+    label: 'College Credits Possible',
+    subLabel: 'Earnable before high school graduation in most states',
   },
 ]
 
@@ -158,7 +158,7 @@ export default function Home() {
             <div className="max-w-3xl">
               <p className="uppercase text-sm tracking-wider text-blue-200">Dual Credit Planning for Grades 8-11</p>
               <h1 className="mt-4 text-3xl sm:text-4xl md:text-5xl font-bold leading-tight">
-                Save two years and $70,000+ on your child&rsquo;s college education
+                Graduate college years early — with credits that actually count
               </h1>
               <p className="mt-6 text-lg text-blue-100">
                 We help motivated students earn their bachelor&rsquo;s degree in two years by building optimized high school schedules packed with the right dual credit courses.
@@ -175,11 +175,6 @@ export default function Home() {
                   <p className="text-3xl font-bold">{stat.value}</p>
                   <p className="mt-2 text-lg font-semibold text-blue-100">{stat.label}</p>
                   <p className="mt-2 text-sm text-blue-200">{stat.subLabel}</p>
-                  <div className="mt-4 flex items-center gap-1 text-yellow-300">
-                    {Array.from({ length: 5 }).map((_, index) => (
-                      <Star key={index} className="h-4 w-4" fill="currentColor" />
-                    ))}
-                  </div>
                 </div>
               ))}
             </div>
@@ -194,7 +189,7 @@ export default function Home() {
                 We make it possible for students in 8th through 11th grade to earn their bachelor&rsquo;s degrees in two years by creating optimized high school schedules that utilize dual credit classes (classes that count for both high school and college credits).
               </p>
               <p className="text-lg text-gray-700">
-                By following our methodologies, students and their parents can save an average of $70,000 on education costs and start earning a professional income two years sooner than their peers. We created this service in direct response to the often inadequate and expensive advice offered by consultants and high school counselors, who may not have the most current information.
+                Done right, dual credit can save families tens of thousands of dollars and let students start their careers years ahead of their peers — but only if every course transfers and applies to the degree. Roughly 1 in 7 dual-enrollment courses is denied at transfer, most often because it doesn&rsquo;t fit the student&rsquo;s degree requirements. Our job is making sure none of your student&rsquo;s courses are wasted.
               </p>
             </div>
             <div className="rounded-2xl bg-white p-8 shadow-lg">
@@ -210,7 +205,7 @@ export default function Home() {
                 If anything changes, we&rsquo;re by your side and will update your plan accordingly. Purchasing our one-on-one planning service gives you access to advisors who personally saved more than $70,000 by following this system.
               </p>
               <p className="mt-6 text-sm uppercase tracking-wide text-gray-500">
-                See what one of our clients has to say about our program below.
+                Every plan starts with a free planning session — no commitment required.
               </p>
             </div>
           </div>
@@ -219,7 +214,7 @@ export default function Home() {
         <section className="bg-white py-16">
           <div className="container mx-auto px-4">
             <div className="rounded-2xl border border-gray-200 bg-gray-50 p-8 shadow-sm">
-              <h3 className="text-2xl font-semibold">Client Success Spotlight</h3>
+              <h3 className="text-2xl font-semibold">How Your Free Planning Session Works</h3>
               <p className="mt-4 text-gray-700">
                 Families partner with Fastrack to remove the guesswork from early college planning. During your free planning session we walk through your student&rsquo;s goals, current coursework, and state guidelines so we can map out the fastest and most affordable path to a bachelor&rsquo;s degree.
               </p>

@@ -239,10 +239,13 @@ function resultsHtml(r: ResultsEmail) {
           </p>
           <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
             <tr><td bgcolor="#605dba" style="background:#605dba;border-radius:8px;">
-              <a href="${SITE}" style="display:inline-block;padding:14px 28px;color:#ffffff;font-size:16px;font-weight:600;text-decoration:none;">Book a free planning session</a>
+              <a href="${SITE}/credit-map" style="display:inline-block;padding:14px 28px;color:#ffffff;font-size:16px;font-weight:600;text-decoration:none;">Get your done-for-you Credit Map</a>
             </td></tr>
           </table>
           <p style="margin:20px 0 0;text-align:center;font-size:14px;">
+            <a href="${SITE}/fastrack-free-guide.pdf" style="color:#605dba;">Download the free step-by-step guide &rarr;</a>
+          </p>
+          <p style="margin:12px 0 0;text-align:center;font-size:14px;">
             <a href="${SITE}/calculator" style="color:#605dba;">Run the numbers for another school &rarr;</a>
           </p>
         </td></tr>
@@ -274,8 +277,8 @@ function resultsText(r: ResultsEmail) {
     `Early earnings:   ${money(r.earlyEarnings)} (${r.yearsSaved} extra years in the workforce)`,
     `Total advantage:  ${money(r.totalAdvantage)}`,
     '',
-    `Book a free planning session: ${SITE}`,
-    `Step-by-step guide: ${SITE}/guide`,
+    `Get your done-for-you Credit Map: ${SITE}/credit-map`,
+    `Free step-by-step guide: ${SITE}/fastrack-free-guide.pdf`,
     '',
     'Figures use average net price and median post-enrollment earnings from the U.S. Department',
     'of Education College Scorecard, and assume 60 dual-credit hours at $80 per credit.',

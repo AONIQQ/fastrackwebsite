@@ -3,7 +3,18 @@ import { neon } from '@neondatabase/serverless';
 // HTTP driver rather than a TCP pool. In serverless functions a pool either leaks
 // connections across invocations or pays a handshake on every cold start; the HTTP
 // driver does neither, and this workload never needs a transaction.
-export const sql = neon(process.env.DATABASE_URL!);
+// Lazy init: `neon()` throws on a missing/empty URL, and the URL is only present in
+// the deployed environment — a module-scope call breaks local `next build`.
+let _sql: ReturnType<typeof neon> | null = null;
+function client() {
+  if (!_sql) _sql = neon(process.env.DATABASE_URL || process.env.POSTGRES_URL!);
+  return _sql;
+}
+export const sql: ReturnType<typeof neon> = new Proxy(function () {} as never, {
+  apply: (_t, _this, args) => (client() as unknown as (...a: unknown[]) => unknown)(...args),
+  get: (_t, prop) => (client() as never)[prop],
+}) as unknown as ReturnType<typeof neon>;
+
 
 export type CollegeRow = {
   id: number;
@@ -208,4 +219,30 @@ export async function listSignups(limit = 500) {
     order by created_at desc
     limit ${limit}
   `) as Record<string, unknown>[];
+}
+
+/** Largest computable colleges in a state with the figures the savings pages render. */
+export async function getTopCollegesForState(state: string, limit = 20) {
+  return (await sql`
+    select id, name, city, ownership, net_price, tuition_in, student_size
+    from colleges
+    where state = ${state.toUpperCase()} and ${sql.unsafe(COMPUTABLE)}
+    order by student_size desc nulls last, name
+    limit ${limit}
+  `) as {
+    id: number; name: string; city: string | null; ownership: number | null;
+    net_price: number | null; tuition_in: number | null; student_size: number | null;
+  }[];
+}
+
+/** Per-state aggregates for the savings pages. */
+export async function getStateSavingsStats(state: string) {
+  const rows = (await sql`
+    select
+      count(*)::int as college_count,
+      round(avg(net_price))::int as avg_net_price
+    from colleges
+    where state = ${state.toUpperCase()} and ${sql.unsafe(COMPUTABLE)} and net_price is not null
+  `) as { college_count: number; avg_net_price: number | null }[];
+  return rows[0] ?? null;
 }
