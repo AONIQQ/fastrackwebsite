@@ -61,17 +61,17 @@ export default async function CollegePage({ params }: { params: { slug: string }
 
       <main className="pb-20">
         <section className="bg-[#080b53] text-white">
-          <div className="container mx-auto px-4 py-14">
+          <div className="container mx-auto px-4 py-14 text-center">
             <p className="uppercase text-sm tracking-wider text-blue-200">
               <Link href={`/savings/${stateSlug(c.state)}`} className="hover:underline">
                 {stateName}
               </Link>{' '}
               &middot; College Costs
             </p>
-            <h1 className="mt-4 max-w-3xl text-3xl sm:text-4xl md:text-5xl font-bold leading-tight">
+            <h1 className="mx-auto mt-4 max-w-3xl text-3xl sm:text-4xl md:text-5xl font-bold leading-tight">
               What {c.name} actually costs
             </h1>
-            <p className="mt-6 max-w-2xl text-lg text-blue-100">
+            <p className="mx-auto mt-6 max-w-2xl text-lg text-blue-100">
               {c.net_price
                 ? `Families pay about ${fmt(c.net_price)} per year at ${c.name} after average financial aid. Every semester of college credit your student earns in high school is a semester of that you never pay.`
                 : `Here is the real cost picture for ${c.name}, and how dual credit earned in high school shrinks it.`}
@@ -87,20 +87,20 @@ export default async function CollegePage({ params }: { params: { slug: string }
           </div>
         </section>
 
-        <section className="container mx-auto px-4 py-14">
+        <section className="container mx-auto px-4 py-14 text-center">
           <h2 className="text-3xl font-semibold">The numbers</h2>
-          <p className="mt-3 max-w-3xl text-gray-700">
+          <p className="mx-auto mt-3 max-w-3xl text-gray-700">
             From the U.S. Department of Education&rsquo;s College Scorecard. Net price is the figure that matters: it is
             what families actually pay per year after average aid, not the sticker price.
           </p>
-          <div className="mt-8 max-w-2xl overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+          <div className="mx-auto mt-8 max-w-2xl overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
             <table className="w-full text-left text-sm md:text-base">
               <tbody>
                 {rows
                   .filter(([, v]) => v != null)
                   .map(([label, value]) => (
                     <tr key={label} className="border-t border-gray-100 first:border-t-0">
-                      <td className="px-4 py-3 text-gray-700">{label}</td>
+                      <td className="px-4 py-3 text-left text-gray-700">{label}</td>
                       <td className="px-4 py-3 font-semibold whitespace-nowrap">{value}</td>
                     </tr>
                   ))}
@@ -110,19 +110,19 @@ export default async function CollegePage({ params }: { params: { slug: string }
         </section>
 
         <section className="bg-white py-14">
-          <div className="container mx-auto px-4">
+          <div className="container mx-auto px-4 text-center">
             <h2 className="text-3xl font-semibold">How dual credit changes this math</h2>
-            <p className="mt-4 max-w-3xl text-gray-700">
+            <p className="mx-auto mt-4 max-w-3xl text-gray-700">
               Students in most states can earn college credit during high school through dual enrollment, AP, and CLEP,
               often at a small fraction of university prices. Done right, that means entering college with a semester or
               more already complete. Done wrong, it means credits that transfer but satisfy nothing: roughly 1 in 7
               dual-enrollment courses is denied at transfer, usually for degree fit.
             </p>
-            <p className="mt-4 max-w-3xl text-gray-700">
+            <p className="mx-auto mt-4 max-w-3xl text-gray-700">
               The calculator shows what the savings look like for your family at {c.name}. If you want the whole plan
               built and checked against {c.name}&rsquo;s actual transfer rules, that is what the Credit Map is for.
             </p>
-            <div className="mt-8 flex flex-col gap-4 sm:flex-row">
+            <div className="mt-8 flex flex-col justify-center gap-4 sm:flex-row">
               <Link
                 href={calcHref}
                 className="inline-block rounded-lg bg-[#605dba] px-6 py-3 text-center font-semibold text-white hover:bg-[#4e4a9e]"
@@ -139,7 +139,7 @@ export default async function CollegePage({ params }: { params: { slug: string }
           </div>
         </section>
 
-        <section className="container mx-auto px-4 py-14">
+        <section className="container mx-auto px-4 py-14 text-center">
           <p className="text-gray-600">
             See costs for more schools in{' '}
             <Link href={`/savings/${stateSlug(c.state)}`} className="font-semibold text-[#605dba] hover:underline">

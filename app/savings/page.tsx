@@ -26,10 +26,10 @@ export default function SavingsIndex() {
       </header>
 
       <main className="container mx-auto px-4 py-16 pb-24">
-        <h1 className="max-w-3xl text-3xl sm:text-4xl md:text-5xl font-bold leading-tight">
+        <h1 className="mx-auto max-w-3xl text-center text-3xl sm:text-4xl md:text-5xl font-bold leading-tight">
           Dual credit savings, state by state
         </h1>
-        <p className="mt-6 max-w-2xl text-lg text-gray-700">
+        <p className="mx-auto mt-6 max-w-2xl text-center text-lg text-gray-700">
           Pick your state to see what college actually costs there, real net-price data for every major school, and
           how much of it your student can avoid by earning college credit in high school.
         </p>

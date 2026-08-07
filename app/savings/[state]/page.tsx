@@ -45,12 +45,12 @@ export default async function StateSavingsPage({ params }: { params: { state: st
 
       <main className="pb-20">
         <section className="bg-[#080b53] text-white">
-          <div className="container mx-auto px-4 py-16">
+          <div className="container mx-auto px-4 py-16 text-center">
             <p className="uppercase text-sm tracking-wider text-blue-200">Dual Credit Savings by State</p>
-            <h1 className="mt-4 max-w-3xl text-3xl sm:text-4xl md:text-5xl font-bold leading-tight">
+            <h1 className="mx-auto mt-4 max-w-3xl text-3xl sm:text-4xl md:text-5xl font-bold leading-tight">
               How much can dual credit save your family in {name}?
             </h1>
-            <p className="mt-6 max-w-2xl text-lg text-blue-100">
+            <p className="mx-auto mt-6 max-w-2xl text-lg text-blue-100">
               {stats?.avg_net_price
                 ? `The average net price at a ${name} college is about ${fmt(stats.avg_net_price)} per year. Every semester of college credit your student finishes in high school is a semester you don't pay that for.`
                 : `Every semester of college credit your student finishes in high school is a semester of tuition, housing, and fees you never pay.`}
@@ -67,13 +67,13 @@ export default async function StateSavingsPage({ params }: { params: { state: st
         </section>
 
         <section className="container mx-auto px-4 py-14">
-          <h2 className="text-3xl font-semibold">What college actually costs in {name}</h2>
-          <p className="mt-3 max-w-3xl text-gray-700">
+          <h2 className="text-center text-3xl font-semibold">What college actually costs in {name}</h2>
+          <p className="mx-auto mt-3 max-w-3xl text-center text-gray-700">
             Net price is what families actually pay per year after average aid, not the sticker price. Data comes from
             the U.S. Department of Education&rsquo;s College Scorecard. Pick a school to see the full savings math for
             your student.
           </p>
-          <div className="mt-8 overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
+          <div className="mx-auto mt-8 max-w-4xl overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
             <table className="w-full text-left text-sm md:text-base">
               <thead className="bg-gray-50 text-gray-600">
                 <tr>
@@ -110,18 +110,18 @@ export default async function StateSavingsPage({ params }: { params: { state: st
 
         <section className="bg-white py-14">
           <div className="container mx-auto px-4">
-            <h2 className="text-3xl font-semibold">The catch nobody tells {name} families</h2>
-            <p className="mt-4 max-w-3xl text-gray-700">
+            <h2 className="text-center text-3xl font-semibold">The catch nobody tells {name} families</h2>
+            <p className="mx-auto mt-4 max-w-3xl text-center text-gray-700">
               Dual enrollment is bigger than ever, over 2.8 million high school students took college courses in
               2023-24. But roughly 1 in 7 dual-enrollment courses is denied when the student transfers, most often
               because the course doesn&rsquo;t fit the degree they end up pursuing. Common courses like College Algebra
               are denied for degree applicability more than half the time at some schools.
             </p>
-            <p className="mt-4 max-w-3xl text-gray-700">
+            <p className="mx-auto mt-4 max-w-3xl text-center text-gray-700">
               The fix is picking courses against the actual transfer rules of the target college before enrolling.
               That is exactly what a Fastrack Credit Map does.
             </p>
-            <div className="mt-8 flex flex-col gap-4 sm:flex-row">
+            <div className="mt-8 flex flex-col justify-center gap-4 sm:flex-row">
               <Link
                 href={`/calculator?state=${code}&residency=inState`}
                 className="inline-block rounded-lg bg-[#605dba] px-6 py-3 text-center font-semibold text-white hover:bg-[#4e4a9e]"
@@ -139,8 +139,8 @@ export default async function StateSavingsPage({ params }: { params: { state: st
         </section>
 
         <section className="container mx-auto px-4 py-14">
-          <h2 className="text-2xl font-semibold">Other states</h2>
-          <div className="mt-6 flex flex-wrap gap-x-4 gap-y-2 text-[#605dba]">
+          <h2 className="text-center text-2xl font-semibold">Other states</h2>
+          <div className="mt-6 flex flex-wrap justify-center gap-x-4 gap-y-2 text-[#605dba]">
             {Object.keys(STATE_NAMES)
               .filter((c) => c !== code)
               .map((c) => (
