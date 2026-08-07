@@ -96,6 +96,20 @@ export default async function LeadsPage({
           </div>
         </div>
 
+        <div className="bg-white border-2 border-[#605dba] rounded-lg p-4 mb-8">
+          <p className="text-sm font-semibold text-[#605dba] mb-2">Email performance (unique opens / clicks per drip step)</p>
+          {funnel.emailPerf.length === 0 && <p className="text-sm text-gray-500">No email events yet</p>}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {funnel.emailPerf.map((r) => (
+              <div key={r.step} className="rounded border border-gray-200 p-3">
+                <p className="text-xs uppercase text-gray-500">Email {r.step}</p>
+                <p className="text-sm">Opens: <span className="font-semibold">{r.opens}</span></p>
+                <p className="text-sm">Clicks: <span className="font-semibold">{r.clicks}</span></p>
+              </div>
+            ))}
+          </div>
+        </div>
+
         <div className="bg-white border-2 border-[#605dba] rounded-lg overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-[#090b53] text-white">

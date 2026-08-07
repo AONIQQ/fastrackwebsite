@@ -14,7 +14,7 @@ const wrap = (body: string) => `<!doctype html><html><body style="margin:0;paddi
 Fastrack LLC &middot; <a href="${SITE}" style="color:#8a8aa8;">fastrack.school</a><br>
 You are receiving this because you used the Fastrack college savings calculator.
 <a href="mailto:info@fastrack.school?subject=Unsubscribe" style="color:#8a8aa8;">Unsubscribe</a></p></td></tr>
-</table></td></tr></table></body></html>`
+</table></td></tr></table><img src="__PIXEL__" width="1" height="1" alt="" style="display:block;"></body></html>`
 
 const p = (t: string) => `<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#26263a;">${t}</p>`
 const btn = (href: string, label: string) =>
@@ -72,10 +72,18 @@ export const NURTURE_STEPS: { stage: number; afterDays: number; subject: string;
 
 export async function sendNurtureStep(to: string, step: (typeof NURTURE_STEPS)[number], leadId?: number) {
   const checkout = `${CHECKOUT}?prefilled_email=${encodeURIComponent(to)}&client_reference_id=${encodeURIComponent(`lead-${leadId ?? 0}-n${step.stage}`)}`
+  const e = Buffer.from(to.toLowerCase()).toString('base64url')
+  const stepTag = `n${step.stage}`
+  const trackLink = (dest: string) =>
+    `${SITE}/api/t/c?e=${e}&s=${stepTag}&u=${encodeURIComponent(dest)}`
+  let html = step.html.replaceAll('__CHECKOUT__', checkout)
+  // route every href through the click tracker (unsubscribe mailto stays direct)
+  html = html.replace(/href="(https:\/\/[^"]+)"/g, (_m, dest) => `href="${trackLink(dest)}"`)
+  html = html.replaceAll('__PIXEL__', `${SITE}/api/t/o?e=${e}&s=${stepTag}`)
   await sendMail({
     to,
     subject: step.subject,
-    html: step.html.replaceAll('__CHECKOUT__', checkout),
+    html,
     text: 'View this email in an HTML capable client. Calculator: https://www.fastrack.school/calculator',
     replyTo: 'info@fastrack.school',
   })

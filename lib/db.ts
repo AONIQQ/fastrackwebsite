@@ -272,5 +272,12 @@ export async function funnelStats() {
     select count(*)::int as count, coalesce(sum(amount_cents),0)::int as cents
     from sales
   `) as { count: number; cents: number }[];
-  return { bySource, byStage, sales: sales[0] };
+  const emailPerf = (await sql`
+    select step,
+      count(distinct email) filter (where kind = 'open')::int as opens,
+      count(distinct email) filter (where kind = 'click')::int as clicks
+    from email_events
+    group by step order by step
+  `) as { step: string; opens: number; clicks: number }[];
+  return { bySource, byStage, sales: sales[0], emailPerf };
 }
