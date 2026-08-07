@@ -1,0 +1,80 @@
+import { sendMail } from './mail'
+
+const SITE = 'https://www.fastrack.school'
+const CHECKOUT = 'https://buy.stripe.com/6oU28rfH1eqa9g90i21Fe06'
+
+const wrap = (body: string) => `<!doctype html><html><body style="margin:0;padding:0;background:#f4f4f8;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:24px 0;"><tr><td align="center">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;font-family:Arial,Helvetica,sans-serif;">
+<tr><td style="background:#080b53;padding:20px 32px;"><img src="${SITE}/logo.png" width="110" alt="Fastrack" style="display:block;border:0;"></td></tr>
+<tr><td style="padding:32px;">${body}
+<p style="margin:24px 0 0;font-size:16px;line-height:1.6;color:#26263a;">Andrew<br>Fastrack</p></td></tr>
+<tr><td style="padding:20px 32px;border-top:1px solid #e6e6ef;"><p style="margin:0;font-size:12px;line-height:1.6;color:#8a8aa8;">
+Fastrack LLC &middot; <a href="${SITE}" style="color:#8a8aa8;">fastrack.school</a><br>
+You are receiving this because you used the Fastrack college savings calculator.
+<a href="mailto:info@fastrack.school?subject=Unsubscribe" style="color:#8a8aa8;">Unsubscribe</a></p></td></tr>
+</table></td></tr></table></body></html>`
+
+const p = (t: string) => `<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#26263a;">${t}</p>`
+const btn = (href: string, label: string) =>
+  `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 20px;"><tr><td style="background:#605dba;border-radius:8px;"><a href="${href}" style="display:inline-block;padding:13px 26px;color:#ffffff;font-size:16px;font-weight:bold;text-decoration:none;">${label}</a></td></tr></table>`
+
+/** Day offsets and content for each stage. Stage 0 is the results email, sent at capture. */
+export const NURTURE_STEPS: { stage: number; afterDays: number; subject: string; html: string }[] = [
+  {
+    stage: 1,
+    afterDays: 2,
+    subject: 'The three ways families lose money on dual credit',
+    html: wrap(
+      p('Quick follow-up on your calculator results. Dual credit saves real money, but three mistakes quietly eat the savings:') +
+        p('<strong>1. Courses that transfer but do not count.</strong> The college accepts the credit, then files it as a free elective that satisfies nothing. The class was paid for twice.') +
+        p('<strong>2. The wrong version of the right course.</strong> Many colleges run separate tracks for majors and non-majors. Taking the non-major version of a course your student needs for their major means retaking it.') +
+        p('<strong>3. Planning against the wrong requirements.</strong> High school graduation requirements and college degree requirements are different lists. A schedule that only satisfies one wastes the other.') +
+        p('The free guide covers how to avoid all three:') +
+        btn(`${SITE}/fastrack-free-guide.pdf`, 'Get the free guide'),
+    ),
+  },
+  {
+    stage: 2,
+    afterDays: 5,
+    subject: 'Will your student’s credits actually transfer?',
+    html: wrap(
+      p('One number worth knowing before your student enrolls in anything: roughly 1 in 7 dual-enrollment courses is denied at transfer. Not because the course was bad, but because it did not fit the degree the student ended up pursuing.') +
+        p('Some common courses are far worse. College Algebra and intro economics get denied for degree fit more than half the time at some schools.') +
+        p('The fix is boring but effective: check every course against the actual transfer rules of the target college before enrolling, not after. That is exactly what we do:') +
+        btn(`${SITE}/credit-map`, 'See how the Credit Map works'),
+    ),
+  },
+  {
+    stage: 3,
+    afterDays: 8,
+    subject: 'A done-for-you plan for your student',
+    html: wrap(
+      p('If you want the whole thing handled: the Fastrack Credit Map is a term-by-term course plan from where your student is now through college graduation. Real course codes, every course checked against the transfer rules of the target college, every verified line with a source you can click.') +
+        p('It is $497, delivered within 7 business days, no calls required. 30-day refund, no questions asked. And if your student’s state and college combination is one we cannot fully verify, we tell you up front and refund you rather than guess.') +
+        btn(CHECKOUT, 'Get Your Credit Map ($497)') +
+        p('Not sure it fits? Reply with your student’s state and the college(s) they are considering, and I will tell you straight whether we can help.'),
+    ),
+  },
+  {
+    stage: 4,
+    afterDays: 12,
+    subject: 'Last note from me',
+    html: wrap(
+      p('I will keep this short. Course registration windows are the deadline that matters: once your student picks next term’s classes, the planning either happened or it did not.') +
+        p('If you want the plan done for you, it is here:') +
+        btn(`${SITE}/credit-map`, 'Get the Credit Map') +
+        p('If you would rather do it yourself, the free guide and calculator stay free forever. Either way, check every course against the target college’s transfer rules before enrolling. It is the one step that protects all the others.'),
+    ),
+  },
+]
+
+export async function sendNurtureStep(to: string, step: (typeof NURTURE_STEPS)[number]) {
+  await sendMail({
+    to,
+    subject: step.subject,
+    html: step.html,
+    text: 'View this email in an HTML capable client. Calculator: https://www.fastrack.school/calculator',
+    replyTo: 'info@fastrack.school',
+  })
+}
