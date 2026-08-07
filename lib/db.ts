@@ -253,3 +253,26 @@ export async function getAllComputableColleges() {
     select id, name from colleges where ${sql.unsafe(COMPUTABLE)} order by id
   `) as { id: number; name: string }[];
 }
+
+/** Funnel view: where leads come from, how deep the drip has taken them, and sales. */
+export async function funnelStats() {
+  const [bySource, byStage, sales] = await Promise.all([
+    sql`
+      select coalesce(utm->>'utm_source', case when referrer <> '' then 'referral' else 'direct' end) as source,
+             count(*)::int as leads
+      from leads
+      where created_at >= '2026-08-06'
+      group by 1 order by leads desc limit 10
+    ` as Promise<{ source: string; leads: number }[]>,
+    sql`
+      select nurture_stage, count(*)::int as leads
+      from leads where created_at >= '2026-08-06'
+      group by 1 order by 1
+    ` as Promise<{ nurture_stage: number; leads: number }[]>,
+    sql`
+      select count(*)::int as count, coalesce(sum(amount_cents),0)::int as cents
+      from sales
+    ` as Promise<{ count: number; cents: number }[]>,
+  ]);
+  return { bySource, byStage, sales: sales[0] };
+}

@@ -1,4 +1,4 @@
-import { listLeads, leadStats } from '@/lib/db'
+import { funnelStats, listLeads, leadStats } from '@/lib/db'
 import { isAdmin } from '@/lib/admin'
 
 export const dynamic = 'force-dynamic'
@@ -41,7 +41,7 @@ export default async function LeadsPage({
 }) {
   if (!isAdmin()) return <LoginForm error={searchParams.error === '1'} />
 
-  const [leads, stats] = await Promise.all([listLeads(1000), leadStats()])
+  const [leads, stats, funnel] = await Promise.all([listLeads(1000), leadStats(), funnelStats()])
 
   const tiles = [
     { label: 'Total leads', value: stats.total },
@@ -70,6 +70,30 @@ export default async function LeadsPage({
               <p className="text-3xl font-bold">{t.value.toLocaleString()}</p>
             </div>
           ))}
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-3 mb-8">
+          <div className="bg-white border-2 border-[#605dba] rounded-lg p-4">
+            <p className="text-sm font-semibold text-[#605dba]">Sales</p>
+            <p className="text-3xl font-bold">{funnel.sales.count}</p>
+            <p className="text-sm text-gray-600">${(funnel.sales.cents / 100).toLocaleString()} collected</p>
+          </div>
+          <div className="bg-white border-2 border-[#605dba] rounded-lg p-4">
+            <p className="text-sm font-semibold text-[#605dba]">Leads by source (since launch)</p>
+            {funnel.bySource.length === 0 && <p className="text-sm text-gray-500">No leads yet</p>}
+            {funnel.bySource.map((r) => (
+              <p key={r.source} className="text-sm flex justify-between"><span>{r.source}</span><span className="font-semibold">{r.leads}</span></p>
+            ))}
+          </div>
+          <div className="bg-white border-2 border-[#605dba] rounded-lg p-4">
+            <p className="text-sm font-semibold text-[#605dba]">Nurture stage</p>
+            {funnel.byStage.map((r) => (
+              <p key={r.nurture_stage} className="text-sm flex justify-between">
+                <span>{r.nurture_stage === 0 ? 'Captured (stage 0)' : `Sent email ${r.nurture_stage} of 4`}</span>
+                <span className="font-semibold">{r.leads}</span>
+              </p>
+            ))}
+          </div>
         </div>
 
         <div className="bg-white border-2 border-[#605dba] rounded-lg overflow-x-auto">

@@ -1,5 +1,6 @@
 'use client'
 
+import { track } from '@vercel/analytics'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -8,6 +9,18 @@ import SiteFooter from '@/components/SiteFooter'
 import { Check } from 'lucide-react'
 
 const CHECKOUT_URL = process.env.NEXT_PUBLIC_CREDIT_MAP_CHECKOUT_URL
+
+function checkoutHref(): string {
+  if (!CHECKOUT_URL) return ''
+  if (typeof window === 'undefined') return CHECKOUT_URL
+  const p = new URLSearchParams(window.location.search)
+  const src = ['utm_source', 'utm_medium', 'utm_campaign', 'gclid', 'fbclid']
+    .map((k) => (p.get(k) ? `${k}:${p.get(k)}` : null))
+    .filter(Boolean)
+    .join('|')
+    .slice(0, 190)
+  return src ? `${CHECKOUT_URL}?client_reference_id=${encodeURIComponent(src)}` : CHECKOUT_URL
+}
 
 const deliverables = [
   'A term-by-term schedule from now through college graduation, with real course codes from your community college and target university',
@@ -76,7 +89,7 @@ export default function CreditMap() {
               </p>
               <div className="mt-8 flex flex-col justify-center gap-4 sm:flex-row">
                 {CHECKOUT_URL ? (
-                  <a href={CHECKOUT_URL}>
+                  <a href={checkoutHref()} onClick={() => track('Checkout Click')}>
                     <Button className="bg-white text-[#080b53] hover:bg-blue-100 font-semibold px-8 py-6 text-lg">
                       Get Your Credit Map ($497)
                     </Button>
@@ -135,7 +148,7 @@ export default function CreditMap() {
             </p>
             <div className="mt-8 flex justify-center">
               {CHECKOUT_URL ? (
-                <a href={CHECKOUT_URL}>
+                <a href={checkoutHref()} onClick={() => track('Checkout Click')}>
                   <Button className="bg-white text-[#080b53] hover:bg-blue-100 font-semibold px-8 py-6 text-lg">
                     Get Your Credit Map ($497)
                   </Button>

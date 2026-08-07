@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useRef, useCallback } from 'react'
+import { track } from '@vercel/analytics'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -207,6 +208,7 @@ export default function Calculator() {
     if (!college || !residency) return
     setIsSubmitting(true)
     sessionStorage.setItem('session-email', email)
+    track('Lead Captured')
     leadShouldBeInsertedRef.current = true
     setIsEmailModalOpen(false)
     const roi = await fetchRoi(college, residency)

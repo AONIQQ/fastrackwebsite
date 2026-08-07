@@ -38,7 +38,7 @@ export async function GET(request: Request) {
     if (!next || ageDays < next.afterDays) continue
 
     try {
-      await sendNurtureStep(lead.email, next)
+      await sendNurtureStep(lead.email, next, lead.id)
       await sql`
         update leads set nurture_stage = ${next.stage}, nurture_last_at = now()
         where id = ${lead.id}

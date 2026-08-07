@@ -1,6 +1,7 @@
 import { sendMail } from './mail'
 
 const SITE = 'https://www.fastrack.school'
+const U = (step: string) => `utm_source=email&utm_medium=nurture&utm_campaign=${step}`
 const CHECKOUT = 'https://buy.stripe.com/6oU28rfH1eqa9g90i21Fe06'
 
 const wrap = (body: string) => `<!doctype html><html><body style="margin:0;padding:0;background:#f4f4f8;">
@@ -31,7 +32,7 @@ export const NURTURE_STEPS: { stage: number; afterDays: number; subject: string;
         p('<strong>2. The wrong version of the right course.</strong> Many colleges run separate tracks for majors and non-majors. Taking the non-major version of a course your student needs for their major means retaking it.') +
         p('<strong>3. Planning against the wrong requirements.</strong> High school graduation requirements and college degree requirements are different lists. A schedule that only satisfies one wastes the other.') +
         p('The free guide covers how to avoid all three:') +
-        btn(`${SITE}/fastrack-free-guide.pdf`, 'Get the free guide'),
+        btn(`${SITE}/fastrack-free-guide.pdf?${U('n1')}`, 'Get the free guide'),
     ),
   },
   {
@@ -42,7 +43,7 @@ export const NURTURE_STEPS: { stage: number; afterDays: number; subject: string;
       p('One number worth knowing before your student enrolls in anything: roughly 1 in 7 dual-enrollment courses is denied at transfer. Not because the course was bad, but because it did not fit the degree the student ended up pursuing.') +
         p('Some common courses are far worse. College Algebra and intro economics get denied for degree fit more than half the time at some schools.') +
         p('The fix is boring but effective: check every course against the actual transfer rules of the target college before enrolling, not after. That is exactly what we do:') +
-        btn(`${SITE}/credit-map`, 'See how the Credit Map works'),
+        btn(`${SITE}/credit-map?${U('n2')}`, 'See how the Credit Map works'),
     ),
   },
   {
@@ -52,7 +53,7 @@ export const NURTURE_STEPS: { stage: number; afterDays: number; subject: string;
     html: wrap(
       p('If you want the whole thing handled: the Fastrack Credit Map is a term-by-term course plan from where your student is now through college graduation. Real course codes, every course checked against the transfer rules of the target college, every verified line with a source you can click.') +
         p('It is $497, delivered within 7 business days, no calls required. 30-day refund, no questions asked. And if your student’s state and college combination is one we cannot fully verify, we tell you up front and refund you rather than guess.') +
-        btn(CHECKOUT, 'Get Your Credit Map ($497)') +
+        btn('__CHECKOUT__', 'Get Your Credit Map ($497)') +
         p('Not sure it fits? Reply with your student’s state and the college(s) they are considering, and I will tell you straight whether we can help.'),
     ),
   },
@@ -63,17 +64,18 @@ export const NURTURE_STEPS: { stage: number; afterDays: number; subject: string;
     html: wrap(
       p('I will keep this short. Course registration windows are the deadline that matters: once your student picks next term’s classes, the planning either happened or it did not.') +
         p('If you want the plan done for you, it is here:') +
-        btn(`${SITE}/credit-map`, 'Get the Credit Map') +
+        btn(`${SITE}/credit-map?${U('n4')}`, 'Get the Credit Map') +
         p('If you would rather do it yourself, the free guide and calculator stay free forever. Either way, check every course against the target college’s transfer rules before enrolling. It is the one step that protects all the others.'),
     ),
   },
 ]
 
-export async function sendNurtureStep(to: string, step: (typeof NURTURE_STEPS)[number]) {
+export async function sendNurtureStep(to: string, step: (typeof NURTURE_STEPS)[number], leadId?: number) {
+  const checkout = `${CHECKOUT}?prefilled_email=${encodeURIComponent(to)}&client_reference_id=${encodeURIComponent(`lead-${leadId ?? 0}-n${step.stage}`)}`
   await sendMail({
     to,
     subject: step.subject,
-    html: step.html,
+    html: step.html.replaceAll('__CHECKOUT__', checkout),
     text: 'View this email in an HTML capable client. Calculator: https://www.fastrack.school/calculator',
     replyTo: 'info@fastrack.school',
   })
