@@ -114,7 +114,7 @@ export default async function StateSavingsPage({ params }: { params: { state: st
               are denied for degree applicability more than half the time at some schools.
             </p>
             <p className="mt-4 max-w-3xl text-gray-700">
-              The fix is picking courses against the actual transfer rules of the target college before enrolling , 
+              The fix is picking courses against the actual transfer rules of the target college before enrolling.
               which is exactly what a Fastrack Credit Map does.
             </p>
             <div className="mt-8 flex flex-col gap-4 sm:flex-row">
