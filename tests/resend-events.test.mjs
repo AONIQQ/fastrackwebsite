@@ -52,6 +52,8 @@ test('valid raw-body signature verifies before a normalized event is persisted',
     rawBody: body,
     headers: signedRequest(body),
     secret,
+    ingestionEnabled: true,
+    projectionEnabled: true,
     nowSeconds: now,
     verify: sdkVerify,
     persist: async (event) => { persisted = event; return { duplicate: false, outcome: 'matched' } },
@@ -79,6 +81,8 @@ test('missing, invalid, mutated-body, stale, and future signatures fail before p
       rawBody: body,
       headers,
       secret,
+      ingestionEnabled: true,
+      projectionEnabled: true,
       nowSeconds: now,
       verify: sdkVerify,
       persist: async () => { writes += 1; return { duplicate: false, outcome: 'matched' } },
@@ -98,9 +102,9 @@ test('duplicate provider event IDs are rejected and do not project twice', async
     projections += 1
     return { duplicate: false, outcome: 'matched' }
   }
-  const request = { rawBody: body, headers: signedRequest(body), secret, nowSeconds: now, verify: sdkVerify, persist }
-  assert.deepEqual(await ingestResendWebhook(request), { status: 200, body: { ok: true, outcome: 'matched' } })
-  assert.deepEqual(await ingestResendWebhook(request), { status: 200, body: { ok: true, duplicate: true } })
+  const request = { rawBody: body, headers: signedRequest(body), secret, nowSeconds: now, verify: sdkVerify, persist, ingestionEnabled: true, projectionEnabled: true }
+  assert.deepEqual(await ingestResendWebhook(request), { status: 200, body: { ok: true, outcome: 'matched', projected: false } })
+  assert.deepEqual(await ingestResendWebhook(request), { status: 200, body: { ok: true, duplicate: true, projected: false } })
   assert.equal(projections, 1)
 })
 
@@ -129,11 +133,41 @@ test('signed unknown-message events remain aggregate unmatched evidence', async 
     rawBody: body,
     headers: signedRequest(body),
     secret,
+    ingestionEnabled: true,
+    projectionEnabled: true,
     nowSeconds: now,
     verify: sdkVerify,
     persist: async () => ({ duplicate: false, outcome: 'unmatched' }),
   })
-  assert.deepEqual(response, { status: 200, body: { ok: true, outcome: 'unmatched' } })
+  assert.deepEqual(response, { status: 200, body: { ok: true, outcome: 'unmatched', projected: false } })
+})
+
+test('stopped ingestion returns retryable status before verification or persistence', async () => {
+  let verifies = 0
+  let writes = 0
+  const response = await ingestResendWebhook({
+    rawBody: payload(), headers: signedRequest(payload()), secret,
+    verify: () => { verifies += 1 },
+    persist: async () => { writes += 1 },
+  })
+  assert.deepEqual(response, { status: 503, body: { error: 'Webhook ingestion stopped' } })
+  assert.equal(verifies, 0)
+  assert.equal(writes, 0)
+})
+
+test('projection can stop while a signed event is durably acknowledged', async () => {
+  const body = payload()
+  let options
+  const response = await ingestResendWebhook({
+    rawBody: body, headers: signedRequest(body), secret, nowSeconds: now,
+    ingestionEnabled: true, projectionEnabled: false, verify: sdkVerify,
+    persist: async (_event, receivedOptions) => {
+      options = receivedOptions
+      return { duplicate: false, outcome: 'matched', projected: false }
+    },
+  })
+  assert.deepEqual(options, { project: false })
+  assert.deepEqual(response, { status: 200, body: { ok: true, outcome: 'matched', projected: false } })
 })
 
 test('normalization stores bounded categories, never provider PII detail', () => {
@@ -178,4 +212,5 @@ test('database source is atomic, idempotent, linked, monotonic, and fixture-safe
   assert.match(messageLedger, /event\.email_message_id is null/)
   assert.match(messageLedger, /event\.provider_message_id = \$\{receipt\.messageId\}/)
   assert.match(messageLedger, /order by case event\.event_type[\s\S]*desc,[\s\S]*event\.provider_created_at desc/)
+  assert.match(ledger, /projectResendEventBacklog[\s\S]*candidate_events[\s\S]*limit \$\{boundedLimit\}/)
 })

@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { sql } from './db'
 import { sendResultsEmail } from './mail'
 import { NURTURE_STEPS, sendNurtureStep } from './nurture'
+import { canClaimMessage, rolloutControls } from './rollout-controls.mjs'
 
 type Message = {
   id: number
@@ -12,6 +13,7 @@ type Message = {
   tracking_id: string
   claim_token: string
   attempt_count: number
+  claim_origin: 'pending' | 'retryable' | 'claimed'
   email: string
   college: string | null
   residency: string | null
@@ -35,13 +37,19 @@ const failureCategory = (error: unknown) => {
 }
 
 export async function claimMessageByLead(leadId: number, kind: 'results' | 'nurture' = 'results') {
+  const controls = rolloutControls()
+  const allowPending = canClaimMessage(kind, 'pending', controls)
+  const allowRetry = canClaimMessage(kind, 'retryable', controls)
+  if (!allowPending && !allowRetry) return null
   const token = randomUUID()
   const trackingId = randomUUID()
   const rows = (await sql`
     with candidate as (
-      select m.id from email_messages m join leads l on l.id = m.lead_id
+      select m.id, m.status as claim_origin from email_messages m join leads l on l.id = m.lead_id
       where m.lead_id = ${leadId} and m.kind = ${kind}
-        and m.status in ('pending', 'retryable', 'claimed')
+        and coalesce(m.rollout_dispatch_eligible, true)
+        and ((${allowPending} and m.status = 'pending')
+          or (${allowRetry} and m.status in ('retryable', 'claimed')))
         and m.next_attempt_at <= now()
         and (m.status <> 'claimed' or m.claim_expires_at <= now())
         and l.unsubscribed_at is null
@@ -59,25 +67,31 @@ export async function claimMessageByLead(leadId: number, kind: 'results' | 'nurt
         attempt_count = attempt_count + 1, updated_at = now()
       from candidate join identity on identity.email_message_id = candidate.id
       where m.id = candidate.id
-      returning m.*, identity.tracking_id
+      returning m.*, identity.tracking_id, candidate.claim_origin
     )
     select claimed.id, claimed.lead_id, claimed.kind, claimed.nurture_stage,
       claimed.provider_idempotency_key, claimed.claim_token, claimed.attempt_count,
-      claimed.tracking_id,
+      claimed.tracking_id, claimed.claim_origin,
       leads.email, leads.college, leads.residency, leads.snapshot
     from claimed join leads on leads.id = claimed.lead_id
   `) as Message[]
   return rows[0] ?? null
 }
 
-export async function claimNextMessage() {
+export async function claimNextMessage(kind: 'results' | 'nurture') {
+  const controls = rolloutControls()
+  const allowPending = canClaimMessage(kind, 'pending', controls)
+  const allowRetry = canClaimMessage(kind, 'retryable', controls)
+  if (!allowPending && !allowRetry) return null
   const token = randomUUID()
   const trackingId = randomUUID()
   const rows = (await sql`
     with candidate as (
-      select m.id from email_messages m
+      select m.id, m.status as claim_origin from email_messages m
       join leads l on l.id = m.lead_id
-      where m.status in ('pending', 'retryable', 'claimed')
+      where m.kind = ${kind} and coalesce(m.rollout_dispatch_eligible, true)
+        and ((${allowPending} and m.status = 'pending')
+          or (${allowRetry} and m.status in ('retryable', 'claimed')))
         and m.next_attempt_at <= now()
         and (m.status <> 'claimed' or m.claim_expires_at <= now())
         and l.unsubscribed_at is null
@@ -95,11 +109,11 @@ export async function claimNextMessage() {
         claim_expires_at = now() + interval '10 minutes',
         attempt_count = attempt_count + 1, updated_at = now()
       from candidate join identity on identity.email_message_id = candidate.id
-      where m.id = candidate.id returning m.*, identity.tracking_id
+      where m.id = candidate.id returning m.*, identity.tracking_id, candidate.claim_origin
     )
     select claimed.id, claimed.lead_id, claimed.kind, claimed.nurture_stage,
       claimed.provider_idempotency_key, claimed.claim_token, claimed.attempt_count,
-      claimed.tracking_id,
+      claimed.tracking_id, claimed.claim_origin,
       leads.email, leads.college, leads.residency, leads.snapshot
     from claimed join leads on leads.id = claimed.lead_id
   `) as Message[]
@@ -107,6 +121,10 @@ export async function claimNextMessage() {
 }
 
 export async function dispatchClaimedMessage(message: Message) {
+  const controls = rolloutControls()
+  if (!canClaimMessage(message.kind, message.claim_origin, controls)) {
+    return 'stopped' as const
+  }
   try {
     const receipt = message.kind === 'results'
       ? await sendResultsEmail({
@@ -148,7 +166,8 @@ export async function dispatchClaimedMessage(message: Message) {
         select event.event_type, event.provider_created_at, event.failure_category
         from email_provider_events event
         cross join (select count(*) from linked_events) linkage_barrier
-        where ${receipt.provider} = 'resend' and ${receipt.messageId} is not null
+        where ${controls.resendWebhookProject}
+          and ${receipt.provider} = 'resend' and ${receipt.messageId} is not null
           and event.provider_message_id = ${receipt.messageId}
         order by case event.event_type
           when 'sent' then 10 when 'delivery_delayed' then 20 when 'delivered' then 30
@@ -242,7 +261,27 @@ export async function processResultMessage(leadId: number) {
   return message ? dispatchClaimedMessage(message) : null
 }
 
+export async function enqueueShadowResults(limit = 500) {
+  const controls = rolloutControls()
+  if (!controls.resultsEnqueue) return 0
+  const boundedLimit = Math.max(1, Math.min(1000, Math.trunc(limit)))
+  const rows = (await sql`
+    with candidate as (
+      select id from email_messages
+      where kind = 'results' and status = 'pending'
+        and coalesce(rollout_dispatch_eligible, true) = false
+      order by id limit ${boundedLimit} for update skip locked
+    ), promoted as (
+      update email_messages message set rollout_dispatch_eligible = true, updated_at = now()
+      from candidate where message.id = candidate.id returning 1
+    ) select count(*)::int as promoted from promoted
+  `) as { promoted: number }[]
+  return rows[0]?.promoted ?? 0
+}
+
 export async function enqueueDueNurture() {
+  const controls = rolloutControls()
+  if (!controls.nurtureEnqueue) return 0
   const rows = (await sql`
     with eligible as (
       select l.id as lead_id, l.nurture_stage + 1 as stage, l.is_fixture
@@ -257,9 +296,10 @@ export async function enqueueDueNurture() {
           case l.nurture_stage + 1 when 1 then 2 when 2 then 5 when 3 then 8 when 4 then 12 end
     ), inserted as (
       insert into email_messages (
-        lead_id, kind, nurture_stage, logical_key, provider_idempotency_key, is_fixture
+        lead_id, kind, nurture_stage, logical_key, provider_idempotency_key, is_fixture,
+        rollout_dispatch_eligible
       ) select lead_id, 'nurture', stage, 'lead:' || lead_id || ':nurture:' || stage,
-        'ft-lead-' || lead_id || '-n' || stage, coalesce(is_fixture, false)
+        'ft-lead-' || lead_id || '-n' || stage, coalesce(is_fixture, false), true
       from eligible on conflict (logical_key) do nothing returning id
     ) select count(*)::int as inserted from inserted
   `) as { inserted: number }[]
@@ -269,7 +309,8 @@ export async function enqueueDueNurture() {
 export async function messageBacklog() {
   const rows = (await sql`
     select count(*)::int as count from email_messages m join leads l on l.id = m.lead_id
-    where m.status in ('pending', 'retryable', 'claimed') and l.unsubscribed_at is null
+    where m.status in ('pending', 'retryable', 'claimed')
+      and coalesce(m.rollout_dispatch_eligible, true) and l.unsubscribed_at is null
   `) as { count: number }[]
   return rows[0]?.count ?? 0
 }

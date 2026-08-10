@@ -8,7 +8,8 @@ export type NormalizedResendEvent = {
   failureCategory: string | null
 }
 
-export async function persistResendEvent(event: NormalizedResendEvent) {
+export async function persistResendEvent(event: NormalizedResendEvent, options: { project?: boolean } = {}) {
+  const project = options.project === true
   const rows = (await sql`
     with matched_message as (
       select id, is_fixture from email_messages
@@ -32,7 +33,7 @@ export async function persistResendEvent(event: NormalizedResendEvent) {
         provider_failure_category = ${event.failureCategory},
         updated_at = now()
       from inserted
-      where message.id = inserted.email_message_id
+      where ${project} and message.id = inserted.email_message_id
         and (
           message.provider_delivery_state is null
           or case ${event.eventType}
@@ -63,6 +64,77 @@ export async function persistResendEvent(event: NormalizedResendEvent) {
 
   if (!rows.length) return { duplicate: true as const }
   return { duplicate: false as const, outcome: rows[0].outcome, projected: rows[0].projected > 0 }
+}
+
+export async function projectResendEventBacklog(limit = 500) {
+  const boundedLimit = Math.max(1, Math.min(1000, Math.trunc(limit)))
+  const rows = (await sql`
+    with best_events as materialized (
+      select distinct on (event.email_message_id)
+        event.email_message_id, event.event_type, event.provider_created_at, event.failure_category
+      from email_provider_events event
+      where event.email_message_id is not null
+      order by event.email_message_id,
+        case event.event_type
+          when 'sent' then 10 when 'delivery_delayed' then 20 when 'delivered' then 30
+          when 'failed' then 40 when 'bounced' then 40 when 'suppressed' then 40
+          when 'complained' then 50 else 0 end desc,
+        event.provider_created_at desc, event.provider_event_id desc
+    ), candidate_events as materialized (
+      select best.* from best_events best
+      join email_messages message on message.id = best.email_message_id
+      where message.provider_delivery_state is null
+        or case best.event_type
+          when 'sent' then 10 when 'delivery_delayed' then 20 when 'delivered' then 30
+          when 'failed' then 40 when 'bounced' then 40 when 'suppressed' then 40
+          when 'complained' then 50 else 0 end
+        > case message.provider_delivery_state
+          when 'sent' then 10 when 'delivery_delayed' then 20 when 'delivered' then 30
+          when 'failed' then 40 when 'bounced' then 40 when 'suppressed' then 40
+          when 'complained' then 50 else 0 end
+        or (case best.event_type
+          when 'sent' then 10 when 'delivery_delayed' then 20 when 'delivered' then 30
+          when 'failed' then 40 when 'bounced' then 40 when 'suppressed' then 40
+          when 'complained' then 50 else 0 end
+          = case message.provider_delivery_state
+            when 'sent' then 10 when 'delivery_delayed' then 20 when 'delivered' then 30
+            when 'failed' then 40 when 'bounced' then 40 when 'suppressed' then 40
+            when 'complained' then 50 else 0 end
+          and best.provider_created_at > message.provider_state_at)
+      order by best.email_message_id
+      limit ${boundedLimit}
+    ), projected as (
+      update email_messages message set
+        provider_delivery_state = best.event_type,
+        provider_state_at = best.provider_created_at,
+        provider_failure_category = best.failure_category,
+        updated_at = now()
+      from candidate_events best
+      where message.id = best.email_message_id and (
+        message.provider_delivery_state is null
+        or case best.event_type
+          when 'sent' then 10 when 'delivery_delayed' then 20 when 'delivered' then 30
+          when 'failed' then 40 when 'bounced' then 40 when 'suppressed' then 40
+          when 'complained' then 50 else 0 end
+        > case message.provider_delivery_state
+          when 'sent' then 10 when 'delivery_delayed' then 20 when 'delivered' then 30
+          when 'failed' then 40 when 'bounced' then 40 when 'suppressed' then 40
+          when 'complained' then 50 else 0 end
+        or (case best.event_type
+          when 'sent' then 10 when 'delivery_delayed' then 20 when 'delivered' then 30
+          when 'failed' then 40 when 'bounced' then 40 when 'suppressed' then 40
+          when 'complained' then 50 else 0 end
+          = case message.provider_delivery_state
+            when 'sent' then 10 when 'delivery_delayed' then 20 when 'delivered' then 30
+            when 'failed' then 40 when 'bounced' then 40 when 'suppressed' then 40
+            when 'complained' then 50 else 0 end
+          and best.provider_created_at > message.provider_state_at)
+      ) returning 1
+    ) select
+      (select count(*)::int from candidate_events) as considered,
+      (select count(*)::int from projected) as projected
+  `) as { considered: number; projected: number }[]
+  return rows[0] ?? { considered: 0, projected: 0 }
 }
 
 export async function emailDeliveryOperationsReport() {

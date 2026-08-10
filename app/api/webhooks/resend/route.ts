@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
 import { ingestResendWebhook } from '@/lib/resend-events.mjs'
 import { persistResendEvent } from '@/lib/resend-event-ledger'
+import { rolloutControls } from '@/lib/rollout-controls.mjs'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -11,6 +12,7 @@ export const dynamic = 'force-dynamic'
 const resend = new Resend(process.env.RESEND_API_KEY || 're_webhook_verification_only')
 
 export async function POST(request: NextRequest) {
+  const controls = rolloutControls()
   const rawBody = await request.text()
   const response = await ingestResendWebhook({
     rawBody,
@@ -20,6 +22,8 @@ export async function POST(request: NextRequest) {
       signature: request.headers.get('svix-signature'),
     },
     secret: process.env.RESEND_WEBHOOK_SECRET,
+    ingestionEnabled: controls.resendWebhookIngest,
+    projectionEnabled: controls.resendWebhookProject,
     verify: (options: Parameters<typeof resend.webhooks.verify>[0]) => resend.webhooks.verify(options),
     persist: persistResendEvent,
   })

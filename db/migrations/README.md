@@ -55,8 +55,10 @@ implementation and independent verification tasks pass.
 `0002_durable_capture.sql` is the backward-compatible calculator capture layer. It
 adds nullable lead identity, acquisition, consent, and fixture-classification
 fields plus a non-PII event ledger. The capture route has a fail-closed operational
-kill switch: setting `CAPTURE_ACK_ENABLED=0` returns 503 while preserving visitor
-inputs and withholding results. Leaving it unset enables the acknowledged protocol.
+kill switch. The acknowledged protocol is enabled only when `CAPTURE_ACK_ENABLED`,
+`ROLLOUT_EMAIL_SHADOW_LEDGER_ENABLED`, and `ROLLOUT_RESULTS_ENQUEUE_ENABLED` are
+all exactly `1`. Missing, `0`, or malformed values return 503 while preserving
+visitor inputs and withholding results.
 
 `0006_capture_abuse_controls.sql` adds privacy-minimized durable rate windows and
 stable risk decisions. The route fails closed unless `CAPTURE_ABUSE_SECRET` is at
@@ -86,3 +88,29 @@ changed rows while leaving classified legacy imports readable. The checks allow
 the new capture path must satisfy the stricter lifecycle, consent, attribution,
 college, and accepted-risk relationships. Validation of historical rows is a
 separate reviewed data task, not part of release migration apply.
+
+`0011_email_rollout_controls.sql` adds a nullable-compatible dispatch-eligibility
+marker and index. Its database default is `true` solely so applying the migration
+before deploying source does not change old-source behavior. New source always
+writes the marker explicitly and treats every rollout control as enabled only by
+the exact value `1`. The independent controls are:
+
+- `ROLLOUT_EMAIL_SHADOW_LEDGER_ENABLED`
+- `ROLLOUT_RESULTS_ENQUEUE_ENABLED`
+- `ROLLOUT_RESULTS_DISPATCH_ENABLED`
+- `ROLLOUT_RESULTS_RETRY_ENABLED`
+- `ROLLOUT_NURTURE_ENQUEUE_ENABLED`
+- `ROLLOUT_NURTURE_CLAIM_ENABLED`
+- `ROLLOUT_NURTURE_DISPATCH_ENABLED`
+- `ROLLOUT_RESEND_WEBHOOK_INGEST_ENABLED`
+- `ROLLOUT_RESEND_WEBHOOK_PROJECT_ENABLED`
+- `CAPTURE_ACK_ENABLED`
+
+Stopping enqueue or claim controls never deletes queued work or edits an existing
+lease. Claimed rows recover only after their ten-minute lease expires and the
+relevant claim plus dispatch controls are re-enabled. Enabling results enqueue
+promotes shadow results rows in bounded batches. Enabling webhook projection runs
+a bounded idempotent catch-up over already persisted signed events, independent of
+provider redelivery. The authenticated `/api/admin/rollout-status` endpoint exposes
+only control classifications and aggregate queue, lease, shadow, and projection
+counts.

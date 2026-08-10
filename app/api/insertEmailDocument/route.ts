@@ -18,6 +18,7 @@ import {
   CAPTURE_RATE_POLICIES, CAPTURE_RISK_POLICY_VERSION, CAPTURE_RISK_RETENTION_DAYS,
   CaptureRiskConfigurationError, buildCaptureRiskKeys, captureNetworkAddress, smsDispatchEnabled,
 } from '@/lib/capture-abuse.mjs'
+import { captureAcknowledgementReady, rolloutControls } from '@/lib/rollout-controls.mjs'
 
 export const dynamic = 'force-dynamic'
 
@@ -44,7 +45,8 @@ export async function POST(request: Request) {
     })
   }
   try {
-    if (process.env.CAPTURE_ACK_ENABLED === '0') {
+    const controls = rolloutControls()
+    if (!captureAcknowledgementReady(controls)) {
       return NextResponse.json({ error: 'Capture is temporarily unavailable', code: 'capture_disabled' }, { status: 503 })
     }
     if (!isAllowedCaptureOrigin(request.headers.get('origin'), request.url)) {
@@ -118,6 +120,8 @@ export async function POST(request: Request) {
       isFixture,
       riskDecisionId: risk.id,
       attributionValidity: reportingAttribution,
+      createShadowLedger: controls.shadowLedger,
+      enqueueResults: controls.resultsEnqueue,
     })
     if (!lead) {
       return NextResponse.json({ error: 'Capture identity does not match this request', code: 'capture_mismatch' }, { status: 409 })
@@ -125,8 +129,8 @@ export async function POST(request: Request) {
 
     {
       const deliver = async () => {
-        const work: Promise<unknown>[] = [processResultMessage(lead.id)]
-        if (lead.delivery_claimed) {
+        const work: Promise<unknown>[] = controls.resultsDispatch ? [processResultMessage(lead.id)] : []
+        if (lead.delivery_claimed && controls.resultsDispatch) {
           work.push(notifyNewLead({ email: input.email, phone: input.phone, state: input.state, residency: input.residency, college: college.name, totalAdvantage: roi.totalAdvantage }))
           work.push(
             lead.sms_eligible && smsDispatchEnabled() && input.phone

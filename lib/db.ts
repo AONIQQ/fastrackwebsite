@@ -318,6 +318,8 @@ export async function insertLead(lead: {
   isFixture?: boolean;
   riskDecisionId: number;
   attributionValidity: 'direct' | 'external_referrer' | 'valid_utm' | 'valid_click_id';
+  createShadowLedger: boolean;
+  enqueueResults: boolean;
 }) {
   const rows = (await sql`
     with eligible_risk as (
@@ -355,10 +357,12 @@ export async function insertLead(lead: {
       returning id, created_at, snapshot, is_fixture, sms_eligible
     ), message_work as (
       insert into email_messages (
-        lead_id, kind, logical_key, provider_idempotency_key, is_fixture
+        lead_id, kind, logical_key, provider_idempotency_key, is_fixture,
+        rollout_dispatch_eligible
       ) select id, 'results', 'lead:' || id || ':results', 'ft-lead-' || id || '-results',
-        coalesce(is_fixture, false)
+        coalesce(is_fixture, false), ${lead.enqueueResults}
       from captured
+      where ${lead.createShadowLedger}
       on conflict (logical_key) do nothing
       returning lead_id
     ), attempt_report as (

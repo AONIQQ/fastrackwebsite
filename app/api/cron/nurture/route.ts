@@ -1,7 +1,9 @@
 import { randomUUID } from 'node:crypto'
 import { NextResponse } from 'next/server'
 import { sql } from '@/lib/db'
-import { claimNextMessage, dispatchClaimedMessage, enqueueDueNurture, messageBacklog } from '@/lib/message-ledger'
+import { claimNextMessage, dispatchClaimedMessage, enqueueDueNurture, enqueueShadowResults, messageBacklog } from '@/lib/message-ledger'
+import { projectResendEventBacklog } from '@/lib/resend-event-ledger'
+import { rolloutControls } from '@/lib/rollout-controls.mjs'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -24,20 +26,32 @@ export async function GET(request: Request) {
   let retried = 0
   let failed = 0
   let failureCategory: string | null = null
+  let deliveryEventsConsidered = 0
+  let deliveryStatesProjected = 0
+  let resultsEnqueued = 0
 
   try {
+    const controls = rolloutControls()
+    if (controls.resendWebhookProject) {
+      const projection = await projectResendEventBacklog()
+      deliveryEventsConsidered = projection.considered
+      deliveryStatesProjected = projection.projected
+    }
+    resultsEnqueued = await enqueueShadowResults()
     await enqueueDueNurture()
-    while (claimed < MAX_MESSAGES_PER_RUN) {
-      const message = await claimNextMessage()
-      if (!message) break
-      considered += 1
-      claimed += 1
-      if (message.attempt_count > 1) retried += 1
-      try {
-        await dispatchClaimedMessage(message)
-        accepted += 1
-      } catch {
-        failed += 1
+    for (const kind of ['results', 'nurture'] as const) {
+      while (claimed < MAX_MESSAGES_PER_RUN) {
+        const message = await claimNextMessage(kind)
+        if (!message) break
+        considered += 1
+        claimed += 1
+        if (message.claim_origin !== 'pending') retried += 1
+        try {
+          const outcome = await dispatchClaimedMessage(message)
+          if (outcome === 'accepted') accepted += 1
+        } catch {
+          failed += 1
+        }
       }
     }
   } catch {
@@ -53,7 +67,7 @@ export async function GET(request: Request) {
     where id = ${run[0].id}
   `
   return NextResponse.json(
-    { considered, claimed, accepted, retried, failed, backlog },
+    { considered, claimed, accepted, retried, failed, backlog, results_enqueued: resultsEnqueued, delivery_events_considered: deliveryEventsConsidered, delivery_states_projected: deliveryStatesProjected },
     { status: failureCategory ? 500 : 200 },
   )
 }
