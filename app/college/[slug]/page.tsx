@@ -5,6 +5,7 @@ import type { Metadata } from 'next'
 import SiteFooter from '@/components/SiteFooter'
 import { getCollegeById } from '@/lib/db'
 import { STATE_NAMES, stateSlug } from '@/lib/states'
+import { withAttributionQuery } from '@/lib/attribution-url.mjs'
 
 // ISR: rendered on first request, cached for a week. The underlying federal
 // data refreshes rarely, and there are ~5,000 of these pages.
@@ -24,12 +25,12 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   if (!c) return {}
   const price = fmt(c.net_price)
   return {
-    title: `What ${c.name} Actually Costs${price ? ` (${price}/yr net price)` : ''} | Fastrack`,
-    description: `Real net price, tuition, and graduate earnings for ${c.name}${c.city ? ` in ${c.city}` : ''}, and how much of it your student can avoid with dual credit earned in high school.`,
+    title: `${c.name} College Scorecard Cost Data${price ? ` (${price}/yr average net price)` : ''} | Fastrack`,
+    description: `Real net price, tuition, and graduate earnings for ${c.name}${c.city ? ` in ${c.city}` : ''}, plus a modeled dual-credit cost scenario with important limitations.`,
   }
 }
 
-export default async function CollegePage({ params }: { params: { slug: string } }) {
+export default async function CollegePage({ params, searchParams }: { params: { slug: string }, searchParams: Record<string, string | string[] | undefined> }) {
   const id = idFromSlug(params.slug)
   if (!id) notFound()
   const c = await getCollegeById(id)
@@ -37,8 +38,10 @@ export default async function CollegePage({ params }: { params: { slug: string }
 
   const stateName = STATE_NAMES[c.state] ?? c.state
   const calcHref = `/calculator?state=${c.state}&residency=inState&collegeId=${c.id}`
+  const trackedCalcHref = withAttributionQuery(calcHref, searchParams)
+  const creditMapHref = withAttributionQuery('/credit-map', searchParams)
   const rows: [string, string | null][] = [
-    ['Average net price per year (what families actually pay after aid)', fmt(c.net_price)],
+    ['Average net price per year for federal-aid recipients', fmt(c.net_price)],
     ['Published in-state tuition', fmt(c.tuition_in)],
     ['Published out-of-state tuition', fmt(c.tuition_out)],
     ['Median earnings 6 years after entry', fmt(c.earnings_6yr)],
@@ -70,19 +73,19 @@ export default async function CollegePage({ params }: { params: { slug: string }
               &middot; College Costs
             </p>
             <h1 className="mx-auto mt-4 max-w-3xl text-3xl sm:text-4xl md:text-5xl font-bold leading-tight">
-              What {c.name} actually costs
+              College Scorecard cost data for {c.name}
             </h1>
             <p className="mx-auto mt-6 max-w-2xl text-lg text-blue-100">
               {c.net_price
-                ? `Families pay about ${fmt(c.net_price)} per year at ${c.name} after average financial aid. Every semester of college credit your student earns in high school is a semester of that you never pay.`
-                : `Here is the real cost picture for ${c.name}, and how dual credit earned in high school shrinks it.`}
+                ? `The College Scorecard reports an average net price of about ${fmt(c.net_price)} per year at ${c.name} for federal-aid recipients. It is not your family’s personalized aid offer. The calculator compares that figure with a modeled dual-credit scenario.`
+                : `Here is the available cost picture for ${c.name}, plus a modeled dual-credit scenario.`}
             </p>
             <div className="mt-8">
               <Link
-                href={calcHref}
+                href={trackedCalcHref}
                 className="inline-block rounded-lg bg-white px-8 py-4 text-lg font-semibold text-[#080b53] hover:bg-blue-100"
               >
-                Calculate your family&rsquo;s savings at {c.name.length > 30 ? 'this school' : c.name}
+                Model your family&rsquo;s costs at {c.name.length > 30 ? 'this school' : c.name}
               </Link>
             </div>
           </div>
@@ -91,8 +94,8 @@ export default async function CollegePage({ params }: { params: { slug: string }
         <section className="container mx-auto px-4 py-14 text-center">
           <h2 className="text-3xl font-semibold">The numbers</h2>
           <p className="mx-auto mt-3 max-w-3xl text-gray-700">
-            From the U.S. Department of Education&rsquo;s College Scorecard. Net price is the figure that matters: it is
-            what families actually pay per year after average aid, not the sticker price.
+            College Scorecard net price is an average for federal-aid recipients after grant and scholarship aid, not a
+            personalized estimate of what your family will pay or the aid offer it will receive.
           </p>
           <div className="mx-auto mt-8 max-w-2xl overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
             <table className="w-full text-left text-sm md:text-base">
@@ -115,23 +118,23 @@ export default async function CollegePage({ params }: { params: { slug: string }
             <h2 className="text-3xl font-semibold">How dual credit changes this math</h2>
             <p className="mx-auto mt-4 max-w-3xl text-gray-700">
               Students in most states can earn college credit during high school through dual enrollment, AP, and CLEP,
-              often at a small fraction of university prices. Done right, that means entering college with a semester or
-              more already complete. Done wrong, it means credits that transfer but satisfy nothing: roughly 1 in 7
-              dual-enrollment courses is denied at transfer, usually for degree fit.
+              sometimes at a lower price than university enrollment. A course can transfer but still satisfy only an
+              elective, and roughly 1 in 7 dual-enrollment courses is denied at transfer, usually for degree fit.
             </p>
             <p className="mx-auto mt-4 max-w-3xl text-gray-700">
-              The calculator shows what the savings look like for your family at {c.name}. If you want the whole plan
-              built and checked against {c.name}&rsquo;s actual transfer rules, that is what the Credit Map is for.
+              The calculator is a modeled scenario, not a promised result. Residency, course sequencing, catalog timing,
+              and the receiving college&rsquo;s final decisions can prevent the modeled reduction. The Credit Map uses
+              published sources and flags what still needs confirmation; it does not bind {c.name}.
             </p>
             <div className="mt-8 flex flex-col justify-center gap-4 sm:flex-row">
               <Link
-                href={calcHref}
+                href={trackedCalcHref}
                 className="inline-block rounded-lg bg-[#605dba] px-6 py-3 text-center font-semibold text-white hover:bg-[#4e4a9e]"
               >
                 Run the numbers free
               </Link>
               <Link
-                href="/credit-map"
+                href={creditMapHref}
                 className="inline-block rounded-lg border border-[#605dba] px-6 py-3 text-center font-semibold text-[#605dba] hover:bg-gray-50"
               >
                 Get a done-for-you plan

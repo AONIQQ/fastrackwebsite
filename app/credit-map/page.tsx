@@ -4,7 +4,6 @@ import { track } from '@vercel/analytics'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import CalBookingButton from '@/components/cal/CalBookingButton'
 import SiteFooter from '@/components/SiteFooter'
 import { Check } from 'lucide-react'
 import { withCheckoutReference } from '@/lib/checkout-url.mjs'
@@ -29,7 +28,7 @@ function checkoutHref(): string {
 
 const deliverables = [
   'A term-by-term schedule from now through college graduation, with real course codes from your community college and target university',
-  'Every course mapped to the exact high school requirement and degree requirement it satisfies, no wasted credits',
+  'Each proposed course mapped to the high school and degree requirement it may satisfy, with confirmation items where applicability is unresolved',
   'A source link and retrieval date on every verified transfer line, so you can check our work',
   'Anything we could not verify is flagged as an open question with the exact step to resolve it, never papered over',
   'A one-page "Confirm These Four Things" checklist for your school district and target college',
@@ -43,7 +42,7 @@ const guarantees = [
   },
   {
     title: 'Every verified line is sourced',
-    body: 'Each transfer equivalency we mark as verified carries a source URL and the date we checked it, or your money back.',
+    body: 'Each transfer equivalency we mark as verified includes the source URL and the date we checked it.',
   },
   {
     title: 'We tell you what we don’t know',
@@ -70,11 +69,6 @@ export default function CreditMap() {
                 Home
               </Button>
             </Link>
-            <Link href="/guide">
-              <Button variant="ghost" className="text-white text-base">
-                Guide
-              </Button>
-            </Link>
           </nav>
         </div>
       </header>
@@ -85,12 +79,13 @@ export default function CreditMap() {
             <div className="mx-auto max-w-3xl text-center">
               <p className="uppercase text-sm tracking-wider text-blue-200">The Fastrack Credit Map</p>
               <h1 className="mt-4 text-3xl sm:text-4xl md:text-5xl font-bold leading-tight">
-                A done-for-you dual credit plan where every course actually counts
+                A sourced, done-for-you dual credit plan with open questions clearly flagged
               </h1>
               <p className="mt-6 text-lg text-blue-100">
                 Roughly 1 in 7 dual-enrollment courses gets denied at transfer, usually because it doesn&rsquo;t fit the
                 student&rsquo;s degree. We build your student&rsquo;s complete course-by-course plan against the real
-                catalogs, transfer agreements, and degree requirements, so nothing they take is wasted.
+                catalogs, transfer agreements, and degree requirements. We identify what the sources support and what
+                the family still needs to confirm with the receiving college before enrollment.
               </p>
               <div className="mt-8 flex flex-col justify-center gap-4 sm:flex-row">
                 {CHECKOUT_URL ? (
@@ -99,15 +94,11 @@ export default function CreditMap() {
                       Get Your Credit Map ($497)
                     </Button>
                   </a>
-                ) : (
-                  <CalBookingButton className="bg-white text-[#080b53] hover:bg-blue-100 font-semibold px-8 py-6 text-lg">
-                    Book a Free Fit Check
-                  </CalBookingButton>
-                )}
+                ) : <Button disabled className="px-8 py-6 text-lg">Checkout unavailable</Button>}
               </div>
               <p className="mt-4 text-sm text-blue-200">
                 For 11th and 12th graders (including homeschool). Currently serving select state and college pathways.
-                If we can&rsquo;t verify your pathway, we&rsquo;ll tell you and refund you rather than guess.
+                If the selected pathway is not one we can currently serve, we will say so rather than guess.
               </p>
             </div>
           </div>
@@ -158,11 +149,7 @@ export default function CreditMap() {
                     Get Your Credit Map ($497)
                   </Button>
                 </a>
-              ) : (
-                <CalBookingButton className="bg-white text-[#080b53] hover:bg-blue-100 font-semibold px-8 py-6 text-lg">
-                  Book a Free Fit Check
-                </CalBookingButton>
-              )}
+              ) : <Button disabled className="px-8 py-6 text-lg">Checkout unavailable</Button>}
             </div>
           </div>
         </section>

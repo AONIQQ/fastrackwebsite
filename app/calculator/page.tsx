@@ -12,6 +12,7 @@ import { Menu, X } from 'lucide-react'
 import Script from 'next/script'
 import { CollegeCombobox, type CollegeOption } from './CollegeCombobox'
 import { completeCapture } from '@/lib/capture-client.mjs'
+import { withAttributionQuery } from '@/lib/attribution-url.mjs'
 
 const STATE_NAMES: Record<string, string> = {
   AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California',
@@ -81,6 +82,7 @@ export default function Calculator() {
   const [captureError, setCaptureError] = useState<string | null>(null)
   const [website, setWebsite] = useState('')
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [creditMapHref, setCreditMapHref] = useState('/credit-map')
 
   const attributionRef = useRef<{ referrer: string; utm: Record<string, string> }>({ referrer: '', utm: {} })
   const pendingCollegeIdRef = useRef<number | null>(null)
@@ -91,6 +93,7 @@ export default function Calculator() {
     const utm: Record<string, string> = {}
     params.forEach((v, k) => { if (k.startsWith('utm_') || k === 'gclid' || k === 'fbclid') utm[k] = v })
     attributionRef.current = { referrer: document.referrer || '', utm }
+    setCreditMapHref(withAttributionQuery('/credit-map', params))
 
     // Deep links, so a result can be shared, bookmarked, or linked from an email
     // or ad straight to a specific school:
@@ -210,9 +213,7 @@ export default function Calculator() {
     }
   }
 
-  // Pricing is counselor-only ($500/seat) and now lives under /counselors, so it
-  // is deliberately absent from the parent-facing nav.
-  const navLinks = [['/', 'Home'], ['/counselors', 'Counselors'], ['/guide', 'Guide']]
+  const navLinks = [['/', 'Home'], ['/credit-map', 'Credit Map']]
 
   const hint = !state ? 'Choose a state to begin.'
     : !residency ? 'Now choose your residency status.'
@@ -256,11 +257,20 @@ export default function Calculator() {
             Free Tool &middot; College ROI Calculator
           </p>
           <h1 className="text-[1.75rem] font-bold leading-[1.15] tracking-tight text-[#080b53] sm:text-4xl lg:text-[2.75rem] 2xl:text-5xl">
-            What a degree really costs, and how long it takes to pay for itself.
+            Model a degree-cost scenario and its estimated payback period.
           </h1>
           <p className="mt-4 max-w-2xl text-base leading-relaxed text-slate-600 sm:text-lg">
-            Pick a school and we&apos;ll show you the four-year number alongside what the same
-            degree costs if you finish in two.
+            Pick a school to compare a four-year cost estimate with a modeled two-year dual-credit scenario.
+          </p>
+          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-slate-500">
+            The model assumes 60 dual-credit hours at $80 per credit and two years enrolled at the selected college.
+            Transfer, degree applicability, residency, course availability, aid, and individual timelines vary. These
+            assumptions appear here before the email form so you can decide whether the estimate is useful.
+          </p>
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500">
+            College Scorecard net price is an average for federal-aid recipients, not your family&rsquo;s personalized aid
+            offer. The early-earnings and total-advantage figures add two years of College Scorecard median
+            post-enrollment earnings; they are not an individual wage forecast.
           </p>
         </header>
 
@@ -356,7 +366,7 @@ export default function Calculator() {
                       Four years
                     </th>
                     <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-[#1a6b3c] sm:px-5 sm:text-xs">
-                      With Fastrack
+                      Modeled dual-credit scenario
                     </th>
                   </tr>
                 </thead>
@@ -387,17 +397,17 @@ export default function Calculator() {
             </section>
 
             <section className="rounded-xl bg-[#080b53] px-6 py-7 text-white">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/60">Total advantage</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/60">Estimated scenario advantage</p>
               <p className="mt-1.5 text-4xl md:text-5xl font-bold tracking-tight tabular-nums">
                 {money(result.totalAdvantage)}
               </p>
               <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 border-t border-white/15 pt-5">
                 <div className="flex items-baseline justify-between">
-                  <span className="text-sm text-white/70">Tuition and living costs saved</span>
+                  <span className="text-sm text-white/70">Modeled cost difference</span>
                   <span className="text-base font-semibold tabular-nums">{money(result.savings)}</span>
                 </div>
                 <div className="flex items-baseline justify-between">
-                  <span className="text-sm text-white/70">{result.yearsSaved} extra years of earnings</span>
+                  <span className="text-sm text-white/70">Two modeled years of median earnings</span>
                   <span className="text-base font-semibold tabular-nums">{money(result.earlyEarnings)}</span>
                 </div>
               </div>
@@ -409,7 +419,7 @@ export default function Calculator() {
             <section className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-slate-200 bg-slate-200 sm:grid-cols-4">
               {([
                 ['Cost per year', money(result.annualCost)],
-                ['Typical salary', money(result.averageSalary)],
+                ['Scorecard median earnings', money(result.averageSalary)],
                 ['Cost of living', money(result.costOfLiving)],
                 ['Left over yearly', money(result.discretionaryIncome)],
               ] as const).map(([label, value]) => (
@@ -422,15 +432,15 @@ export default function Calculator() {
 
             <section className="rounded-xl border border-[#605dba]/30 bg-[#605dba]/5 px-6 py-7 text-center">
               <h2 className="text-xl md:text-2xl font-bold tracking-tight">
-                {money(result.totalAdvantage)} and {result.yearsSaved} years, back in your pocket.
+                Modeled difference: {money(result.totalAdvantage)} across a {result.yearsSaved}-year scenario.
               </h2>
               <p className="mx-auto mt-2.5 max-w-lg text-slate-600 leading-relaxed">
-                None of it is automatic. It depends on choosing dual-credit courses that actually
-                transfer into the degree, which is exactly what we map out, course by course.
+                This is an estimate, not a promised result. Credits must transfer and apply to the intended degree,
+                and a receiving college can change or interpret its rules. A two-year path may not be available.
               </p>
-              <Link href="/" className="mt-5 inline-block">
+              <Link href={creditMapHref} className="mt-5 inline-block">
                 <Button className="h-12 rounded-lg bg-[#605dba] px-7 text-base font-semibold text-white hover:bg-[#080b53] transition-colors">
-                  Book a free planning session
+                  Explore the $497 Credit Map
                 </Button>
               </Link>
             </section>
@@ -438,9 +448,12 @@ export default function Calculator() {
             <ul className="space-y-1.5 text-xs leading-relaxed text-slate-500">
               {result.notes.map((n) => <li key={n}>{n}</li>)}
               <li>
-                Cost and earnings data from the U.S. Department of Education College Scorecard.
-                Fastrack figures assume {result.fastrack.years} years of enrolment plus 60 dual-credit
-                hours at $80 per credit. Individual results vary with state, school and course selection.
+                Cost and earnings data from the U.S. Department of Education College Scorecard. Net price is an average
+                for federal-aid recipients, not a personalized aid offer. The early-earnings and total-advantage figures
+                add two years of Scorecard median post-enrollment earnings and are not an individual wage forecast.
+                The modeled scenario assumes {result.fastrack.years} years of enrollment plus 60 dual-credit
+                hours at $80 per credit. Individual results vary with residency, aid, state, school, degree,
+                transfer decisions, course availability, and course selection.
               </li>
             </ul>
           </div>

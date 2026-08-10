@@ -5,6 +5,7 @@ import type { Metadata } from 'next'
 import SiteFooter from '@/components/SiteFooter'
 import { getStateSavingsStats, getTopCollegesForState } from '@/lib/db'
 import { STATE_NAMES, codeFromSlug, collegeSlug, stateSlug } from '@/lib/states'
+import { withAttributionQuery } from '@/lib/attribution-url.mjs'
 
 // ISR: rendered on first request (the DB is only reachable in the deployed
 // environment), then cached for a day.
@@ -15,19 +16,24 @@ export async function generateMetadata({ params }: { params: { state: string } }
   if (!code) return {}
   const name = STATE_NAMES[code]
   return {
-    title: `Dual Credit in ${name}: How Much Can Your Student Save on College? | Fastrack`,
-    description: `Real net-price data for ${name} colleges, and how dual enrollment in high school cuts the cost. See what your family could save at every major ${name} school.`,
+    title: `Dual Credit in ${name}: A Modeled College-Cost Scenario | Fastrack`,
+    description: `Real net-price data for ${name} colleges and a modeled dual-credit cost scenario with transfer and degree-applicability limitations.`,
   }
 }
 
 const fmt = (n: number | null) => (n == null ? '-' : `$${n.toLocaleString()}`)
 
-export default async function StateSavingsPage({ params }: { params: { state: string } }) {
+export default async function StateSavingsPage({ params, searchParams }: { params: { state: string }, searchParams: Record<string, string | string[] | undefined> }) {
   const code = codeFromSlug(params.state)
   if (!code) notFound()
   const name = STATE_NAMES[code]
   const [stats, colleges] = await Promise.all([getStateSavingsStats(code), getTopCollegesForState(code, 20)])
   if (!colleges.length) notFound()
+  const calculatorHref = (collegeId?: number) => withAttributionQuery(
+    `/calculator?state=${code}&residency=inState${collegeId ? `&collegeId=${collegeId}` : ''}`,
+    searchParams,
+  )
+  const creditMapHref = withAttributionQuery('/credit-map', searchParams)
 
   return (
     <div className="flex min-h-screen flex-col bg-gray-100 text-gray-900">
@@ -39,7 +45,6 @@ export default async function StateSavingsPage({ params }: { params: { state: st
           <nav className="hidden md:flex items-center space-x-6 text-base">
             <Link href="/calculator" className="hover:text-blue-200">Calculator</Link>
             <Link href="/credit-map" className="hover:text-blue-200">Credit Map</Link>
-            <Link href="/guide" className="hover:text-blue-200">Guide</Link>
           </nav>
         </div>
       </header>
@@ -49,16 +54,16 @@ export default async function StateSavingsPage({ params }: { params: { state: st
           <div className="container mx-auto px-4 py-16 text-center">
             <p className="uppercase text-sm tracking-wider text-blue-200">Dual Credit Savings by State</p>
             <h1 className="mx-auto mt-4 max-w-3xl text-3xl sm:text-4xl md:text-5xl font-bold leading-tight">
-              How much can dual credit save your family in {name}?
+              Model a dual-credit cost scenario for your family in {name}
             </h1>
             <p className="mx-auto mt-6 max-w-2xl text-lg text-blue-100">
               {stats?.avg_net_price
-                ? `The average net price at a ${name} college is about ${fmt(stats.avg_net_price)} per year. Every semester of college credit your student finishes in high school is a semester you don't pay that for.`
-                : `Every semester of college credit your student finishes in high school is a semester of tuition, housing, and fees you never pay.`}
+                ? `For federal-aid recipients, the College Scorecard average net price at a ${name} college is about ${fmt(stats.avg_net_price)} per year. It is not a family’s personalized aid offer. The calculator compares that figure with a modeled dual-credit scenario.`
+                : `Explore college costs in ${name} and compare them with a modeled dual-credit scenario.`}
             </p>
             <div className="mt-8">
               <Link
-                href={`/calculator?state=${code}&residency=inState`}
+                href={calculatorHref()}
                 className="inline-block rounded-lg bg-white px-8 py-4 text-lg font-semibold text-[#080b53] hover:bg-blue-100"
               >
                 Run your student&rsquo;s numbers for free
@@ -68,11 +73,11 @@ export default async function StateSavingsPage({ params }: { params: { state: st
         </section>
 
         <section className="container mx-auto px-4 py-14">
-          <h2 className="text-center text-3xl font-semibold">What college actually costs in {name}</h2>
+          <h2 className="text-center text-3xl font-semibold">College Scorecard cost data in {name}</h2>
           <p className="mx-auto mt-3 max-w-3xl text-center text-gray-700">
-            Net price is what families actually pay per year after average aid, not the sticker price. Data comes from
-            the U.S. Department of Education&rsquo;s College Scorecard. Pick a school to see the full savings math for
-            your student.
+            College Scorecard net price is an average for federal-aid recipients after grant and scholarship aid. It is
+            not a personalized estimate of what your family will pay or the aid offer it will receive. Pick a school to
+            explore the modeled cost scenario.
           </p>
           <div className="mx-auto mt-8 max-w-4xl overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
             <table className="w-full text-left text-sm md:text-base">
@@ -96,10 +101,10 @@ export default async function StateSavingsPage({ params }: { params: { state: st
                     <td className="px-4 py-3">{fmt(c.net_price)}</td>
                     <td className="px-4 py-3">
                       <Link
-                        href={`/calculator?state=${code}&residency=inState&collegeId=${c.id}`}
+                        href={calculatorHref(c.id)}
                         className="font-semibold text-[#605dba] hover:underline"
                       >
-                        See savings &rarr;
+                        Model costs &rarr;
                       </Link>
                     </td>
                   </tr>
@@ -119,18 +124,19 @@ export default async function StateSavingsPage({ params }: { params: { state: st
               are denied for degree applicability more than half the time at some schools.
             </p>
             <p className="mx-auto mt-4 max-w-3xl text-center text-gray-700">
-              The fix is picking courses against the actual transfer rules of the target college before enrolling.
-              That is exactly what a Fastrack Credit Map does.
+              Published rules can help a family evaluate courses before enrolling, but they do not guarantee acceptance
+              or degree applicability. A Fastrack Credit Map cites the sources used and flags questions the family must
+              confirm with the school district and receiving college.
             </p>
             <div className="mt-8 flex flex-col justify-center gap-4 sm:flex-row">
               <Link
-                href={`/calculator?state=${code}&residency=inState`}
+                href={calculatorHref()}
                 className="inline-block rounded-lg bg-[#605dba] px-6 py-3 text-center font-semibold text-white hover:bg-[#4e4a9e]"
               >
-                Estimate your savings
+                Estimate the cost difference
               </Link>
               <Link
-                href="/credit-map"
+                href={creditMapHref}
                 className="inline-block rounded-lg border border-[#605dba] px-6 py-3 text-center font-semibold text-[#605dba] hover:bg-gray-50"
               >
                 Get a done-for-you plan
