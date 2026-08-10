@@ -221,7 +221,7 @@ function resultsHtml(r: ResultsEmail, links: ResultsLinks) {
         <tr><td style="padding:28px 24px 8px;">
           <h1 class="head" style="margin:0 0 8px;font-size:22px;line-height:1.3;color:#080b53;">Your results for ${esc(r.collegeName)}</h1>
           <p class="body" style="margin:0;color:#5a5a78;font-size:15px;line-height:1.6;">
-            Here is what that degree costs on the standard four-year path, and what the same degree costs finishing in two.
+            Here is your four-year cost estimate beside a modeled two-year dual-credit scenario.
           </p>
         </td></tr>
 
@@ -229,8 +229,8 @@ function resultsHtml(r: ResultsEmail, links: ResultsLinks) {
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
             <tr>
               <th style="padding:8px 16px;text-align:left;font-size:12px;"></th>
-              <th class="colhead-a" style="padding:8px 16px;text-align:right;font-size:12px;text-transform:uppercase;letter-spacing:0.06em;color:#b3261e;font-weight:600;">4 years</th>
-              <th class="colhead-b" style="padding:8px 16px;text-align:right;font-size:12px;text-transform:uppercase;letter-spacing:0.06em;color:#1a6b3c;font-weight:600;">With Fastrack</th>
+              <th class="colhead-a" style="padding:8px 16px;text-align:right;font-size:12px;text-transform:uppercase;letter-spacing:0.06em;color:#b3261e;font-weight:600;">4-year estimate</th>
+              <th class="colhead-b" style="padding:8px 16px;text-align:right;font-size:12px;text-transform:uppercase;letter-spacing:0.06em;color:#1a6b3c;font-weight:600;">Modeled dual-credit scenario</th>
             </tr>
             ${row('Total cost', money(r.standardTotal), money(r.fastrackTotal))}
             ${row('Time to earn it back', r.standardRecoup, r.fastrackRecoup)}
@@ -240,10 +240,10 @@ function resultsHtml(r: ResultsEmail, links: ResultsLinks) {
         <tr><td style="padding:20px 24px 0;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#080b53" style="background:#080b53;border-radius:10px;">
             <tr><td style="padding:20px 24px;text-align:center;">
-              <p style="margin:0 0 4px;color:#b9b9e0;font-size:13px;text-transform:uppercase;letter-spacing:0.06em;">Total advantage</p>
+              <p style="margin:0 0 4px;color:#b9b9e0;font-size:13px;text-transform:uppercase;letter-spacing:0.06em;">Estimated scenario difference</p>
               <p style="margin:0;color:#ffffff;font-size:34px;font-weight:700;letter-spacing:-0.02em;">${esc(money(r.totalAdvantage))}</p>
               <p style="margin:8px 0 0;color:#b9b9e0;font-size:14px;">
-                ${esc(money(r.savings))} saved, plus ${esc(money(r.earlyEarnings))} from entering the workforce ${r.yearsSaved} years earlier.
+                ${esc(money(r.savings))} modeled cost difference, plus ${esc(money(r.earlyEarnings))} representing two modeled years of median post-enrollment earnings.
               </p>
             </td></tr>
           </table>
@@ -251,12 +251,12 @@ function resultsHtml(r: ResultsEmail, links: ResultsLinks) {
 
         <tr><td style="padding:24px;">
           <p class="body" style="margin:0 0 16px;color:#5a5a78;font-size:15px;line-height:1.6;">
-            The savings are real but they are not automatic, they depend on picking dual-credit courses that actually
-            transfer into your degree. That is the part families get wrong, and it is what we build for you.
+            This is an estimate, not a promised result. Credits must transfer and apply to the intended degree, and a
+            receiving college can change or interpret its rules. A two-year path may not be available.
           </p>
           <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
             <tr><td bgcolor="#605dba" style="background:#605dba;border-radius:8px;">
-              <a href="${links.creditMap}" style="display:inline-block;padding:14px 28px;color:#ffffff;font-size:16px;font-weight:600;text-decoration:none;">Get your done-for-you Credit Map</a>
+              <a href="${links.creditMap}" style="display:inline-block;padding:14px 28px;color:#ffffff;font-size:16px;font-weight:600;text-decoration:none;">Explore the $497 Credit Map</a>
             </td></tr>
           </table>
           <p style="margin:12px 0 0;text-align:center;font-size:14px;">
@@ -266,9 +266,11 @@ function resultsHtml(r: ResultsEmail, links: ResultsLinks) {
 
         <tr><td class="rule" style="padding:16px 24px 24px;border-top:1px solid #e6e6ef;">
           <p class="muted" style="margin:0;color:#8a8aa8;font-size:12px;line-height:1.6;">
-            Figures use average net price and median post-enrollment earnings from the U.S. Department of Education
-            College Scorecard, and assume 60 dual-credit hours at $80 per credit. Individual results vary with state,
-            school and course selection.
+            Cost and earnings data come from the U.S. Department of Education College Scorecard. Net price is an
+            average for federal-aid recipients, not a personalized aid offer. The model assumes 60 dual-credit hours at
+            $80 per credit and two years enrolled at the selected college. Its early-earnings figure adds two years of
+            Scorecard median post-enrollment earnings and is not an individual wage forecast. Results vary with
+            residency, aid, state, school, degree, transfer decisions, course availability, and course selection.
           </p>
           <p class="muted" style="margin:12px 0 0;color:#8a8aa8;font-size:12px;">
             Fastrack &middot; 1007 N Orange St, Wilmington, Delaware &middot;
@@ -285,18 +287,23 @@ function resultsText(r: ResultsEmail, links: ResultsLinks) {
   return [
     `Your results for ${r.collegeName}`,
     '',
-    `The standard 4-year path:  ${money(r.standardTotal)}, ${r.standardRecoup} to earn back`,
-    `With Fastrack (2 years):   ${money(r.fastrackTotal)}, ${r.fastrackRecoup} to earn back`,
+    `4-year cost estimate:              ${money(r.standardTotal)}, ${r.standardRecoup} to earn back`,
+    `Modeled dual-credit scenario:      ${money(r.fastrackTotal)}, ${r.fastrackRecoup} to earn back`,
     '',
-    `Money saved:      ${money(r.savings)}`,
-    `Early earnings:   ${money(r.earlyEarnings)} (${r.yearsSaved} extra years in the workforce)`,
-    `Total advantage:  ${money(r.totalAdvantage)}`,
+    `Modeled cost difference:           ${money(r.savings)}`,
+    `Two modeled years of median post-enrollment earnings: ${money(r.earlyEarnings)}`,
+    `Estimated scenario difference:     ${money(r.totalAdvantage)}`,
     '',
-    `Get your done-for-you Credit Map: ${links.creditMap}`,
+    'This is an estimate, not a promised result. A two-year path may not be available.',
+    'Credits must transfer and apply to the intended degree, and the receiving college makes the final decision.',
     '',
-    'Figures use average net price and median post-enrollment earnings from the U.S. Department',
-    'of Education College Scorecard, and assume 60 dual-credit hours at $80 per credit.',
-    'Individual results vary with state, school and course selection.',
+    `Explore the $497 Credit Map: ${links.creditMap}`,
+    '',
+    'Cost and earnings data come from the U.S. Department of Education College Scorecard.',
+    'Net price is an average for federal-aid recipients, not a personalized aid offer.',
+    'The model assumes 60 dual-credit hours at $80 per credit and two years enrolled at the selected college.',
+    'The early-earnings figure adds two years of Scorecard median post-enrollment earnings and is not an individual wage forecast.',
+    'Results vary with residency, aid, state, school, degree, transfer decisions, course availability, and course selection.',
     '',
     'Fastrack, 1007 N Orange St, Wilmington, Delaware. info@fastrack.school',
   ].join('\n')
@@ -310,7 +317,7 @@ export async function sendResultsEmail(r: ResultsEmail) {
   return sendMail({
     to: r.to,
     replyTo: 'info@fastrack.school',
-    subject: `${r.collegeName}: ${money(r.totalAdvantage)} and ${r.yearsSaved} years back`,
+    subject: `${r.collegeName}: your modeled cost scenario`,
     text: `${resultsText(r, links)}\n\nUnsubscribe: ${SITE}/api/u?t=${encodeURIComponent(token)}`,
     html: resultsHtml(r, links).replaceAll('__UNSUB__', `${SITE}/api/u?t=${encodeURIComponent(token)}`),
     headers: unsubscribeHeaders(SITE, token),

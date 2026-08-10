@@ -69,14 +69,16 @@ export async function sendSms(to: string, body: string): Promise<boolean> {
 }
 
 /** Every message must identify the sender and give a documented opt-out. */
-export function resultsSms(collegeName: string, totalAdvantage: number | null) {
+export function resultsSms(_collegeName: string, totalAdvantage: number | null) {
   const money = totalAdvantage == null ? null : `$${Math.round(totalAdvantage).toLocaleString('en-US')}`
   return [
     'Fastrack:',
     money
-      ? `your ${collegeName} results show ${money} and 2 years back by finishing in 2 instead of 4.`
-      : `your ${collegeName} results are ready.`,
-    'Full breakdown: fastrack.school/calculator',
+      ? `Your modeled estimate is ${money}.`
+      : 'Your modeled estimate is ready.',
+    'Assumes 60 credits at $80, average net price for federal-aid recipients, plus 2 years of median post-enrollment earnings.',
+    'Transfer, degree fit, residency and aid vary.',
+    'See your email.',
     'Reply STOP to opt out.',
   ].join(' ')
 }
