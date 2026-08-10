@@ -51,3 +51,9 @@ For production, capture the plan and status output before apply, use one operato
 keep the prior application SHA available, apply additive nullable structures first,
 and run verify afterward. Application behavior must remain disabled until its own
 implementation and independent verification tasks pass.
+
+`0002_durable_capture.sql` is the backward-compatible calculator capture layer. It
+adds nullable lead identity, acquisition, consent, and fixture-classification
+fields plus a non-PII event ledger. The capture route has a fail-closed operational
+kill switch: setting `CAPTURE_ACK_ENABLED=0` returns 503 while preserving visitor
+inputs and withholding results. Leaving it unset enables the acknowledged protocol.

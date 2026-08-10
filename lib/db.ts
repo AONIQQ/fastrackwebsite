@@ -110,6 +110,8 @@ export async function getCostOfLiving(state: string): Promise<number | null> {
 }
 
 export async function insertLead(lead: {
+  captureId: string;
+  captureRequestHash: string;
   email: string;
   phone?: string | null;
   state?: string | null;
@@ -120,26 +122,57 @@ export async function insertLead(lead: {
   smsConsent?: boolean;
   referrer?: string | null;
   utm?: Record<string, string> | null;
+  collegeId?: number | null;
+  normalizedReferrer?: string | null;
+  normalizedPhone?: string | null;
+  smsConsentVersion?: string | null;
+  smsConsentAt?: Date | null;
+  isFixture?: boolean;
 }) {
   const rows = (await sql`
-    insert into leads (
-      email, phone, state, residency, college, snapshot, user_agent,
-      sms_consent, referrer, utm
+    with captured as (
+      insert into leads (
+        email, phone, state, residency, college, snapshot, user_agent,
+        sms_consent, referrer, utm, capture_id, capture_request_hash, college_id,
+        utm_source, utm_medium, utm_campaign, utm_content, utm_term,
+        gclid, fbclid, normalized_referrer, normalized_phone,
+        sms_consent_at, sms_consent_version, is_fixture
+      ) values (
+        ${lead.email}, ${lead.phone ?? null}, ${lead.state ? lead.state.toUpperCase().slice(0, 2) : null},
+        ${lead.residency ?? null}, ${lead.college ?? null}, ${JSON.stringify(lead.snapshot ?? {})}::jsonb,
+        ${lead.userAgent ?? null}, ${lead.smsConsent ?? false}, ${lead.referrer ?? null},
+        ${lead.utm ? JSON.stringify(lead.utm) : null}::jsonb, ${lead.captureId}::uuid,
+        ${lead.captureRequestHash}, ${lead.collegeId ?? null}, ${lead.utm?.utm_source ?? null},
+        ${lead.utm?.utm_medium ?? null}, ${lead.utm?.utm_campaign ?? null},
+        ${lead.utm?.utm_content ?? null}, ${lead.utm?.utm_term ?? null},
+        ${lead.utm?.gclid ?? null}, ${lead.utm?.fbclid ?? null},
+        ${lead.normalizedReferrer ?? null}, ${lead.normalizedPhone ?? null},
+        ${lead.smsConsentAt ?? null}, ${lead.smsConsentVersion ?? null}, ${lead.isFixture ?? false}
+      )
+      on conflict (capture_id) where capture_id is not null do update
+        set capture_id = excluded.capture_id
+        where leads.capture_request_hash = excluded.capture_request_hash
+      returning id, created_at, snapshot, is_fixture
+    ), delivery_claim as (
+      insert into capture_delivery_claims (lead_id, capture_id)
+      select id, ${lead.captureId}::uuid from captured
+      on conflict do nothing
+      returning lead_id
+    ), event_record as (
+      insert into capture_events (capture_id, lead_id, event_type, is_fixture)
+      select ${lead.captureId}::uuid, captured.id,
+        case when delivery_claim.lead_id is not null then 'accepted' else 'replayed' end,
+        coalesce(captured.is_fixture, false)
+      from captured
+      left join delivery_claim on delivery_claim.lead_id = captured.id
+      returning id
     )
-    values (
-      ${lead.email},
-      ${lead.phone ?? null},
-      ${lead.state ? lead.state.toUpperCase().slice(0, 2) : null},
-      ${lead.residency ?? null},
-      ${lead.college ?? null},
-      ${JSON.stringify(lead.snapshot ?? {})}::jsonb,
-      ${lead.userAgent ?? null},
-      ${lead.smsConsent ?? false},
-      ${lead.referrer ?? null},
-      ${lead.utm ? JSON.stringify(lead.utm) : null}::jsonb
-    )
-    returning id, created_at
-  `) as { id: number; created_at: string }[];
+    select captured.id, captured.created_at, captured.snapshot,
+      (delivery_claim.lead_id is not null) as delivery_claimed
+    from captured
+    left join delivery_claim on delivery_claim.lead_id = captured.id
+    cross join event_record
+  `) as { id: number; created_at: string; snapshot: Record<string, unknown>; delivery_claimed: boolean }[];
   return rows[0];
 }
 

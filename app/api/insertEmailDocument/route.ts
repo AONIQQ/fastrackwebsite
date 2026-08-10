@@ -1,95 +1,93 @@
 import { NextResponse } from 'next/server'
 import { waitUntil } from '@vercel/functions'
-import { insertLead, markResultsEmailSent } from '@/lib/db'
+import { createHash } from 'node:crypto'
+import { getCollegeById, insertLead, markResultsEmailSent } from '@/lib/db'
 import { sendResultsEmail, notifyNewLead } from '@/lib/mail'
 import { sendSms, resultsSms } from '@/lib/sms'
+import { computeRoi } from '@/lib/roi'
+import {
+  CAPTURE_BODY_LIMIT, CaptureInputError, SMS_CONSENT_VERSION,
+  captureFingerprintInput, createSlidingWindowLimiter, isAllowedCaptureOrigin, validateCaptureInput,
+} from '@/lib/capture.mjs'
 
-// Never cache a write.
 export const dynamic = 'force-dynamic'
+const allowAttempt = createSlidingWindowLimiter()
 
-const num = (v: unknown): number | null => {
-  const n = typeof v === 'number' ? v : Number(String(v ?? '').replace(/[^0-9.-]/g, ''))
-  return Number.isFinite(n) ? n : null
-}
-
-const str = (v: unknown): string | null =>
-  typeof v === 'string' && v.trim() ? v.trim() : null
+const clientKey = (request: Request) =>
+  request.headers.get('x-vercel-forwarded-for')?.split(',')[0]?.trim()
+  ?? request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+  ?? null
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json()
-    const {
-      email, phone, state, residency, college,
-      smsConsent, referrer, utm,
-      ...snapshot
-    } = body ?? {}
-
-    if (!email || typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return NextResponse.json({ error: 'A valid email is required' }, { status: 400 })
+    if (process.env.CAPTURE_ACK_ENABLED === '0') {
+      return NextResponse.json({ error: 'Capture is temporarily unavailable', code: 'capture_disabled' }, { status: 503 })
     }
+    if (!isAllowedCaptureOrigin(request.headers.get('origin'), request.url)) {
+      return NextResponse.json({ error: 'Request origin is not allowed', code: 'invalid_origin' }, { status: 403 })
+    }
+    if (!allowAttempt(clientKey(request))) {
+      return NextResponse.json({ error: 'Please wait before trying again', code: 'rate_limited' }, { status: 429 })
+    }
+    const declaredLength = Number(request.headers.get('content-length') ?? 0)
+    if (declaredLength > CAPTURE_BODY_LIMIT) {
+      return NextResponse.json({ error: 'Request is too large', code: 'payload_too_large' }, { status: 413 })
+    }
+    const raw = await request.text()
+    if (Buffer.byteLength(raw, 'utf8') > CAPTURE_BODY_LIMIT) {
+      return NextResponse.json({ error: 'Request is too large', code: 'payload_too_large' }, { status: 413 })
+    }
+    let body: unknown
+    try { body = JSON.parse(raw) } catch { throw new CaptureInputError('invalid_json', 'Invalid request') }
+    const input = validateCaptureInput(body, request.url)
+    const college = await getCollegeById(input.collegeId)
+    if (!college || college.state !== input.state) throw new CaptureInputError('invalid_college', 'College does not match the selected state')
+    const roi = computeRoi(college, input.residency)
+    const captureRequestHash = createHash('sha256').update(captureFingerprintInput(input)).digest('hex')
+    const userAgent = request.headers.get('user-agent')?.slice(0, 512) ?? null
+    const utm = Object.fromEntries(Object.entries(input.attribution).filter(([key, value]) => key !== 'normalized_referrer' && value)) as Record<string, string>
 
     const lead = await insertLead({
-      email: email.trim().toLowerCase(),
-      phone: str(phone),
-      state: str(state),
-      residency: str(residency),
-      college: str(college),
-      snapshot,
-      userAgent: request.headers.get('user-agent'),
-      smsConsent: smsConsent === true,
-      referrer: str(referrer) ?? request.headers.get('referer'),
-      utm: utm && typeof utm === 'object' ? utm : null,
+      captureId: input.captureId, captureRequestHash, email: input.email, phone: input.phone,
+      state: input.state, residency: input.residency, college: college.name,
+      collegeId: college.id, snapshot: roi, userAgent,
+      smsConsent: input.smsConsent, referrer: input.attribution.normalized_referrer,
+      normalizedReferrer: input.attribution.normalized_referrer,
+      normalizedPhone: input.phone, utm,
+      smsConsentAt: input.smsConsent ? new Date() : null,
+      smsConsentVersion: input.smsConsent ? SMS_CONSENT_VERSION : null,
+      isFixture: false,
     })
-
-    // Respond as soon as the lead is durable, but hand the delivery work to
-    // waitUntil. A bare floating promise does not survive here: the serverless
-    // function is frozen the moment the response is returned, so the mail calls
-    // were being killed mid-flight and every results email was silently lost.
-    const collegeName = str(college) ?? 'your school'
-    const totalAdvantage = num(snapshot.totalAdvantage)
-
-    const deliver = async () => {
-      const results = {
-        to: email.trim().toLowerCase(),
-        collegeName,
-        residency: str(residency) ?? '',
-        annualCost: num(snapshot.annualCost) ?? 0,
-        standardTotal: num(snapshot.standardTotal) ?? 0,
-        standardRecoup: str(snapshot.standardRecoup) ?? '-',
-        fastrackTotal: num(snapshot.fastrackTotal) ?? 0,
-        fastrackRecoup: str(snapshot.fastrackRecoup) ?? '-',
-        savings: num(snapshot.savings) ?? 0,
-        earlyEarnings: num(snapshot.earlyEarnings),
-        totalAdvantage,
-        yearsSaved: num(snapshot.yearsSaved) ?? 2,
-      }
-
-      const outcomes = await Promise.allSettled([
-        sendResultsEmail(results).then(() => markResultsEmailSent(lead.id)),
-        notifyNewLead({
-          email: results.to,
-          phone: str(phone),
-          state: str(state),
-          residency: str(residency),
-          college: collegeName,
-          totalAdvantage,
-        }),
-        // Only ever when they ticked the box. See lib/sms.ts.
-        smsConsent === true && str(phone)
-          ? sendSms(String(phone), resultsSms(collegeName, totalAdvantage))
-          : Promise.resolve(false),
-      ])
-
-      for (const o of outcomes) {
-        if (o.status === 'rejected') console.error('[lead delivery]', lead.id, o.reason)
-      }
+    if (!lead) {
+      return NextResponse.json({ error: 'Capture identity does not match this request', code: 'capture_mismatch' }, { status: 409 })
     }
 
-    waitUntil(deliver().catch((err) => console.error('[lead delivery]', err)))
+    if (lead.delivery_claimed) {
+      const deliver = async () => {
+        const results = {
+          to: input.email, collegeName: college.name, residency: input.residency,
+          annualCost: roi.annualCost, standardTotal: roi.standard.totalCost,
+          standardRecoup: roi.standard.recoupLabel, fastrackTotal: roi.fastrack.totalCost,
+          fastrackRecoup: roi.fastrack.recoupLabel, savings: roi.savings,
+          earlyEarnings: roi.earlyEarnings, totalAdvantage: roi.totalAdvantage,
+          yearsSaved: roi.yearsSaved,
+        }
+        const outcomes = await Promise.allSettled([
+          sendResultsEmail(results).then(() => markResultsEmailSent(lead.id)),
+          notifyNewLead({ email: input.email, phone: input.phone, state: input.state, residency: input.residency, college: college.name, totalAdvantage: roi.totalAdvantage }),
+          input.smsConsent && input.phone ? sendSms(input.phone, resultsSms(college.name, roi.totalAdvantage)) : Promise.resolve(false),
+        ])
+        for (const outcome of outcomes) if (outcome.status === 'rejected') console.error('[lead delivery]', lead.id, outcome.reason)
+      }
+      waitUntil(deliver().catch((error) => console.error('[lead delivery]', error)))
+    }
 
-    return NextResponse.json({ ok: true, id: lead.id })
+    return NextResponse.json({ ok: true, id: lead.id, capture_id: input.captureId, roi: lead.snapshot })
   } catch (error) {
+    if (error instanceof CaptureInputError) {
+      return NextResponse.json({ error: error.message, code: error.code }, { status: 400 })
+    }
     console.error('Error inserting lead:', error)
-    return NextResponse.json({ error: 'Failed to insert email document' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to capture results', code: 'capture_failed' }, { status: 500 })
   }
 }

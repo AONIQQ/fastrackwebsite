@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Menu, X } from 'lucide-react'
 import Script from 'next/script'
 import { CollegeCombobox, type CollegeOption } from './CollegeCombobox'
+import { completeCapture } from '@/lib/capture-client.mjs'
 
 const STATE_NAMES: Record<string, string> = {
   AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California',
@@ -77,11 +78,13 @@ export default function Calculator() {
   const [phoneNumber, setPhoneNumber] = useState('')
   const [smsConsent, setSmsConsent] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [captureError, setCaptureError] = useState<string | null>(null)
+  const [website, setWebsite] = useState('')
   const [isMenuOpen, setIsMenuOpen] = useState(false)
 
-  const leadShouldBeInsertedRef = useRef(false)
   const attributionRef = useRef<{ referrer: string; utm: Record<string, string> }>({ referrer: '', utm: {} })
   const pendingCollegeIdRef = useRef<number | null>(null)
+  const captureAttemptRef = useRef<{ id: string; fingerprint: string } | null>(null)
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -139,45 +142,14 @@ export default function Calculator() {
       .finally(() => setIsCollegesLoading(false))
   }, [state])
 
-  const saveLead = useCallback(async (roi: RoiResult, contact: { email: string; phone: string; sms: boolean }) => {
-    try {
-      await fetch('/api/insertEmailDocument', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: contact.email,
-          phone: contact.phone,
-          smsConsent: contact.sms,
-          state,
-          residency,
-          college: roi.college.name,
-          referrer: attributionRef.current.referrer,
-          utm: attributionRef.current.utm,
-          annualCost: roi.annualCost,
-          standardTotal: roi.standard.totalCost,
-          standardRecoup: roi.standard.recoupLabel,
-          fastrackTotal: roi.fastrack.totalCost,
-          fastrackRecoup: roi.fastrack.recoupLabel,
-          savings: roi.savings,
-          earlyEarnings: roi.earlyEarnings,
-          totalAdvantage: roi.totalAdvantage,
-          yearsSaved: roi.yearsSaved,
-          costBasis: roi.costBasis,
-        }),
-      })
-    } catch {
-      // A failed lead write must never block the user from seeing results.
-    }
-  }, [residency, state])
-
-  const fetchRoi = useCallback(async (target: CollegeOption, res: 'inState' | 'outOfState') => {
+  const fetchRoi = useCallback(async (target: CollegeOption, res: 'inState' | 'outOfState', reveal = true) => {
     setIsResultLoading(true)
     setError(null)
     try {
       const r = await fetch(`/api/roi?id=${target.id}&residency=${res}`)
       if (!r.ok) throw new Error()
       const roi: RoiResult = await r.json()
-      setResult(roi)
+      if (reveal) setResult(roi)
       return roi
     } catch {
       setResult(null)
@@ -192,14 +164,14 @@ export default function Calculator() {
   // out-of-state figures whenever residency was still unset.
   useEffect(() => {
     if (!college || !residency) return
-    if (sessionStorage.getItem('session-email')) { fetchRoi(college, residency); return }
+    if (sessionStorage.getItem('session-capture-ack')) { fetchRoi(college, residency); return }
     if (userIntentRef.current) setIsEmailModalOpen(true)
   }, [college, residency, fetchRoi])
 
   const requestResults = () => {
     userIntentRef.current = true
     if (!college || !residency) return
-    if (sessionStorage.getItem('session-email')) { fetchRoi(college, residency); return }
+    if (sessionStorage.getItem('session-capture-ack')) { fetchRoi(college, residency); return }
     setIsEmailModalOpen(true)
   }
 
@@ -207,13 +179,35 @@ export default function Calculator() {
     e.preventDefault()
     if (!college || !residency) return
     setIsSubmitting(true)
-    sessionStorage.setItem('session-email', email)
-    track('Lead Captured')
-    leadShouldBeInsertedRef.current = true
-    setIsEmailModalOpen(false)
-    const roi = await fetchRoi(college, residency)
-    if (roi) await saveLead(roi, { email, phone: phoneNumber, sms: smsConsent })
-    setIsSubmitting(false)
+    setCaptureError(null)
+    const fingerprint = JSON.stringify({ email: email.trim().toLowerCase(), phone: phoneNumber.trim(), smsConsent, state, residency, collegeId: college.id, referrer: attributionRef.current.referrer, utm: attributionRef.current.utm })
+    const captureId = captureAttemptRef.current?.fingerprint === fingerprint
+      ? captureAttemptRef.current.id
+      : crypto.randomUUID()
+    captureAttemptRef.current = { id: captureId, fingerprint }
+    try {
+      await completeCapture({
+        fetcher: fetch,
+        payload: {
+          captureId, email, phone: phoneNumber, smsConsent, state, residency,
+          collegeId: college.id, referrer: attributionRef.current.referrer,
+          utm: attributionRef.current.utm, website,
+        },
+        onAcknowledged: ({ roi }: { roi: RoiResult }) => {
+          sessionStorage.setItem('session-capture-ack', '1')
+          sessionStorage.removeItem('session-email')
+          track('Lead Captured')
+          setResult(roi)
+          setIsEmailModalOpen(false)
+          captureAttemptRef.current = null
+        },
+      })
+    } catch {
+      setResult(null)
+      setCaptureError('We could not save your request. Your information is still here. Please try again.')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   // Pricing is counselor-only ($500/seat) and now lives under /counselors, so it
@@ -478,6 +472,10 @@ export default function Calculator() {
           </DialogHeader>
 
           <form onSubmit={handleEmailSubmit} className="mt-2 space-y-4">
+            <div className="hidden" aria-hidden="true">
+              <label htmlFor="website">Website</label>
+              <input id="website" name="website" tabIndex={-1} autoComplete="off" value={website} onChange={(e) => setWebsite(e.target.value)} />
+            </div>
             <div className="space-y-1.5">
               <label htmlFor="email" className="block text-xs font-medium uppercase tracking-wider text-slate-500">
                 Email
@@ -505,6 +503,10 @@ export default function Calculator() {
                   apply. Reply STOP at any time to opt out.
                 </span>
               </label>
+            )}
+
+            {captureError && (
+              <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{captureError}</p>
             )}
 
             <Button type="submit" disabled={isSubmitting}
