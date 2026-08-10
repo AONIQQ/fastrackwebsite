@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { waitUntil } from '@vercel/functions'
 import { createHash } from 'node:crypto'
-import { claimCaptureRisk, getCollegeById, insertLead } from '@/lib/db'
+import { claimCaptureRisk, getCollegeById, insertLead, recordCaptureReportingEvents } from '@/lib/db'
 import { notifyNewLead } from '@/lib/mail'
 import { sendSms, resultsSms } from '@/lib/sms'
 import { processResultMessage } from '@/lib/message-ledger'
@@ -10,6 +10,8 @@ import {
   CAPTURE_BODY_LIMIT, CaptureInputError, SMS_CONSENT_VERSION,
   captureFingerprintInput, isAllowedCaptureOrigin, validateCaptureInput,
 } from '@/lib/capture.mjs'
+import { attributionValidity, reportingReasonForInputError } from '@/lib/capture-reporting.mjs'
+import type { CaptureReportEvent } from '@/lib/db'
 import {
   CAPTURE_RATE_POLICIES, CAPTURE_RISK_POLICY_VERSION, CAPTURE_RISK_RETENTION_DAYS,
   CaptureRiskConfigurationError, buildCaptureRiskKeys, captureNetworkAddress, smsDispatchEnabled,
@@ -17,7 +19,15 @@ import {
 
 export const dynamic = 'force-dynamic'
 
+async function recordRejected(reasonCode: string, attribution: CaptureReportEvent['attributionValidity'] = 'unknown') {
+  await recordCaptureReportingEvents([
+    { eventType: 'attempt', reasonCode: 'none', attributionValidity: attribution, trafficClass: 'unknown' },
+    { eventType: 'rejected', reasonCode, attributionValidity: attribution, trafficClass: 'unknown' },
+  ])
+}
+
 export async function POST(request: Request) {
+  let reportingAttribution: CaptureReportEvent['attributionValidity'] = 'unknown'
   try {
     if (process.env.CAPTURE_ACK_ENABLED === '0') {
       return NextResponse.json({ error: 'Capture is temporarily unavailable', code: 'capture_disabled' }, { status: 503 })
@@ -27,15 +37,18 @@ export async function POST(request: Request) {
     }
     const declaredLength = Number(request.headers.get('content-length') ?? 0)
     if (declaredLength > CAPTURE_BODY_LIMIT) {
+      await recordRejected('payload_too_large')
       return NextResponse.json({ error: 'Request is too large', code: 'payload_too_large' }, { status: 413 })
     }
     const raw = await request.text()
     if (Buffer.byteLength(raw, 'utf8') > CAPTURE_BODY_LIMIT) {
+      await recordRejected('payload_too_large')
       return NextResponse.json({ error: 'Request is too large', code: 'payload_too_large' }, { status: 413 })
     }
     let body: unknown
     try { body = JSON.parse(raw) } catch { throw new CaptureInputError('invalid_json', 'Invalid request') }
     const input = validateCaptureInput(body, request.url)
+    reportingAttribution = attributionValidity(input.attribution)
     const captureRequestHash = createHash('sha256').update(captureFingerprintInput(input)).digest('hex')
     const riskKeys = buildCaptureRiskKeys({
       secret: process.env.CAPTURE_ABUSE_SECRET,
@@ -44,6 +57,7 @@ export async function POST(request: Request) {
       phone: input.phone,
     })
     if (!riskKeys) {
+      await recordRejected('risk_identity_missing', reportingAttribution)
       return NextResponse.json({ error: 'Request identity is unavailable', code: 'risk_identity_missing' }, { status: 403 })
     }
     const risk = await claimCaptureRisk({
@@ -59,12 +73,15 @@ export async function POST(request: Request) {
       retentionDays: CAPTURE_RISK_RETENTION_DAYS,
     })
     if (!risk) {
+      await recordRejected('capture_mismatch', reportingAttribution)
       return NextResponse.json({ error: 'Capture identity does not match this request', code: 'capture_mismatch' }, { status: 409 })
     }
     if (risk.validation_code === 'invalid_college') {
-      throw new CaptureInputError('invalid_college', 'College does not match the selected state')
+      await recordRejected('invalid_college', reportingAttribution)
+      return NextResponse.json({ error: 'College does not match the selected state', code: 'invalid_college' }, { status: 400 })
     }
     if (risk.decision !== 'accepted') {
+      await recordRejected(risk.reason_code, reportingAttribution)
       return NextResponse.json({ error: 'Please wait before trying again', code: 'rate_limited' }, { status: 429 })
     }
     const college = await getCollegeById(input.collegeId)
@@ -84,6 +101,7 @@ export async function POST(request: Request) {
       smsConsentVersion: input.smsConsent ? SMS_CONSENT_VERSION : null,
       isFixture: false,
       riskDecisionId: risk.id,
+      attributionValidity: reportingAttribution,
     })
     if (!lead) {
       return NextResponse.json({ error: 'Capture identity does not match this request', code: 'capture_mismatch' }, { status: 409 })
@@ -109,12 +127,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, id: lead.id, capture_id: input.captureId, roi: lead.snapshot })
   } catch (error) {
     if (error instanceof CaptureInputError) {
+      try { await recordRejected(reportingReasonForInputError(error.code), error.code === 'invalid_attribution' || error.code === 'invalid_referrer' ? 'invalid' : reportingAttribution) } catch { console.error('[capture reporting unavailable]') }
       return NextResponse.json({ error: error.message, code: error.code }, { status: 400 })
     }
     if (error instanceof CaptureRiskConfigurationError) {
       return NextResponse.json({ error: 'Capture is temporarily unavailable', code: 'risk_unavailable' }, { status: 503 })
     }
-    console.error('Error inserting lead:', error)
+    // A failed primary database response cannot prove whether PostgreSQL committed.
+    // Record only the uncertainty when a separate aggregate write is durably accepted.
+    try {
+      await recordCaptureReportingEvents([{
+        eventType: 'persistence_unconfirmed', reasonCode: 'database_or_response_unconfirmed',
+        attributionValidity: reportingAttribution, trafficClass: 'unknown',
+      }])
+    } catch { console.error('[capture failure unobservable]') }
+    console.error('[capture persistence or response unconfirmed]')
     return NextResponse.json({ error: 'Failed to capture results', code: 'capture_failed' }, { status: 500 })
   }
 }

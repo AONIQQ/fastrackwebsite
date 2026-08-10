@@ -1,5 +1,6 @@
 import { neon } from '@neondatabase/serverless';
 import { CAPTURE_ABUSE_CLEANUP_BATCH_SIZE } from './capture-abuse-cleanup.mjs';
+import { boundedCaptureReportEvent } from './capture-reporting.mjs';
 
 // HTTP driver rather than a TCP pool. In serverless functions a pool either leaks
 // connections across invocations or pays a handshake on every cold start; the HTTP
@@ -316,6 +317,7 @@ export async function insertLead(lead: {
   smsConsentAt?: Date | null;
   isFixture?: boolean;
   riskDecisionId: number;
+  attributionValidity: 'direct' | 'external_referrer' | 'valid_utm' | 'valid_click_id';
 }) {
   const rows = (await sql`
     with eligible_risk as (
@@ -331,7 +333,7 @@ export async function insertLead(lead: {
         gclid, fbclid, normalized_referrer, normalized_phone,
         sms_consent_at, sms_consent_version, is_fixture,
         capture_risk_decision_id, capture_risk_accepted_at, capture_risk_policy_version,
-        phone_verified_at, sms_eligible
+        phone_verified_at, sms_eligible, attribution_validity
       ) select
         ${lead.email}, ${lead.phone ?? null}, ${lead.state ? lead.state.toUpperCase().slice(0, 2) : null},
         ${lead.residency ?? null}, ${lead.college ?? null}, ${JSON.stringify(lead.snapshot ?? {})}::jsonb,
@@ -344,7 +346,7 @@ export async function insertLead(lead: {
         ${lead.normalizedReferrer ?? null}, ${lead.normalizedPhone ?? null},
         ${lead.smsConsentAt ?? null}, ${lead.smsConsentVersion ?? null}, ${lead.isFixture ?? false},
         eligible_risk.id, eligible_risk.accepted_at, eligible_risk.policy_version,
-        null, false
+        null, false, ${lead.attributionValidity}
       from eligible_risk
       on conflict (capture_id) where capture_id is not null do update
         set capture_id = excluded.capture_id
@@ -358,22 +360,138 @@ export async function insertLead(lead: {
       from captured
       on conflict (logical_key) do nothing
       returning lead_id
-    ), event_record as (
-      insert into capture_events (capture_id, lead_id, event_type, is_fixture)
-      select ${lead.captureId}::uuid, captured.id,
-        case when message_work.lead_id is not null then 'accepted' else 'replayed' end,
-        coalesce(captured.is_fixture, false)
+    ), attempt_report as (
+      insert into capture_reporting_buckets (
+        bucket_start, event_type, reason_code, attribution_validity, traffic_class, event_count
+      ) select date_trunc('hour', now()), 'attempt', 'none', ${lead.attributionValidity},
+        case when coalesce(captured.is_fixture, false) then 'fixture' else 'genuine' end, 1
+      from captured
+      on conflict (bucket_start, event_type, reason_code, attribution_validity, traffic_class)
+      do update set event_count = capture_reporting_buckets.event_count + 1, updated_at = now()
+      returning 1
+    ), outcome_report as (
+      insert into capture_reporting_buckets (
+        bucket_start, event_type, reason_code, attribution_validity, traffic_class, event_count
+      ) select date_trunc('hour', now()),
+        case when message_work.lead_id is not null then 'accepted' else 'deduplicated' end,
+        case when message_work.lead_id is not null then 'none' else 'stable_replay' end,
+        ${lead.attributionValidity},
+        case when coalesce(captured.is_fixture, false) then 'fixture' else 'genuine' end, 1
       from captured
       left join message_work on message_work.lead_id = captured.id
-      returning id
+      on conflict (bucket_start, event_type, reason_code, attribution_validity, traffic_class)
+      do update set event_count = capture_reporting_buckets.event_count + 1, updated_at = now()
+      returning 1
     )
     select captured.id, captured.created_at, captured.snapshot,
       (message_work.lead_id is not null) as delivery_claimed, captured.sms_eligible
     from captured
     left join message_work on message_work.lead_id = captured.id
-    cross join event_record
+    cross join attempt_report
+    cross join outcome_report
   `) as { id: number; created_at: string; snapshot: Record<string, unknown>; delivery_claimed: boolean; sms_eligible: boolean }[];
   return rows[0];
+}
+
+export type CaptureReportEvent = {
+  eventType: 'attempt' | 'accepted' | 'deduplicated' | 'rejected' | 'persistence_unconfirmed' | 'result_displayed';
+  reasonCode: string;
+  attributionValidity: 'direct' | 'external_referrer' | 'valid_utm' | 'valid_click_id' | 'invalid' | 'unknown';
+  trafficClass: 'genuine' | 'fixture' | 'unknown';
+};
+
+/**
+ * Records only fixed aggregate classifications. This function accepts no request
+ * identity or free-form detail, so it cannot persist a visitor address, target,
+ * referrer, token, body, or other unbounded value.
+ */
+export async function recordCaptureReportingEvents(events: CaptureReportEvent[]) {
+  const bounded = events.map(boundedCaptureReportEvent);
+  if (bounded.length < 1 || bounded.length > 2) throw new TypeError('capture reporting batch must contain one or two events');
+  const rows = (await sql.query(`
+    insert into capture_reporting_buckets (
+      bucket_start, event_type, reason_code, attribution_validity, traffic_class, event_count
+    )
+    select date_trunc('hour', now()), event_type, reason_code, attribution_validity, traffic_class, count(*)::bigint
+    from unnest($1::text[], $2::text[], $3::text[], $4::text[])
+      as incoming(event_type, reason_code, attribution_validity, traffic_class)
+    group by event_type, reason_code, attribution_validity, traffic_class
+    on conflict (bucket_start, event_type, reason_code, attribution_validity, traffic_class)
+    do update set event_count = capture_reporting_buckets.event_count + excluded.event_count, updated_at = now()
+    returning event_count
+  `, [
+    bounded.map((event) => event.eventType),
+    bounded.map((event) => event.reasonCode),
+    bounded.map((event) => event.attributionValidity),
+    bounded.map((event) => event.trafficClass),
+  ])) as { event_count: number }[];
+  if (rows.length < 1) throw new Error('capture reporting event was not recorded');
+}
+
+/** A display acknowledgement is idempotent at the lead transition, not the bucket. */
+export async function acknowledgeCaptureResultDisplay(captureId: string) {
+  const rows = (await sql`
+    with displayed as (
+      update leads set result_displayed_at = now()
+      where capture_id = ${captureId}::uuid and result_displayed_at is null
+      returning is_fixture, attribution_validity
+    ), report as (
+      insert into capture_reporting_buckets (
+        bucket_start, event_type, reason_code, attribution_validity, traffic_class, event_count
+      ) select date_trunc('hour', now()), 'result_displayed', 'none', attribution_validity,
+        case when coalesce(is_fixture, false) then 'fixture' else 'genuine' end, 1
+      from displayed
+      on conflict (bucket_start, event_type, reason_code, attribution_validity, traffic_class)
+      do update set event_count = capture_reporting_buckets.event_count + 1, updated_at = now()
+      returning 1
+    )
+    select exists(select 1 from displayed) as first_display,
+      (exists(select 1 from displayed) or exists(
+        select 1 from leads where capture_id = ${captureId}::uuid and result_displayed_at is not null
+      )) as acknowledged,
+      (select count(*)::int from report) as report_rows
+  `) as { first_display: boolean; acknowledged: boolean; report_rows: number }[];
+  return rows[0] ?? { first_display: false, acknowledged: false, report_rows: 0 };
+}
+
+export async function captureOperationsReport(days = 30) {
+  const safeDays = Math.max(1, Math.min(90, Math.trunc(days)));
+  const events = (await sql`
+    select event_type, reason_code, attribution_validity, traffic_class,
+      sum(event_count)::int as count
+    from capture_reporting_buckets
+    where bucket_start >= date_trunc('hour', now() - (${safeDays}::text || ' days')::interval)
+    group by event_type, reason_code, attribution_validity, traffic_class
+    order by event_type, reason_code, attribution_validity, traffic_class
+  `) as { event_type: string; reason_code: string; attribution_validity: string; traffic_class: string; count: number }[];
+  const leads = (await sql`
+    with raw_classified as (
+      select
+        case
+          when snapshot ? '_legacy_mongo_id' then 'retired'
+          when coalesce(is_fixture, false)
+            or (capture_id is null and (
+              coalesce(utm->>'utm_campaign', '') ~* '(^|[-_])(test|verify|e2e)([-_]|$)'
+              or coalesce(referrer, '') ~* '(^|[?&/_-])(test|verify|e2e)([=&/_-]|$)'
+              or split_part(lower(email), '@', 1) ~ '(^|[._+-])(test|verify|e2e)([._+-]|$)'
+            )) then 'test'
+          when capture_id is not null and capture_risk_accepted_at is not null then 'genuine'
+          else 'unclassified'
+        end as classification,
+        coalesce(utm_source, utm->>'utm_source',
+          case when normalized_referrer is not null then 'referral' else 'direct' end) as raw_source
+      from leads
+      where created_at >= now() - (${safeDays}::text || ' days')::interval
+    ), classified as (
+      select classification,
+        case when raw_source ~ '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$'
+          then lower(raw_source) else 'invalid_source' end as source
+      from raw_classified
+    )
+    select classification, source, count(*)::int as count
+    from classified group by classification, source order by classification, source
+  `) as { classification: 'genuine' | 'test' | 'retired' | 'unclassified'; source: string; count: number }[];
+  return { window_days: safeDays, durable_leads: leads, capture_events: events };
 }
 
 export async function listLeads(limit = 500, offset = 0) {

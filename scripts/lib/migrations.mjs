@@ -32,13 +32,18 @@ export function splitStatements(contents) {
 }
 
 export function assertAdditiveSql(contents, filename = 'migration') {
-  const safetySql = contents
-    .replace(/--[^\r\n]*/g, ' ')
-    .replace(/\/\*[\s\S]*?\*\//g, ' ')
-    .replace(/'(?:''|[^'])*'/g, "''")
+  // Cross-statement matching can mistake a later additive ALTER TABLE for an
+  // ALTER COLUMN clause or attach a later constraint's NOT NULL to an earlier
+  // nullable column. The runner executes these same delimiter-defined units.
+  for (const statement of splitStatements(contents)) {
+    const safetySql = statement
+      .replace(/--[^\r\n]*/g, ' ')
+      .replace(/\/\*[\s\S]*?\*\//g, ' ')
+      .replace(/'(?:''|[^'])*'/g, "''")
 
-  for (const rule of FORBIDDEN_SQL) {
-    if (rule.pattern.test(safetySql)) throw new Error(`${filename}: ${rule.reason}`)
+    for (const rule of FORBIDDEN_SQL) {
+      if (rule.pattern.test(safetySql)) throw new Error(`${filename}: ${rule.reason}`)
+    }
   }
 }
 

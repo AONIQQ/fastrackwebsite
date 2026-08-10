@@ -75,3 +75,14 @@ reviewed threshold change.
 validation classification so invalid college/state combinations consume broad
 global and network capacity without consuming a target's email or phone
 allowance. Existing decision values and old-source compatibility are unchanged.
+
+`0008_capture_reporting_invariants.sql` adds fixed-dimension hourly capture
+counters and prospective lead checks. The reporting table stores only bounded
+event, reason, attribution-validity, traffic-class, time-bucket, and count values.
+It never stores a capture identity, target, network identity, referrer, token, or
+request content. Lead checks are `NOT VALID`: PostgreSQL enforces them for new or
+changed rows while leaving classified legacy imports readable. The checks allow
+`capture_id is null` where the currently deployed source needs compatibility;
+the new capture path must satisfy the stricter lifecycle, consent, attribution,
+college, and accepted-risk relationships. Validation of historical rows is a
+separate reviewed data task, not part of release migration apply.

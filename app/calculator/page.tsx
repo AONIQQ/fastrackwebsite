@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Menu, X } from 'lucide-react'
 import Script from 'next/script'
 import { CollegeCombobox, type CollegeOption } from './CollegeCombobox'
-import { completeCapture } from '@/lib/capture-client.mjs'
+import { acknowledgeResultDisplay, completeCapture } from '@/lib/capture-client.mjs'
 import { withAttributionQuery } from '@/lib/attribution-url.mjs'
 
 const STATE_NAMES: Record<string, string> = {
@@ -83,6 +83,7 @@ export default function Calculator() {
   const [website, setWebsite] = useState('')
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [creditMapHref, setCreditMapHref] = useState('/credit-map')
+  const [displayAcknowledgement, setDisplayAcknowledgement] = useState<string | null>(null)
 
   const attributionRef = useRef<{ referrer: string; utm: Record<string, string> }>({ referrer: '', utm: {} })
   const pendingCollegeIdRef = useRef<number | null>(null)
@@ -105,6 +106,24 @@ export default function Calculator() {
     const cid = params.get('collegeId')
     if (cid && /^\d+$/.test(cid)) pendingCollegeIdRef.current = Number(cid)
   }, [])
+
+  useEffect(() => {
+    if (!result || !displayAcknowledgement) return
+    let cancelled = false
+    const acknowledge = async () => {
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        try {
+          await acknowledgeResultDisplay(fetch, displayAcknowledgement)
+          if (!cancelled) setDisplayAcknowledgement(null)
+          return
+        } catch {
+          // The stable capture identity makes a response-loss retry idempotent.
+        }
+      }
+    }
+    void acknowledge()
+    return () => { cancelled = true }
+  }, [result, displayAcknowledgement])
 
   useEffect(() => {
     fetch('/api/states')
@@ -201,6 +220,7 @@ export default function Calculator() {
           sessionStorage.removeItem('session-email')
           track('Lead Captured')
           setResult(roi)
+          setDisplayAcknowledgement(captureId)
           setIsEmailModalOpen(false)
           captureAttemptRef.current = null
         },
