@@ -3,6 +3,7 @@ import { google } from 'googleapis'
 import { Resend } from 'resend'
 import { createUnsubscribeToken, unsubscribeHeaders } from './unsubscribe.mjs'
 import { messageTrackingLinks } from './tracking-links.mjs'
+import { describeResultCostBasis, describeResultEarningsBasis, describeResultPaybackBasis } from './results-basis.mjs'
 
 const OAuth2 = google.auth.OAuth2
 
@@ -142,6 +143,17 @@ export type ResultsEmail = {
   collegeName: string
   residency: string
   annualCost: number
+  costBasisDetail?: {
+    kind?: string
+    reportedNetPrice?: number | null
+    publishedTuition?: number | null
+    tuitionDifferential?: number | null
+  }
+  averageSalary?: number | null
+  earningsBasis?: { kind?: string; earnings6Year?: number | null; earnings10Year?: number | null }
+  costOfLiving?: number | null
+  discretionaryIncome?: number | null
+  paybackBasis?: { definition?: string; availability?: string }
   standardTotal: number
   standardRecoup: string
   fastrackTotal: number
@@ -233,7 +245,7 @@ function resultsHtml(r: ResultsEmail, links: ResultsLinks) {
               <th class="colhead-b" style="padding:8px 16px;text-align:right;font-size:12px;text-transform:uppercase;letter-spacing:0.06em;color:#1a6b3c;font-weight:600;">Modeled dual-credit scenario</th>
             </tr>
             ${row('Total cost', money(r.standardTotal), money(r.fastrackTotal))}
-            ${row('Time to earn it back', r.standardRecoup, r.fastrackRecoup)}
+            ${row('Modeled time to cover path cost', r.standardRecoup, r.fastrackRecoup)}
           </table>
         </td></tr>
 
@@ -266,10 +278,10 @@ function resultsHtml(r: ResultsEmail, links: ResultsLinks) {
 
         <tr><td class="rule" style="padding:16px 24px 24px;border-top:1px solid #e6e6ef;">
           <p class="muted" style="margin:0;color:#8a8aa8;font-size:12px;line-height:1.6;">
-            Cost and earnings data come from the U.S. Department of Education College Scorecard. Net price is an
-            average for federal-aid recipients, not a personalized aid offer. The model assumes 60 dual-credit hours at
-            $80 per credit and two years enrolled at the selected college. Its early-earnings figure adds two years of
-            Scorecard median post-enrollment earnings and is not an individual wage forecast. Results vary with
+            Cost and earnings data come from the U.S. Department of Education College Scorecard. ${esc(describeResultCostBasis(r))}
+            ${esc(describeResultEarningsBasis(r))} ${esc(describeResultPaybackBasis(r))} The model assumes 60 dual-credit hours at
+            $80 per credit and two years enrolled at the selected college. Its early-earnings figure uses the earnings
+            basis stated above for each modeled year saved. Results vary with
             residency, aid, state, school, degree, transfer decisions, course availability, and course selection.
           </p>
           <p class="muted" style="margin:12px 0 0;color:#8a8aa8;font-size:12px;">
@@ -287,8 +299,8 @@ function resultsText(r: ResultsEmail, links: ResultsLinks) {
   return [
     `Your results for ${r.collegeName}`,
     '',
-    `4-year cost estimate:              ${money(r.standardTotal)}, ${r.standardRecoup} to earn back`,
-    `Modeled dual-credit scenario:      ${money(r.fastrackTotal)}, ${r.fastrackRecoup} to earn back`,
+    `4-year cost estimate:              ${money(r.standardTotal)}, ${r.standardRecoup} modeled time to cover path cost`,
+    `Modeled dual-credit scenario:      ${money(r.fastrackTotal)}, ${r.fastrackRecoup} modeled time to cover path cost`,
     '',
     `Modeled cost difference:           ${money(r.savings)}`,
     `Two modeled years of median post-enrollment earnings: ${money(r.earlyEarnings)}`,
@@ -300,9 +312,11 @@ function resultsText(r: ResultsEmail, links: ResultsLinks) {
     `Explore the $497 Credit Map: ${links.creditMap}`,
     '',
     'Cost and earnings data come from the U.S. Department of Education College Scorecard.',
-    'Net price is an average for federal-aid recipients, not a personalized aid offer.',
+    describeResultCostBasis(r),
+    describeResultEarningsBasis(r),
+    describeResultPaybackBasis(r),
     'The model assumes 60 dual-credit hours at $80 per credit and two years enrolled at the selected college.',
-    'The early-earnings figure adds two years of Scorecard median post-enrollment earnings and is not an individual wage forecast.',
+    'The early-earnings figure uses the earnings basis stated above for each modeled year saved.',
     'Results vary with residency, aid, state, school, degree, transfer decisions, course availability, and course selection.',
     '',
     'Fastrack, 1007 N Orange St, Wilmington, Delaware. info@fastrack.school',

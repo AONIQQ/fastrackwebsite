@@ -21,6 +21,21 @@ type Message = {
   residency: string | null
   snapshot: {
     annualCost?: number
+    costBasisDetail?: {
+      kind?: string
+      reportedNetPrice?: number | null
+      publishedTuition?: number | null
+      tuitionDifferential?: number | null
+    }
+    averageSalary?: number | null
+    earningsBasis?: {
+      kind?: string
+      earnings6Year?: number | null
+      earnings10Year?: number | null
+    }
+    costOfLiving?: number | null
+    discretionaryIncome?: number | null
+    paybackBasis?: { definition?: string; availability?: string }
     standard?: { totalCost?: number; recoupLabel?: string }
     fastrack?: { totalCost?: number; recoupLabel?: string }
     savings?: number
@@ -134,6 +149,12 @@ export async function dispatchClaimedMessage(message: Message) {
           collegeName: message.college || 'your selected college',
           residency: message.residency || 'in-state',
           annualCost: Number(message.snapshot?.annualCost || 0),
+          costBasisDetail: message.snapshot?.costBasisDetail,
+          averageSalary: message.snapshot?.averageSalary == null ? null : Number(message.snapshot.averageSalary),
+          earningsBasis: message.snapshot?.earningsBasis,
+          costOfLiving: message.snapshot?.costOfLiving == null ? null : Number(message.snapshot.costOfLiving),
+          discretionaryIncome: message.snapshot?.discretionaryIncome == null ? null : Number(message.snapshot.discretionaryIncome),
+          paybackBasis: message.snapshot?.paybackBasis,
           standardTotal: Number(message.snapshot?.standard?.totalCost || 0),
           standardRecoup: String(message.snapshot?.standard?.recoupLabel || ''),
           fastrackTotal: Number(message.snapshot?.fastrack?.totalCost || 0),

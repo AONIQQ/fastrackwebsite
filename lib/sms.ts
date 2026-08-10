@@ -76,9 +76,8 @@ export function resultsSms(_collegeName: string, totalAdvantage: number | null) 
     money
       ? `Your modeled estimate is ${money}.`
       : 'Your modeled estimate is ready.',
-    'Assumes 60 credits at $80, average net price for federal-aid recipients, plus 2 years of median post-enrollment earnings.',
-    'Transfer, degree fit, residency and aid vary.',
-    'See your email.',
+    'This is a modeled estimate, not a promised result.',
+    'See your email for the cost, earnings, payback basis, and limitations.',
     'Reply STOP to opt out.',
   ].join(' ')
 }
