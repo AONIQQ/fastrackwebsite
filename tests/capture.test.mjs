@@ -3,9 +3,13 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import {
   CAPTURE_BODY_LIMIT, CaptureInputError, captureResponseIsAcknowledged,
-  captureFingerprintInput, createSlidingWindowLimiter, isAllowedCaptureOrigin, normalizeAttribution,
+  captureFingerprintInput, isAllowedCaptureOrigin, normalizeAttribution,
   validateCaptureInput,
 } from '../lib/capture.mjs'
+import {
+  CAPTURE_RATE_POLICIES, CAPTURE_RISK_POLICY_VERSION, CaptureRiskConfigurationError,
+  buildCaptureRiskKeys, captureNetworkAddress, smsDispatchEnabled,
+} from '../lib/capture-abuse.mjs'
 import { CaptureRequestError, completeCapture, postCapture } from '../lib/capture-client.mjs'
 
 const captureId = '123e4567-e89b-42d3-a456-426614174000'
@@ -53,16 +57,46 @@ test('consent, identity, college, state, residency, email, honeypot and phone ar
 
 test('same-origin check rejects cross-origin and malformed origins', () => {
   assert.equal(isAllowedCaptureOrigin('https://www.fastrack.school', 'https://www.fastrack.school/api/x'), true)
+  assert.equal(isAllowedCaptureOrigin(null, 'https://www.fastrack.school/api/x'), false)
   assert.equal(isAllowedCaptureOrigin('https://evil.example', 'https://www.fastrack.school/api/x'), false)
   assert.equal(isAllowedCaptureOrigin('bad', 'https://www.fastrack.school/api/x'), false)
 })
 
-test('sliding limiter enforces a bound and recovers after its window', () => {
-  const allow = createSlidingWindowLimiter({ limit: 2, windowMs: 100 })
-  assert.equal(allow('household', 0), true)
-  assert.equal(allow('household', 1), true)
-  assert.equal(allow('household', 2), false)
-  assert.equal(allow('household', 101), true)
+test('risk keys require a strong secret and contain no raw network or target values', () => {
+  const values = { secret: 's'.repeat(32), network: '203.0.113.8', email: 'parent@example.com', phone: '+16055551212' }
+  const keys = buildCaptureRiskKeys(values)
+  assert.deepEqual(Object.keys(keys), ['global', 'network', 'email', 'phone'])
+  for (const digest of Object.values(keys)) {
+    assert.match(digest, /^[0-9a-f]{64}$/)
+    assert.doesNotMatch(digest, /parent|example|605|203/)
+  }
+  assert.notEqual(keys.email, keys.phone)
+  assert.equal(CAPTURE_RISK_POLICY_VERSION, 'capture-risk-v1')
+  assert.throws(() => buildCaptureRiskKeys({ ...values, secret: 'short' }), CaptureRiskConfigurationError)
+  assert.equal(buildCaptureRiskKeys({ ...values, network: 'not-an-ip' }), null)
+})
+
+test('network identity uses only the Vercel-provided forwarding header', () => {
+  const callerOnly = new Headers({ 'x-forwarded-for': '203.0.113.9' })
+  assert.equal(captureNetworkAddress(callerOnly), null)
+  const vercel = new Headers({ 'x-vercel-forwarded-for': '2001:db8::1, 203.0.113.9', 'x-forwarded-for': '198.51.100.2' })
+  assert.equal(captureNetworkAddress(vercel), '2001:db8::1')
+  assert.equal(captureNetworkAddress(new Headers({ 'x-vercel-forwarded-for': 'spoofed' })), null)
+})
+
+test('durable policies impose target, network and global ceilings', () => {
+  assert.deepEqual(CAPTURE_RATE_POLICIES, {
+    global: { windowSeconds: 600, limit: 100 },
+    network: { windowSeconds: 60, limit: 8 },
+    email: { windowSeconds: 86_400, limit: 3 },
+    phone: { windowSeconds: 86_400, limit: 3 },
+  })
+})
+
+test('SMS dispatch is disabled by default and requires exact explicit enablement', () => {
+  assert.equal(smsDispatchEnabled({}), false)
+  assert.equal(smsDispatchEnabled({ CAPTURE_SMS_ENABLED: 'true' }), false)
+  assert.equal(smsDispatchEnabled({ CAPTURE_SMS_ENABLED: '1' }), true)
 })
 
 test('acknowledgement must match the submitted durable capture identity', () => {
@@ -146,8 +180,31 @@ test('concurrent same-key acknowledgements converge on one durable identity', as
 test('database capture source binds hash and atomically records results work and event without xmax', async () => {
   const source = await readFile(new URL('../lib/db.ts', import.meta.url), 'utf8')
   assert.match(source, /where leads\.capture_request_hash = excluded\.capture_request_hash/)
-  assert.match(source, /with captured as[\s\S]*message_work as[\s\S]*event_record as/)
+  assert.match(source, /eligible_risk as[\s\S]*captured as[\s\S]*message_work as[\s\S]*event_record as/)
   assert.match(source, /insert into email_messages/)
   assert.match(source, /insert into capture_events/)
   assert.doesNotMatch(source, /xmax/)
+})
+
+test('database capture is joined to one accepted durable risk decision before work is claimed', async () => {
+  const source = await readFile(new URL('../lib/db.ts', import.meta.url), 'utf8')
+  assert.match(source, /capture_rate_windows/)
+  assert.match(source, /on conflict \(scope, key_digest, window_start\) do update/)
+  assert.match(source, /capture_rate_windows\.attempt_count < /)
+  assert.match(source, /email_window as[\s\S]*exists \(select 1 from global_window\)/)
+  assert.match(source, /select 0, 'rejected', 'global_limit'/)
+  assert.match(source, /where not exists \(select 1 from known\)[\s\S]*on conflict \(capture_id\)/)
+  assert.match(source, /with eligible_risk as[\s\S]*decision = 'accepted'[\s\S]*insert into leads/)
+  assert.match(source, /phone_verified_at, sms_eligible[\s\S]*null, false/)
+  assert.match(source, /expired_windows as[\s\S]*limit 500[\s\S]*expired_decisions as[\s\S]*limit 500/)
+})
+
+test('capture route gates work on durable risk and verified SMS eligibility', async () => {
+  const route = await readFile(new URL('../app/api/insertEmailDocument/route.ts', import.meta.url), 'utf8')
+  assert.match(route, /await claimCaptureRisk/)
+  assert.match(route, /risk\.decision !== 'accepted'/)
+  assert.match(route, /lead\.sms_eligible && smsDispatchEnabled\(\)/)
+  assert.doesNotMatch(route, /createSlidingWindowLimiter/)
+  const sms = await readFile(new URL('../lib/sms.ts', import.meta.url), 'utf8')
+  assert.match(sms, /process\.env\.CAPTURE_SMS_ENABLED === '1'/)
 })

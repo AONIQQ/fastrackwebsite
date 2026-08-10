@@ -1,15 +1,15 @@
 /**
  * Outbound SMS via Twilio.
  *
- * Inert unless TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN and TWILIO_FROM_NUMBER are
- * all set, so deploying this changes nothing until those exist.
+ * Inert unless CAPTURE_SMS_ENABLED is exactly `1` and all Twilio credentials
+ * are set. Capture still requires a separately verified phone relationship and
+ * durable eligibility; this module-level switch is only defense in depth.
  *
- * IMPORTANT, this only ever fires when the lead ticked the consent box. Under
+ * IMPORTANT, checkbox consent alone is not send eligibility. Under
  * the TCPA, a marketing text without prior express WRITTEN consent carries
  * statutory damages of $500-$1,500 per message, and these are parents' personal
- * mobile numbers. The consent checkbox and the stored `sms_consent` flag are the
- * record that proves consent existed. Do not add a code path that texts someone
- * who did not tick it.
+ * mobile numbers. Do not add a code path that texts an unverified phone or a
+ * person without the stored consent relationship.
  *
  * Called with `await` deliberately omitted from the request path, a texting
  * failure must never block a lead from being saved.
@@ -30,7 +30,8 @@ export function normalizePhone(raw: string | null | undefined): string | null {
 
 export function smsConfigured() {
   return Boolean(
-    process.env.TWILIO_ACCOUNT_SID &&
+    process.env.CAPTURE_SMS_ENABLED === '1' &&
+      process.env.TWILIO_ACCOUNT_SID &&
       process.env.TWILIO_AUTH_TOKEN &&
       process.env.TWILIO_FROM_NUMBER,
   )

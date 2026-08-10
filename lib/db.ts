@@ -109,6 +109,151 @@ export async function getCostOfLiving(state: string): Promise<number | null> {
   return rows[0]?.annual_cost ?? null;
 }
 
+type CaptureRiskKeys = {
+  global: string;
+  network: string;
+  email: string;
+  phone: string | null;
+};
+
+type CaptureRatePolicy = { windowSeconds: number; limit: number };
+
+export async function claimCaptureRisk(input: {
+  captureId: string;
+  requestHash: string;
+  policyVersion: string;
+  keys: CaptureRiskKeys;
+  policies: Record<'global' | 'network' | 'email' | 'phone', CaptureRatePolicy>;
+  smsConsentRequested: boolean;
+  now?: Date;
+  retentionDays: number;
+}) {
+  const now = input.now ?? new Date();
+  const bucket = (seconds: number) => new Date(Math.floor(now.getTime() / (seconds * 1000)) * seconds * 1000);
+  const expires = (seconds: number) => new Date(bucket(seconds).getTime() + (seconds * 1000) + 86_400_000);
+  const decisionExpires = new Date(now.getTime() + input.retentionDays * 86_400_000);
+  const globalPolicy = input.policies.global;
+  const networkPolicy = input.policies.network;
+  const emailPolicy = input.policies.email;
+  const phonePolicy = input.policies.phone;
+
+  const rows = (await sql`
+    with known as (
+      select id, request_hash from capture_risk_decisions where capture_id = ${input.captureId}::uuid
+    ), global_window as (
+      insert into capture_rate_windows (
+        scope, key_digest, window_start, window_seconds, attempt_count, expires_at
+      )
+      select 'global', ${input.keys.global}, ${bucket(globalPolicy.windowSeconds)},
+        ${globalPolicy.windowSeconds}, 1, ${expires(globalPolicy.windowSeconds)}
+      where not exists (select 1 from known)
+      on conflict (scope, key_digest, window_start) do update
+        set attempt_count = capture_rate_windows.attempt_count + 1
+        where capture_rate_windows.attempt_count < ${globalPolicy.limit}
+      returning 1
+    ), network_window as (
+      insert into capture_rate_windows (
+        scope, key_digest, window_start, window_seconds, attempt_count, expires_at
+      )
+      select 'network', ${input.keys.network}, ${bucket(networkPolicy.windowSeconds)},
+        ${networkPolicy.windowSeconds}, 1, ${expires(networkPolicy.windowSeconds)}
+      where not exists (select 1 from known) and exists (select 1 from global_window)
+      on conflict (scope, key_digest, window_start) do update
+        set attempt_count = capture_rate_windows.attempt_count + 1
+        where capture_rate_windows.attempt_count < ${networkPolicy.limit}
+      returning 1
+    ), email_window as (
+      insert into capture_rate_windows (
+        scope, key_digest, window_start, window_seconds, attempt_count, expires_at
+      )
+      select 'email', ${input.keys.email}, ${bucket(emailPolicy.windowSeconds)},
+        ${emailPolicy.windowSeconds}, 1, ${expires(emailPolicy.windowSeconds)}
+      where not exists (select 1 from known) and exists (select 1 from global_window)
+      on conflict (scope, key_digest, window_start) do update
+        set attempt_count = capture_rate_windows.attempt_count + 1
+        where capture_rate_windows.attempt_count < ${emailPolicy.limit}
+      returning 1
+    ), phone_window as (
+      insert into capture_rate_windows (
+        scope, key_digest, window_start, window_seconds, attempt_count, expires_at
+      )
+      select 'phone', ${input.keys.phone}, ${bucket(phonePolicy.windowSeconds)},
+        ${phonePolicy.windowSeconds}, 1, ${expires(phonePolicy.windowSeconds)}
+      where ${input.keys.phone} is not null and not exists (select 1 from known)
+        and exists (select 1 from global_window)
+      on conflict (scope, key_digest, window_start) do update
+        set attempt_count = capture_rate_windows.attempt_count + 1
+        where capture_rate_windows.attempt_count < ${phonePolicy.limit}
+      returning 1
+    ), decision_write as (
+      insert into capture_risk_decisions (
+        capture_id, request_hash, policy_version, decision, reason_code,
+        sms_consent_requested, sms_eligible, accepted_at, expires_at
+      )
+      select ${input.captureId}::uuid, ${input.requestHash}, ${input.policyVersion},
+        case when exists (select 1 from global_window)
+          and exists (select 1 from network_window)
+          and exists (select 1 from email_window)
+          and (${input.keys.phone} is null or exists (select 1 from phone_window))
+          then 'accepted' else 'rejected' end,
+        case
+          when not exists (select 1 from global_window) then 'global_limit'
+          when not exists (select 1 from network_window) then 'network_limit'
+          when not exists (select 1 from email_window) then 'email_limit'
+          when ${input.keys.phone} is not null and not exists (select 1 from phone_window) then 'phone_limit'
+          else 'accepted' end,
+        ${input.smsConsentRequested}, false,
+        case when exists (select 1 from global_window)
+          and exists (select 1 from network_window)
+          and exists (select 1 from email_window)
+          and (${input.keys.phone} is null or exists (select 1 from phone_window))
+          then ${now} else null end,
+        ${decisionExpires}
+      where not exists (select 1 from known) and exists (select 1 from global_window)
+      on conflict (capture_id) do update set capture_id = excluded.capture_id
+        where capture_risk_decisions.request_hash = excluded.request_hash
+      returning id, decision, reason_code, sms_eligible, accepted_at, policy_version
+    )
+    select id, decision, reason_code, sms_eligible, accepted_at, policy_version
+    from decision_write
+    union all
+    select id, decision, reason_code, sms_eligible, accepted_at, policy_version
+    from capture_risk_decisions
+    where capture_id = ${input.captureId}::uuid
+      and request_hash = ${input.requestHash}
+      and not exists (select 1 from decision_write)
+    union all
+    select 0, 'rejected', 'global_limit', false, null, ${input.policyVersion}
+    where not exists (select 1 from known)
+      and not exists (select 1 from global_window)
+      and not exists (select 1 from decision_write)
+    limit 1
+  `) as {
+    id: number;
+    decision: 'accepted' | 'rejected';
+    reason_code: string;
+    sms_eligible: boolean;
+    accepted_at: string | null;
+    policy_version: string;
+  }[];
+  return rows[0] ?? null;
+}
+
+export async function cleanupCaptureAbuseState() {
+  await sql`
+    with expired_windows as (
+      select ctid from capture_rate_windows where expires_at < now() order by expires_at limit 500
+    ), deleted_windows as (
+      delete from capture_rate_windows where ctid in (select ctid from expired_windows) returning 1
+    ), expired_decisions as (
+      select ctid from capture_risk_decisions where expires_at < now() order by expires_at limit 500
+    ), deleted_decisions as (
+      delete from capture_risk_decisions where ctid in (select ctid from expired_decisions) returning 1
+    )
+    select (select count(*) from deleted_windows), (select count(*) from deleted_decisions)
+  `;
+}
+
 export async function insertLead(lead: {
   captureId: string;
   captureRequestHash: string;
@@ -128,16 +273,24 @@ export async function insertLead(lead: {
   smsConsentVersion?: string | null;
   smsConsentAt?: Date | null;
   isFixture?: boolean;
+  riskDecisionId: number;
 }) {
   const rows = (await sql`
-    with captured as (
+    with eligible_risk as (
+      select id, accepted_at, policy_version
+      from capture_risk_decisions
+      where id = ${lead.riskDecisionId} and capture_id = ${lead.captureId}::uuid
+        and request_hash = ${lead.captureRequestHash} and decision = 'accepted'
+    ), captured as (
       insert into leads (
         email, phone, state, residency, college, snapshot, user_agent,
         sms_consent, referrer, utm, capture_id, capture_request_hash, college_id,
         utm_source, utm_medium, utm_campaign, utm_content, utm_term,
         gclid, fbclid, normalized_referrer, normalized_phone,
-        sms_consent_at, sms_consent_version, is_fixture
-      ) values (
+        sms_consent_at, sms_consent_version, is_fixture,
+        capture_risk_decision_id, capture_risk_accepted_at, capture_risk_policy_version,
+        phone_verified_at, sms_eligible
+      ) select
         ${lead.email}, ${lead.phone ?? null}, ${lead.state ? lead.state.toUpperCase().slice(0, 2) : null},
         ${lead.residency ?? null}, ${lead.college ?? null}, ${JSON.stringify(lead.snapshot ?? {})}::jsonb,
         ${lead.userAgent ?? null}, ${lead.smsConsent ?? false}, ${lead.referrer ?? null},
@@ -147,12 +300,14 @@ export async function insertLead(lead: {
         ${lead.utm?.utm_content ?? null}, ${lead.utm?.utm_term ?? null},
         ${lead.utm?.gclid ?? null}, ${lead.utm?.fbclid ?? null},
         ${lead.normalizedReferrer ?? null}, ${lead.normalizedPhone ?? null},
-        ${lead.smsConsentAt ?? null}, ${lead.smsConsentVersion ?? null}, ${lead.isFixture ?? false}
-      )
+        ${lead.smsConsentAt ?? null}, ${lead.smsConsentVersion ?? null}, ${lead.isFixture ?? false},
+        eligible_risk.id, eligible_risk.accepted_at, eligible_risk.policy_version,
+        null, false
+      from eligible_risk
       on conflict (capture_id) where capture_id is not null do update
         set capture_id = excluded.capture_id
         where leads.capture_request_hash = excluded.capture_request_hash
-      returning id, created_at, snapshot, is_fixture
+      returning id, created_at, snapshot, is_fixture, sms_eligible
     ), message_work as (
       insert into email_messages (
         lead_id, kind, logical_key, provider_idempotency_key, is_fixture
@@ -171,11 +326,11 @@ export async function insertLead(lead: {
       returning id
     )
     select captured.id, captured.created_at, captured.snapshot,
-      (message_work.lead_id is not null) as delivery_claimed
+      (message_work.lead_id is not null) as delivery_claimed, captured.sms_eligible
     from captured
     left join message_work on message_work.lead_id = captured.id
     cross join event_record
-  `) as { id: number; created_at: string; snapshot: Record<string, unknown>; delivery_claimed: boolean }[];
+  `) as { id: number; created_at: string; snapshot: Record<string, unknown>; delivery_claimed: boolean; sms_eligible: boolean }[];
   return rows[0];
 }
 

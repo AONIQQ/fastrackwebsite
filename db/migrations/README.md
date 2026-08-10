@@ -57,3 +57,15 @@ adds nullable lead identity, acquisition, consent, and fixture-classification
 fields plus a non-PII event ledger. The capture route has a fail-closed operational
 kill switch: setting `CAPTURE_ACK_ENABLED=0` returns 503 while preserving visitor
 inputs and withholding results. Leaving it unset enables the acknowledged protocol.
+
+`0006_capture_abuse_controls.sql` adds privacy-minimized durable rate windows and
+stable risk decisions. The route fails closed unless `CAPTURE_ABUSE_SECRET` is at
+least 32 bytes and the request has a same-origin `Origin` plus a valid
+Vercel-provided client address. Store only HMAC digests, never raw network, email,
+or phone keys. `CAPTURE_SMS_ENABLED` is disabled unless its value is exactly `1`,
+and that switch cannot override the database requirement for accepted risk,
+recorded consent, and separately verified phone ownership. Expired windows and
+decisions are removed in bounded batches after accepted new captures. A missing
+trusted edge header or exhausted global window can deny a legitimate capture;
+that deny-over-send tradeoff is intentional until independent runtime evidence
+supports a carefully reviewed threshold change.
