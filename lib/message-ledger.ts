@@ -114,12 +114,88 @@ export async function dispatchClaimedMessage(message: Message) {
         )
 
     const updated = (await sql`
-      with accepted as (
-        update email_messages set status = 'accepted', provider = ${receipt.provider},
-          provider_message_id = ${receipt.messageId}, accepted_at = coalesce(accepted_at, now()),
-          claim_token = null, claim_expires_at = null, failure_category = null, updated_at = now()
+      with candidate as materialized (
+        select id, lead_id, is_fixture from email_messages
         where id = ${message.id} and claim_token = ${message.claim_token}::uuid and status = 'claimed'
-        returning lead_id
+      ), linked_events as (
+        update email_provider_events event set
+          email_message_id = candidate.id, outcome = 'matched', is_fixture = candidate.is_fixture
+        from candidate
+        where ${receipt.provider} = 'resend' and ${receipt.messageId} is not null
+          and event.provider_message_id = ${receipt.messageId}
+          and event.email_message_id is null
+        returning event.provider_event_id
+      ), best_event as (
+        select event.event_type, event.provider_created_at, event.failure_category
+        from email_provider_events event
+        cross join (select count(*) from linked_events) linkage_barrier
+        where ${receipt.provider} = 'resend' and ${receipt.messageId} is not null
+          and event.provider_message_id = ${receipt.messageId}
+        order by case event.event_type
+          when 'sent' then 10 when 'delivery_delayed' then 20 when 'delivered' then 30
+          when 'failed' then 40 when 'bounced' then 40 when 'suppressed' then 40
+          when 'complained' then 50 else 0 end desc,
+          event.provider_created_at desc, event.provider_event_id desc
+        limit 1
+      ), accepted as (
+        update email_messages message_row set status = 'accepted', provider = ${receipt.provider},
+          provider_message_id = ${receipt.messageId}, accepted_at = coalesce(message_row.accepted_at, now()),
+          claim_token = null, claim_expires_at = null, failure_category = null,
+          provider_delivery_state = case when best_event.event_type is not null and (
+            message_row.provider_delivery_state is null
+            or case best_event.event_type
+              when 'sent' then 10 when 'delivery_delayed' then 20 when 'delivered' then 30
+              when 'failed' then 40 when 'bounced' then 40 when 'suppressed' then 40
+              when 'complained' then 50 else 0 end
+            > case message_row.provider_delivery_state
+              when 'sent' then 10 when 'delivery_delayed' then 20 when 'delivered' then 30
+              when 'failed' then 40 when 'bounced' then 40 when 'suppressed' then 40
+              when 'complained' then 50 else 0 end
+            or (case best_event.event_type
+              when 'sent' then 10 when 'delivery_delayed' then 20 when 'delivered' then 30
+              when 'failed' then 40 when 'bounced' then 40 when 'suppressed' then 40
+              when 'complained' then 50 else 0 end
+              = case message_row.provider_delivery_state
+                when 'sent' then 10 when 'delivery_delayed' then 20 when 'delivered' then 30
+                when 'failed' then 40 when 'bounced' then 40 when 'suppressed' then 40
+                when 'complained' then 50 else 0 end
+              and best_event.provider_created_at > message_row.provider_state_at)
+          ) then best_event.event_type else message_row.provider_delivery_state end,
+          provider_state_at = case when best_event.event_type is not null and (
+            message_row.provider_delivery_state is null
+            or case best_event.event_type
+              when 'sent' then 10 when 'delivery_delayed' then 20 when 'delivered' then 30
+              when 'failed' then 40 when 'bounced' then 40 when 'suppressed' then 40
+              when 'complained' then 50 else 0 end
+            > case message_row.provider_delivery_state
+              when 'sent' then 10 when 'delivery_delayed' then 20 when 'delivered' then 30
+              when 'failed' then 40 when 'bounced' then 40 when 'suppressed' then 40
+              when 'complained' then 50 else 0 end
+            or (case best_event.event_type
+              when 'sent' then 10 when 'delivery_delayed' then 20 when 'delivered' then 30
+              when 'failed' then 40 when 'bounced' then 40 when 'suppressed' then 40
+              when 'complained' then 50 else 0 end
+              = case message_row.provider_delivery_state
+                when 'sent' then 10 when 'delivery_delayed' then 20 when 'delivered' then 30
+                when 'failed' then 40 when 'bounced' then 40 when 'suppressed' then 40
+                when 'complained' then 50 else 0 end
+              and best_event.provider_created_at > message_row.provider_state_at)
+          ) then best_event.provider_created_at else message_row.provider_state_at end,
+          provider_failure_category = case when best_event.event_type is not null and (
+            message_row.provider_delivery_state is null
+            or case best_event.event_type
+              when 'sent' then 10 when 'delivery_delayed' then 20 when 'delivered' then 30
+              when 'failed' then 40 when 'bounced' then 40 when 'suppressed' then 40
+              when 'complained' then 50 else 0 end
+            >= case message_row.provider_delivery_state
+              when 'sent' then 10 when 'delivery_delayed' then 20 when 'delivered' then 30
+              when 'failed' then 40 when 'bounced' then 40 when 'suppressed' then 40
+              when 'complained' then 50 else 0 end
+          ) then best_event.failure_category else message_row.provider_failure_category end,
+          updated_at = now()
+        from candidate left join best_event on true
+        where message_row.id = candidate.id
+        returning message_row.lead_id
       ), projected as (
         update leads set
           results_email_sent_at = case when ${message.kind} = 'results' then coalesce(results_email_sent_at, now()) else results_email_sent_at end,

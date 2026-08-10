@@ -104,7 +104,7 @@ test('integration source keeps atomic leases, result work, and lead projections'
   assert.match(ledger, /for update (?:of m )?skip locked/)
   assert.match(ledger, /claim_expires_at <= now\(\)/)
   assert.match(ledger, /and l\.unsubscribed_at is null[\s\S]*for update of m skip locked/)
-  assert.match(ledger, /with accepted as[\s\S]+projected as/)
+  assert.match(ledger, /candidate as materialized[\s\S]+accepted as[\s\S]+projected as/)
 })
 
 test('all email Credit Map paths carry a durable touch reference', async () => {
