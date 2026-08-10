@@ -5,7 +5,7 @@ import { STATE_NAMES, collegeSlug, stateSlug } from '@/lib/states'
 const SITE = 'https://www.fastrack.school'
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const statics = ['', '/calculator', '/credit-map', '/savings', '/guide', '/counselors', '/pricing'].map((p) => ({
+  const statics = ['', '/calculator', '/credit-map', '/savings', '/guide'].map((p) => ({
     url: `${SITE}${p}`,
     changeFrequency: 'weekly' as const,
     priority: p === '' ? 1 : 0.8,

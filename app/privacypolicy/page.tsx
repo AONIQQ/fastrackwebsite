@@ -129,11 +129,6 @@ export default function PrivacyPolicy() {
                 Home
               </Button>
             </Link>
-            <Link href="/counselors">
-              <Button variant="ghost" className="text-white text-base">
-                Counselors
-              </Button>
-            </Link>
             <Link href="/guide">
               <Button variant="ghost" className="text-white text-base">
                 Guide
@@ -159,11 +154,6 @@ export default function PrivacyPolicy() {
             <Link href="/" className="w-full flex justify-center">
               <Button variant="ghost" className="text-white text-base">
                 Home
-              </Button>
-            </Link>
-            <Link href="/counselors" className="w-full flex justify-center">
-              <Button variant="ghost" className="text-white text-base">
-                Counselors
               </Button>
             </Link>
             <Link href="/guide" className="w-full flex justify-center">
