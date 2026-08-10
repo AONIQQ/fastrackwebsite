@@ -1,4 +1,5 @@
 import { neon } from '@neondatabase/serverless';
+import { CAPTURE_ABUSE_CLEANUP_BATCH_SIZE } from './capture-abuse-cleanup.mjs';
 
 // HTTP driver rather than a TCP pool. In serverless functions a pool either leaks
 // connections across invocations or pays a handshake on every cold start; the HTTP
@@ -121,6 +122,9 @@ type CaptureRatePolicy = { windowSeconds: number; limit: number };
 export async function claimCaptureRisk(input: {
   captureId: string;
   requestHash: string;
+  collegeId: number;
+  state: string;
+  residency: 'inState' | 'outOfState';
   policyVersion: string;
   keys: CaptureRiskKeys;
   policies: Record<'global' | 'network' | 'email' | 'phone', CaptureRatePolicy>;
@@ -137,7 +141,17 @@ export async function claimCaptureRisk(input: {
   const emailPolicy = input.policies.email;
   const phonePolicy = input.policies.phone;
 
-  const rows = (await sql`
+  // The lock and decision query must be separate commands in one READ COMMITTED
+  // transaction. A statement that waits inside ON CONFLICT keeps its original
+  // snapshot and cannot reliably see the winner's decision afterward. The
+  // second command receives a fresh snapshot after the transaction-scoped lock,
+  // so one capture UUID consumes rate windows once and every identical replay
+  // observes the stable decision.
+  const database = client();
+  if (typeof database.transaction !== 'function') throw new Error('capture risk transaction unavailable');
+  const transaction = await database.transaction((txn) => [
+    txn`select pg_advisory_xact_lock(hashtextextended(${input.captureId}, 0))`,
+    txn`
     with known as (
       select id, request_hash from capture_risk_decisions where capture_id = ${input.captureId}::uuid
     ), global_window as (
@@ -162,13 +176,21 @@ export async function claimCaptureRisk(input: {
         set attempt_count = capture_rate_windows.attempt_count + 1
         where capture_rate_windows.attempt_count < ${networkPolicy.limit}
       returning 1
+    ), valid_business_identity as (
+      select 1
+      from colleges
+      where id = ${input.collegeId} and state = ${input.state}
+        and ${input.residency} in ('inState', 'outOfState')
+        and coalesce(net_price, tuition_in, tuition_out) is not null
+        and (earnings_6yr is not null or earnings_10yr is not null)
     ), email_window as (
       insert into capture_rate_windows (
         scope, key_digest, window_start, window_seconds, attempt_count, expires_at
       )
       select 'email', ${input.keys.email}, ${bucket(emailPolicy.windowSeconds)},
         ${emailPolicy.windowSeconds}, 1, ${expires(emailPolicy.windowSeconds)}
-      where not exists (select 1 from known) and exists (select 1 from global_window)
+      where not exists (select 1 from known) and exists (select 1 from network_window)
+        and exists (select 1 from valid_business_identity)
       on conflict (scope, key_digest, window_start) do update
         set attempt_count = capture_rate_windows.attempt_count + 1
         where capture_rate_windows.attempt_count < ${emailPolicy.limit}
@@ -180,7 +202,7 @@ export async function claimCaptureRisk(input: {
       select 'phone', ${input.keys.phone}, ${bucket(phonePolicy.windowSeconds)},
         ${phonePolicy.windowSeconds}, 1, ${expires(phonePolicy.windowSeconds)}
       where ${input.keys.phone} is not null and not exists (select 1 from known)
-        and exists (select 1 from global_window)
+        and exists (select 1 from email_window)
       on conflict (scope, key_digest, window_start) do update
         set attempt_count = capture_rate_windows.attempt_count + 1
         where capture_rate_windows.attempt_count < ${phonePolicy.limit}
@@ -188,23 +210,27 @@ export async function claimCaptureRisk(input: {
     ), decision_write as (
       insert into capture_risk_decisions (
         capture_id, request_hash, policy_version, decision, reason_code,
-        sms_consent_requested, sms_eligible, accepted_at, expires_at
+        validation_code, sms_consent_requested, sms_eligible, accepted_at, expires_at
       )
       select ${input.captureId}::uuid, ${input.requestHash}, ${input.policyVersion},
         case when exists (select 1 from global_window)
           and exists (select 1 from network_window)
+          and exists (select 1 from valid_business_identity)
           and exists (select 1 from email_window)
           and (${input.keys.phone} is null or exists (select 1 from phone_window))
           then 'accepted' else 'rejected' end,
         case
           when not exists (select 1 from global_window) then 'global_limit'
           when not exists (select 1 from network_window) then 'network_limit'
+          when not exists (select 1 from valid_business_identity) then 'email_limit'
           when not exists (select 1 from email_window) then 'email_limit'
           when ${input.keys.phone} is not null and not exists (select 1 from phone_window) then 'phone_limit'
           else 'accepted' end,
+        case when not exists (select 1 from valid_business_identity) then 'invalid_college' else null end,
         ${input.smsConsentRequested}, false,
         case when exists (select 1 from global_window)
           and exists (select 1 from network_window)
+          and exists (select 1 from valid_business_identity)
           and exists (select 1 from email_window)
           and (${input.keys.phone} is null or exists (select 1 from phone_window))
           then ${now} else null end,
@@ -212,26 +238,29 @@ export async function claimCaptureRisk(input: {
       where not exists (select 1 from known) and exists (select 1 from global_window)
       on conflict (capture_id) do update set capture_id = excluded.capture_id
         where capture_risk_decisions.request_hash = excluded.request_hash
-      returning id, decision, reason_code, sms_eligible, accepted_at, policy_version
+      returning id, decision, reason_code, validation_code, sms_eligible, accepted_at, policy_version
     )
-    select id, decision, reason_code, sms_eligible, accepted_at, policy_version
+    select id, decision, reason_code, validation_code, sms_eligible, accepted_at, policy_version
     from decision_write
     union all
-    select id, decision, reason_code, sms_eligible, accepted_at, policy_version
+    select id, decision, reason_code, validation_code, sms_eligible, accepted_at, policy_version
     from capture_risk_decisions
     where capture_id = ${input.captureId}::uuid
       and request_hash = ${input.requestHash}
       and not exists (select 1 from decision_write)
     union all
-    select 0, 'rejected', 'global_limit', false, null, ${input.policyVersion}
+    select 0, 'rejected', 'global_limit', null, false, null, ${input.policyVersion}
     where not exists (select 1 from known)
       and not exists (select 1 from global_window)
       and not exists (select 1 from decision_write)
     limit 1
-  `) as {
+  `,
+  ], { isolationLevel: 'ReadCommitted' });
+  const rows = transaction[1] as {
     id: number;
     decision: 'accepted' | 'rejected';
     reason_code: string;
+    validation_code: string | null;
     sms_eligible: boolean;
     accepted_at: string | null;
     policy_version: string;
@@ -240,18 +269,31 @@ export async function claimCaptureRisk(input: {
 }
 
 export async function cleanupCaptureAbuseState() {
-  await sql`
+  const rows = (await sql`
     with expired_windows as (
-      select ctid from capture_rate_windows where expires_at < now() order by expires_at limit 500
+      select ctid from capture_rate_windows where expires_at < now() order by expires_at limit ${CAPTURE_ABUSE_CLEANUP_BATCH_SIZE}
     ), deleted_windows as (
       delete from capture_rate_windows where ctid in (select ctid from expired_windows) returning 1
     ), expired_decisions as (
-      select ctid from capture_risk_decisions where expires_at < now() order by expires_at limit 500
+      select ctid from capture_risk_decisions where expires_at < now() order by expires_at limit ${CAPTURE_ABUSE_CLEANUP_BATCH_SIZE}
     ), deleted_decisions as (
       delete from capture_risk_decisions where ctid in (select ctid from expired_decisions) returning 1
     )
-    select (select count(*) from deleted_windows), (select count(*) from deleted_decisions)
-  `;
+    select
+      (select count(*)::int from deleted_windows) as deleted_windows,
+      (select count(*)::int from deleted_decisions) as deleted_decisions,
+      greatest(0, (select count(*)::int from capture_rate_windows where expires_at < now())
+        - (select count(*)::int from deleted_windows)) as remaining_windows,
+      greatest(0, (select count(*)::int from capture_risk_decisions where expires_at < now())
+        - (select count(*)::int from deleted_decisions)) as remaining_decisions
+  `) as {
+    deleted_windows: number;
+    deleted_decisions: number;
+    remaining_windows: number;
+    remaining_decisions: number;
+  }[];
+  if (!rows[0]) throw new Error('capture abuse cleanup did not return aggregate state');
+  return rows[0];
 }
 
 export async function insertLead(lead: {

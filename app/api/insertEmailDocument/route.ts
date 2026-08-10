@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { waitUntil } from '@vercel/functions'
 import { createHash } from 'node:crypto'
-import { claimCaptureRisk, cleanupCaptureAbuseState, getCollegeById, insertLead } from '@/lib/db'
+import { claimCaptureRisk, getCollegeById, insertLead } from '@/lib/db'
 import { notifyNewLead } from '@/lib/mail'
 import { sendSms, resultsSms } from '@/lib/sms'
 import { processResultMessage } from '@/lib/message-ledger'
@@ -49,6 +49,9 @@ export async function POST(request: Request) {
     const risk = await claimCaptureRisk({
       captureId: input.captureId,
       requestHash: captureRequestHash,
+      collegeId: input.collegeId,
+      state: input.state,
+      residency: input.residency,
       policyVersion: CAPTURE_RISK_POLICY_VERSION,
       keys: riskKeys,
       policies: CAPTURE_RATE_POLICIES,
@@ -57,6 +60,9 @@ export async function POST(request: Request) {
     })
     if (!risk) {
       return NextResponse.json({ error: 'Capture identity does not match this request', code: 'capture_mismatch' }, { status: 409 })
+    }
+    if (risk.validation_code === 'invalid_college') {
+      throw new CaptureInputError('invalid_college', 'College does not match the selected state')
     }
     if (risk.decision !== 'accepted') {
       return NextResponse.json({ error: 'Please wait before trying again', code: 'rate_limited' }, { status: 429 })
@@ -93,7 +99,6 @@ export async function POST(request: Request) {
               ? sendSms(input.phone, resultsSms(college.name, roi.totalAdvantage))
               : Promise.resolve(false),
           )
-          work.push(cleanupCaptureAbuseState())
         }
         const outcomes = await Promise.allSettled(work)
         for (const outcome of outcomes) if (outcome.status === 'rejected') console.error('[lead delivery failure]')

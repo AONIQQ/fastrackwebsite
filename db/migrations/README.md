@@ -65,7 +65,13 @@ Vercel-provided client address. Store only HMAC digests, never raw network, emai
 or phone keys. `CAPTURE_SMS_ENABLED` is disabled unless its value is exactly `1`,
 and that switch cannot override the database requirement for accepted risk,
 recorded consent, and separately verified phone ownership. Expired windows and
-decisions are removed in bounded batches after accepted new captures. A missing
-trusted edge header or exhausted global window can deny a legitimate capture;
-that deny-over-send tradeoff is intentional until independent runtime evidence
-supports a carefully reviewed threshold change.
+decisions are removed by the separately authorized, bounded daily abuse-cleanup
+job, with aggregate deleted and remaining counts. A missing trusted edge header
+or exhausted global window can deny a legitimate capture; that deny-over-send
+tradeoff is intentional until independent runtime evidence supports a carefully
+reviewed threshold change.
+
+`0007_capture_abuse_business_identity.sql` adds a nullable, constrained durable
+validation classification so invalid college/state combinations consume broad
+global and network capacity without consuming a target's email or phone
+allowance. Existing decision values and old-source compatibility are unchanged.

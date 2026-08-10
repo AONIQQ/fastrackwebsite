@@ -10,6 +10,10 @@
       "schedule": "0 13 * * 1"
     },
     {
+      "path": "/api/cron/capture-abuse-cleanup",
+      "schedule": "15 6 * * *"
+    },
+    {
       "path": "/api/cron/community-poster",
       "schedule": "30 14 * * *"
     },

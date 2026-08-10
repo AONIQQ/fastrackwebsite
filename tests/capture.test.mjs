@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { neon, neonConfig } from '@neondatabase/serverless'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import {
@@ -10,6 +11,12 @@ import {
   CAPTURE_RATE_POLICIES, CAPTURE_RISK_POLICY_VERSION, CaptureRiskConfigurationError,
   buildCaptureRiskKeys, captureNetworkAddress, smsDispatchEnabled,
 } from '../lib/capture-abuse.mjs'
+import {
+  CAPTURE_ABUSE_CLEANUP_BATCH_SIZE, CAPTURE_ABUSE_CLEANUP_MAX_BATCHES,
+  CAPTURE_ABUSE_MAX_NEW_DECISIONS_PER_DAY, CAPTURE_ABUSE_MAX_NEW_WINDOWS_PER_DAY,
+  captureAbuseCleanupAuthorized,
+  captureAbuseCleanupHasBacklog,
+} from '../lib/capture-abuse-cleanup.mjs'
 import { CaptureRequestError, completeCapture, postCapture } from '../lib/capture-client.mjs'
 
 const captureId = '123e4567-e89b-42d3-a456-426614174000'
@@ -91,6 +98,46 @@ test('durable policies impose target, network and global ceilings', () => {
     email: { windowSeconds: 86_400, limit: 3 },
     phone: { windowSeconds: 86_400, limit: 3 },
   })
+})
+
+test('scheduled abuse cleanup is exact-secret authorized, bounded and outpaces admitted decisions', () => {
+  assert.equal(captureAbuseCleanupAuthorized('Bearer cron-secret', 'cron-secret'), true)
+  assert.equal(captureAbuseCleanupAuthorized('Bearer wrong', 'cron-secret'), false)
+  assert.equal(captureAbuseCleanupAuthorized(null, 'cron-secret'), false)
+  assert.equal(captureAbuseCleanupAuthorized('Bearer ', ''), false)
+  assert.equal(CAPTURE_ABUSE_CLEANUP_BATCH_SIZE, 15_000)
+  assert.equal(CAPTURE_ABUSE_CLEANUP_MAX_BATCHES, 4)
+  assert.ok(CAPTURE_ABUSE_CLEANUP_BATCH_SIZE * CAPTURE_ABUSE_CLEANUP_MAX_BATCHES > CAPTURE_ABUSE_MAX_NEW_DECISIONS_PER_DAY)
+  assert.ok(CAPTURE_ABUSE_CLEANUP_BATCH_SIZE * CAPTURE_ABUSE_CLEANUP_MAX_BATCHES > CAPTURE_ABUSE_MAX_NEW_WINDOWS_PER_DAY)
+  assert.equal(captureAbuseCleanupHasBacklog({ remaining_windows: 1, remaining_decisions: 0 }), true)
+  assert.equal(captureAbuseCleanupHasBacklog({ remaining_windows: 0, remaining_decisions: 0 }), false)
+})
+
+test('installed Neon driver submits advisory lock and decision as one READ COMMITTED batch transaction', async () => {
+  const previousFetch = neonConfig.fetchFunction
+  const calls = []
+  neonConfig.fetchFunction = async (url, init) => {
+    calls.push({ url, init })
+    return new Response(JSON.stringify({
+      results: [
+        { fields: [{ name: 'locked', dataTypeID: 16 }], rows: [[true]], rowCount: 1, command: 'SELECT' },
+        { fields: [{ name: 'decision', dataTypeID: 25 }], rows: [['accepted']], rowCount: 1, command: 'SELECT' },
+      ],
+    }), { status: 200, headers: { 'content-type': 'application/json' } })
+  }
+  try {
+    const driver = neon('postgresql://user:password@example.neon.tech/database')
+    const rows = await driver.transaction((txn) => [
+      txn`select pg_advisory_xact_lock(hashtextextended(${'capture-id'}, 0)) as locked`,
+      txn`select ${'accepted'}::text as decision`,
+    ], { isolationLevel: 'ReadCommitted' })
+    assert.equal(calls.length, 1)
+    assert.equal(JSON.parse(calls[0].init.body).queries.length, 2)
+    assert.equal(new Headers(calls[0].init.headers).get('neon-batch-isolation-level'), 'ReadCommitted')
+    assert.equal(rows[1][0].decision, 'accepted')
+  } finally {
+    neonConfig.fetchFunction = previousFetch
+  }
 })
 
 test('SMS dispatch is disabled by default and requires exact explicit enablement', () => {
@@ -191,20 +238,41 @@ test('database capture is joined to one accepted durable risk decision before wo
   assert.match(source, /capture_rate_windows/)
   assert.match(source, /on conflict \(scope, key_digest, window_start\) do update/)
   assert.match(source, /capture_rate_windows\.attempt_count < /)
-  assert.match(source, /email_window as[\s\S]*exists \(select 1 from global_window\)/)
+  assert.match(source, /pg_advisory_xact_lock\(hashtextextended/)
+  assert.match(source, /transaction\(\(txn\) => \[[\s\S]*pg_advisory_xact_lock[\s\S]*with known as/)
+  assert.match(source, /isolationLevel: 'ReadCommitted'/)
+  assert.match(source, /valid_business_identity as[\s\S]*from colleges[\s\S]*id = \$\{input\.collegeId\}[\s\S]*state = \$\{input\.state\}/)
+  assert.match(source, /email_window as[\s\S]*exists \(select 1 from network_window\)[\s\S]*exists \(select 1 from valid_business_identity\)/)
+  assert.match(source, /phone_window as[\s\S]*exists \(select 1 from email_window\)/)
+  assert.match(source, /validation_code[\s\S]*not exists \(select 1 from valid_business_identity\) then 'invalid_college'/)
   assert.match(source, /select 0, 'rejected', 'global_limit'/)
   assert.match(source, /where not exists \(select 1 from known\)[\s\S]*on conflict \(capture_id\)/)
   assert.match(source, /with eligible_risk as[\s\S]*decision = 'accepted'[\s\S]*insert into leads/)
   assert.match(source, /phone_verified_at, sms_eligible[\s\S]*null, false/)
-  assert.match(source, /expired_windows as[\s\S]*limit 500[\s\S]*expired_decisions as[\s\S]*limit 500/)
+  assert.match(source, /expired_windows as[\s\S]*CAPTURE_ABUSE_CLEANUP_BATCH_SIZE[\s\S]*expired_decisions as/)
 })
 
 test('capture route gates work on durable risk and verified SMS eligibility', async () => {
   const route = await readFile(new URL('../app/api/insertEmailDocument/route.ts', import.meta.url), 'utf8')
   assert.match(route, /await claimCaptureRisk/)
+  assert.match(route, /collegeId: input\.collegeId,[\s\S]*state: input\.state,[\s\S]*residency: input\.residency/)
+  assert.match(route, /risk\.validation_code === 'invalid_college'/)
+  assert.ok(route.indexOf("risk.validation_code === 'invalid_college'") < route.indexOf('await getCollegeById'))
   assert.match(route, /risk\.decision !== 'accepted'/)
   assert.match(route, /lead\.sms_eligible && smsDispatchEnabled\(\)/)
+  assert.doesNotMatch(route, /cleanupCaptureAbuseState/)
   assert.doesNotMatch(route, /createSlidingWindowLimiter/)
   const sms = await readFile(new URL('../lib/sms.ts', import.meta.url), 'utf8')
   assert.match(sms, /process\.env\.CAPTURE_SMS_ENABLED === '1'/)
+})
+
+test('abuse cleanup has a separate authorized cron and aggregate-only result', async () => {
+  const route = await readFile(new URL('../app/api/cron/capture-abuse-cleanup/route.ts', import.meta.url), 'utf8')
+  const vercel = JSON.parse(await readFile(new URL('../vercel.json', import.meta.url), 'utf8'))
+  assert.match(route, /captureAbuseCleanupAuthorized/)
+  assert.match(route, /CAPTURE_ABUSE_CLEANUP_MAX_BATCHES/)
+  assert.match(route, /deleted_windows/)
+  assert.match(route, /remaining_decisions/)
+  assert.doesNotMatch(route, /email|phone|key_digest|capture_id/i)
+  assert.ok(vercel.crons.some((cron) => cron.path === '/api/cron/capture-abuse-cleanup' && cron.schedule === '15 6 * * *'))
 })
