@@ -23,7 +23,7 @@ export async function GET() {
   const leads = await listLeads(100_000)
 
   const headers = [
-    'id', 'created_at', 'email', 'phone', 'state', 'residency', 'college',
+    'id', 'created_at', 'record_class', 'email', 'phone', 'state', 'residency', 'college',
     'annual_cost', 'standard_total', 'fastrack_total', 'savings', 'years_to_recoup',
   ]
 
@@ -35,6 +35,7 @@ export async function GET() {
     return [
       l.id,
       l.created_at,
+      l.is_fixture ? 'fixture' : 'lead',
       l.email,
       l.phone,
       l.state,

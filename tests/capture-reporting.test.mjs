@@ -103,6 +103,13 @@ test('risk-binding migration prospectively enforces the complete accepted decisi
   assert.match(migration, /not valid/)
 })
 
+test('follow-up migration closes CHECK UNKNOWN and MATCH SIMPLE bypasses', async () => {
+  const migration = await read('../db/migrations/0010_reporting_fixture_provenance.sql')
+  assert.match(migration, /capture_id is null or \([\s\S]*capture_risk_decision_id is not null[\s\S]*capture_request_hash is not null[\s\S]*capture_risk_decision is not null[\s\S]*capture_risk_accepted_at is not null[\s\S]*capture_risk_policy_version is not null[\s\S]*capture_risk_decision = 'accepted'/)
+  assert.match(migration, /sales[\s\S]*is_fixture boolean default false/)
+  assert.match(migration, /sales_fixture_provenance_check check \(is_fixture is not null\) not valid/)
+})
+
 test('aggregate admin report separates durable lead classes from browser events', async () => {
   const source = await read('../lib/db.ts')
   const route = await read('../app/api/admin/capture-report/route.ts')
@@ -150,4 +157,20 @@ test('ordinary admin cohorts exclude durable fixture rows in SQL', async () => {
   assert.match(source, /from sales[\s\S]*not exists \([\s\S]*coalesce\(leads\.is_fixture, false\)/)
   assert.match(source, /from sales[\s\S]*email_messages\.id = sales\.email_message_id and email_messages\.is_fixture/)
   assert.match(source, /email_messages\.is_fixture = false/)
+  assert.match(source, /leadStats[\s\S]*from leads[\s\S]*where coalesce\(is_fixture, false\) = false/)
+  assert.match(source, /from sales[\s\S]*coalesce\(sales\.is_fixture, false\) = false/)
+})
+
+test('fixture diagnostics remain explicitly labeled outside headline metrics', async () => {
+  const [source, csv, admin] = await Promise.all([
+    read('../lib/db.ts'),
+    read('../app/api/admin/leads.csv/route.ts'),
+    read('../app/admin/leads/page.tsx'),
+  ])
+  assert.match(source, /coalesce\(is_fixture, false\) as is_fixture/)
+  assert.match(source, /fixture_count/)
+  assert.match(csv, /record_class/)
+  assert.match(csv, /l\.is_fixture \? 'fixture' : 'lead'/)
+  assert.match(admin, /l\.is_fixture \? 'QA fixture' : 'Lead'/)
+  assert.match(admin, /Headline metrics exclude/)
 })

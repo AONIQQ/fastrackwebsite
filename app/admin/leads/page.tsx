@@ -72,6 +72,11 @@ export default async function LeadsPage({
           ))}
         </div>
 
+        <p className="text-xs text-[#605dba] mb-4">
+          Headline metrics exclude {stats.fixture_count.toLocaleString()} labeled QA fixture{stats.fixture_count === 1 ? '' : 's'}.
+          The diagnostic table and CSV retain them with an explicit record class.
+        </p>
+
         <div className="grid gap-4 md:grid-cols-3 mb-8">
           <div className="bg-white border-2 border-[#605dba] rounded-lg p-4">
             <p className="text-sm font-semibold text-[#605dba]">Sales</p>
@@ -115,6 +120,7 @@ export default async function LeadsPage({
             <thead className="bg-[#090b53] text-white">
               <tr>
                 <th className="text-left p-3">Date</th>
+                <th className="text-left p-3">Record class</th>
                 <th className="text-left p-3">Email</th>
                 <th className="text-left p-3">Phone</th>
                 <th className="text-left p-3">State</th>
@@ -126,6 +132,7 @@ export default async function LeadsPage({
               {leads.map((l) => (
                 <tr key={l.id} className="border-t border-[#e0e0f0] hover:bg-[#f7f7fc]">
                   <td className="p-3 whitespace-nowrap">{fmtDate(l.created_at)}</td>
+                  <td className="p-3">{l.is_fixture ? 'QA fixture' : 'Lead'}</td>
                   <td className="p-3">
                     <a href={`mailto:${l.email}`} className="underline">
                       {l.email}
@@ -141,7 +148,7 @@ export default async function LeadsPage({
               ))}
               {leads.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="p-6 text-center text-[#605dba]">
+                  <td colSpan={7} className="p-6 text-center text-[#605dba]">
                     No leads yet.
                   </td>
                 </tr>
@@ -151,7 +158,7 @@ export default async function LeadsPage({
         </div>
 
         <p className="text-xs text-[#605dba] mt-4">
-          Showing the most recent {leads.length.toLocaleString()} of {stats.total.toLocaleString()}.
+          Showing the most recent {leads.length.toLocaleString()} records, including labeled QA diagnostics.
         </p>
       </div>
     </div>

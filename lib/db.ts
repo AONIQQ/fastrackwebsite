@@ -508,7 +508,8 @@ export async function captureOperationsReport(days = 30) {
 
 export async function listLeads(limit = 500, offset = 0) {
   return (await sql`
-    select id, email, phone, state, residency, college, snapshot, created_at
+    select id, email, phone, state, residency, college, snapshot, created_at,
+      coalesce(is_fixture, false) as is_fixture
     from leads
     order by created_at desc
     limit ${limit} offset ${offset}
@@ -521,6 +522,7 @@ export async function listLeads(limit = 500, offset = 0) {
     college: string | null;
     snapshot: Record<string, unknown> | null;
     created_at: string;
+    is_fixture: boolean;
   }[];
 }
 
@@ -530,9 +532,11 @@ export async function leadStats() {
       count(*)::int                                              as total,
       count(distinct lower(email))::int                          as unique_emails,
       count(*) filter (where created_at > now() - interval '30 days')::int as last_30d,
-      count(*) filter (where phone is not null and phone <> '')::int       as with_phone
+      count(*) filter (where phone is not null and phone <> '')::int       as with_phone,
+      (select count(*)::int from leads where coalesce(is_fixture, false))  as fixture_count
     from leads
-  `) as { total: number; unique_emails: number; last_30d: number; with_phone: number }[];
+    where coalesce(is_fixture, false) = false
+  `) as { total: number; unique_emails: number; last_30d: number; with_phone: number; fixture_count: number }[];
   return rows[0];
 }
 
@@ -643,7 +647,8 @@ export async function funnelStats() {
           then greatest(coalesce(amount_cents, 0) - coalesce(refunded_cents, 0), 0) else 0 end
       ),0)::int as cents
     from sales
-    where not exists (
+    where coalesce(sales.is_fixture, false) = false
+      and not exists (
       select 1 from leads where leads.id = sales.lead_id and coalesce(leads.is_fixture, false)
     )
       and not exists (
