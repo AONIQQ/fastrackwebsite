@@ -23,11 +23,6 @@ export default function ThankYou() {
             <Image src="/logo.png" alt="Fastrack Logo" width={180} height={180} className="rounded-full" />
           </Link>
           <nav className="hidden md:flex items-center space-x-4">
-            <Link href="/guide">
-              <Button variant="ghost" className="text-white text-base">
-                Guide
-              </Button>
-            </Link>
             <Link href="/calculator">
               <Button variant="ghost" className="text-white text-base">
                 Calculator
@@ -45,11 +40,6 @@ export default function ThankYou() {
         </div>
         {isMenuOpen && (
           <div className="md:hidden mt-4 flex flex-col items-center space-y-2">
-            <Link href="/guide">
-              <Button variant="ghost" className="text-white text-base">
-                Guide
-              </Button>
-            </Link>
             <Link href="/calculator">
               <Button variant="ghost" className="text-white text-base">
                 Calculator

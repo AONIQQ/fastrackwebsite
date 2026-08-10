@@ -32,9 +32,7 @@ export const NURTURE_STEPS: { stage: number; afterDays: number; subject: string;
       p('Quick follow-up on your calculator results. Dual credit saves real money, but three mistakes quietly eat the savings:') +
         p('<strong>1. Courses that transfer but do not count.</strong> The college accepts the credit, then files it as a free elective that satisfies nothing. The class was paid for twice.') +
         p('<strong>2. The wrong version of the right course.</strong> Many colleges run separate tracks for majors and non-majors. Taking the non-major version of a course your student needs for their major means retaking it.') +
-        p('<strong>3. Planning against the wrong requirements.</strong> High school graduation requirements and college degree requirements are different lists. A schedule that only satisfies one wastes the other.') +
-        p('The complete playbook, with the exact checklist we use, is the Fastrack Guide. It is \$47 and takes about a weekend to work through:') +
-        btn(`${SITE}/guide?${U('n1')}`, 'Get the Fastrack Guide (\$47)'),
+        p('<strong>3. Planning against the wrong requirements.</strong> High school graduation requirements and college degree requirements are different lists. A schedule that only satisfies one wastes the other.'),
     ),
   },
   {
@@ -67,7 +65,7 @@ export const NURTURE_STEPS: { stage: number; afterDays: number; subject: string;
       p('I will keep this short. Course registration windows are the deadline that matters: once your student picks next term’s classes, the planning either happened or it did not.') +
         p('If you want the plan done for you, it is here:') +
         btn(`${SITE}/credit-map?${U('n4')}&lead_ref=__LEAD_REF__`, 'Get the Credit Map') +
-        p('If you would rather do it yourself, the free guide and calculator stay free forever. Either way, check every course against the target college’s transfer rules before enrolling. It is the one step that protects all the others.'),
+        p('Either way, check every course against the target college’s transfer rules before enrolling. It is the one step that protects all the others.'),
     ),
   },
 ]

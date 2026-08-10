@@ -21,7 +21,6 @@ export default function SavingsIndex() {
           <nav className="hidden md:flex items-center space-x-6 text-base">
             <Link href="/calculator" className="hover:text-blue-200">Calculator</Link>
             <Link href="/credit-map" className="hover:text-blue-200">Credit Map</Link>
-            <Link href="/guide" className="hover:text-blue-200">Guide</Link>
           </nav>
         </div>
       </header>
