@@ -18,9 +18,16 @@ returns:
 That silently broke both the calculator **and** `insertEmailDocument`, so anyone
 who used the tool after the cutoff saw no results and had their email dropped.
 
-## Schema
+## Schema and migrations
 
-`db/schema.sql` — four tables:
+`db/schema.sql` is the historical Neon bootstrap. It is not a faithful snapshot
+of the live schema and must not be reapplied as migration history. The current
+non-PII live metadata baseline is documented in `db/live-schema-baseline.md`.
+
+All new changes use immutable, ordered files under `db/migrations/`; see that
+directory's README for plan, status, owner-gated apply, and verify commands.
+
+The historical bootstrap originally covered these application tables:
 
 | Table            | Purpose                                                    |
 | ---------------- | ---------------------------------------------------------- |
@@ -29,12 +36,9 @@ who used the tool after the cutoff saw no results and had their email dropped.
 | `leads`          | Calculator email capture, with a `jsonb` result snapshot   |
 | `data_sources`   | Provenance, so data staleness is always visible            |
 
-Apply it from the Vercel dashboard (Storage → `fastrack-database-neon` → Query),
-or:
-
-```bash
-psql "$DATABASE_URL_UNPOOLED" -f db/schema.sql
-```
+Do not apply `db/schema.sql` to an existing environment. Fresh-environment
+reproducibility remains incomplete until the ordered history is expanded by the
+owning repair tasks.
 
 ## Environment
 

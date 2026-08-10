@@ -2,11 +2,21 @@
   "name": "my-website",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "20.x"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit --incremental false",
+    "test": "node --test",
+    "db:migrate:plan": "node scripts/migrations.mjs plan",
+    "db:migrate:status": "node --env-file=.env.local scripts/migrations.mjs status",
+    "db:migrate:verify": "node --env-file=.env.local scripts/migrations.mjs verify",
+    "db:migrate:apply": "node --env-file=.env.local scripts/migrations.mjs apply",
+    "db:schema:inventory": "node --env-file=.env.local scripts/schema-inventory.mjs"
   },
   "dependencies": {
     "@calcom/embed-react": "^1.5.3",
