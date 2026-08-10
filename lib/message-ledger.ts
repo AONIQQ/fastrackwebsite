@@ -9,6 +9,7 @@ type Message = {
   kind: 'results' | 'nurture'
   nurture_stage: number | null
   provider_idempotency_key: string
+  tracking_id: string
   claim_token: string
   attempt_count: number
   email: string
@@ -35,6 +36,7 @@ const failureCategory = (error: unknown) => {
 
 export async function claimMessageByLead(leadId: number, kind: 'results' | 'nurture' = 'results') {
   const token = randomUUID()
+  const trackingId = randomUUID()
   const rows = (await sql`
     with candidate as (
       select m.id from email_messages m join leads l on l.id = m.lead_id
@@ -44,16 +46,24 @@ export async function claimMessageByLead(leadId: number, kind: 'results' | 'nurt
         and (m.status <> 'claimed' or m.claim_expires_at <= now())
         and l.unsubscribed_at is null
       order by m.id limit 1 for update of m skip locked
+    ), identity as (
+      insert into email_message_identities (email_message_id, tracking_id)
+      select id, ${trackingId}::uuid from candidate
+      on conflict (email_message_id) do update
+        set tracking_id = email_message_identities.tracking_id
+      returning email_message_id, tracking_id
     ), claimed as (
       update email_messages m set
         status = 'claimed', claim_token = ${token}::uuid,
         claim_expires_at = now() + interval '10 minutes',
         attempt_count = attempt_count + 1, updated_at = now()
-      from candidate where m.id = candidate.id
-      returning m.*
+      from candidate join identity on identity.email_message_id = candidate.id
+      where m.id = candidate.id
+      returning m.*, identity.tracking_id
     )
     select claimed.id, claimed.lead_id, claimed.kind, claimed.nurture_stage,
       claimed.provider_idempotency_key, claimed.claim_token, claimed.attempt_count,
+      claimed.tracking_id,
       leads.email, leads.college, leads.residency, leads.snapshot
     from claimed join leads on leads.id = claimed.lead_id
   `) as Message[]
@@ -62,6 +72,7 @@ export async function claimMessageByLead(leadId: number, kind: 'results' | 'nurt
 
 export async function claimNextMessage() {
   const token = randomUUID()
+  const trackingId = randomUUID()
   const rows = (await sql`
     with candidate as (
       select m.id from email_messages m
@@ -72,15 +83,23 @@ export async function claimNextMessage() {
         and l.unsubscribed_at is null
       order by case when m.kind = 'results' then 0 else 1 end, m.next_attempt_at, m.id
       limit 1 for update of m skip locked
+    ), identity as (
+      insert into email_message_identities (email_message_id, tracking_id)
+      select id, ${trackingId}::uuid from candidate
+      on conflict (email_message_id) do update
+        set tracking_id = email_message_identities.tracking_id
+      returning email_message_id, tracking_id
     ), claimed as (
       update email_messages m set
         status = 'claimed', claim_token = ${token}::uuid,
         claim_expires_at = now() + interval '10 minutes',
         attempt_count = attempt_count + 1, updated_at = now()
-      from candidate where m.id = candidate.id returning m.*
+      from candidate join identity on identity.email_message_id = candidate.id
+      where m.id = candidate.id returning m.*, identity.tracking_id
     )
     select claimed.id, claimed.lead_id, claimed.kind, claimed.nurture_stage,
       claimed.provider_idempotency_key, claimed.claim_token, claimed.attempt_count,
+      claimed.tracking_id,
       leads.email, leads.college, leads.residency, leads.snapshot
     from claimed join leads on leads.id = claimed.lead_id
   `) as Message[]
@@ -103,13 +122,13 @@ export async function dispatchClaimedMessage(message: Message) {
           earlyEarnings: message.snapshot?.earlyEarnings == null ? null : Number(message.snapshot.earlyEarnings),
           totalAdvantage: message.snapshot?.totalAdvantage == null ? null : Number(message.snapshot.totalAdvantage),
           yearsSaved: Number(message.snapshot?.yearsSaved || 2),
-          leadId: message.lead_id,
+          trackingId: message.tracking_id,
           providerIdempotencyKey: message.provider_idempotency_key,
         })
       : await sendNurtureStep(
           message.email,
           NURTURE_STEPS.find((step) => step.stage === message.nurture_stage)!,
-          message.lead_id,
+          message.tracking_id,
           message.provider_idempotency_key,
         )
 

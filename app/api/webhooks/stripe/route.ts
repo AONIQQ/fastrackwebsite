@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import { sql } from '@/lib/db'
-import { checkoutPaymentState, disputeState, parseLeadTouch } from '@/lib/stripe-ledger.mjs'
+import { checkoutPaymentState, disputeState } from '@/lib/stripe-ledger.mjs'
+import { attributionSecret, verifyCheckoutToken } from '@/lib/attribution-tokens.mjs'
 
 export const dynamic = 'force-dynamic'
 
@@ -90,7 +91,16 @@ export async function POST(request: Request) {
   const relatedOutcome = paymentIntent ? 'received' : 'unmatched'
 
   if (['checkout.session.completed', 'checkout.session.async_payment_succeeded', 'checkout.session.async_payment_failed'].includes(event.type)) {
-    const reference = parseLeadTouch(object.client_reference_id)
+    const rawReference = typeof object.client_reference_id === 'string' ? object.client_reference_id : ''
+    let claims = null
+    try { claims = verifyCheckoutToken(rawReference, attributionSecret()) } catch {}
+    const invalidOutcome = !rawReference ? 'unattributed' : claims ? null : 'invalid_token'
+    const nurtureStage = claims?.step === 'results' ? null : claims ? Number(claims.step.slice(1)) : null
+    const checkoutEmail = typeof object.customer_details?.email === 'string'
+      ? object.customer_details.email.trim().toLowerCase().slice(0, 320)
+      : null
+    // Forwarded links remain valid purchase paths. Attribution belongs to the
+    // original lead only when Stripe's checkout email matches that lead.
     const state = checkoutPaymentState(event.type, object)
     await sql`
       with incoming as (
@@ -98,22 +108,46 @@ export async function POST(request: Request) {
         values (${event.id}, ${event.type}, ${object.id ?? null}, ${paymentIntent},
           ${object.amount_total ?? null}, ${state}, to_timestamp(${event.created}), 'applied', now())
         on conflict (event_id) do nothing returning event_id
+      ), candidate as (
+        select message_row.id as email_message_id, message_row.lead_id
+        from email_messages message_row
+        join email_message_identities identity on identity.email_message_id = message_row.id
+        where identity.tracking_id = ${claims?.trackingId ?? null}::uuid
+          and ((${claims?.step ?? null} = 'results' and message_row.kind = 'results' and message_row.nurture_stage is null)
+            or (${nurtureStage} is not null and message_row.kind = 'nurture'
+              and message_row.nurture_stage = ${nurtureStage}))
+        limit 1
+      ), attribution as (
+        select candidate.email_message_id, candidate.lead_id
+        from candidate join leads on leads.id = candidate.lead_id
+        where lower(trim(leads.email)) = ${checkoutEmail}
       )
       insert into sales (
         stripe_event_id, checkout_session_id, payment_intent, email, amount_cents,
-        client_reference_id, lead_id, touch_ref, payment_state, paid_at,
+        client_reference_id, email_message_id, lead_id, touch_ref, attribution_outcome, payment_state, paid_at,
         refunded_cents, dispute_state, disputed_cents, raw, updated_at
       ) select ${event.id}, ${object.id ?? null}, ${paymentIntent},
-        ${object.customer_details?.email?.toLowerCase() ?? null}, ${object.amount_total ?? null},
-        ${object.client_reference_id ?? null}, ${reference.leadId}, ${reference.touchRef}, ${state},
+        ${checkoutEmail}, ${object.amount_total ?? null}, ${rawReference || null},
+        attribution.email_message_id, attribution.lead_id,
+        case when attribution.email_message_id is not null then ${claims?.step ?? null} else null end,
+        case when ${invalidOutcome} is not null then ${invalidOutcome}
+          when attribution.email_message_id is not null then 'attributed'
+          when candidate.email_message_id is not null then 'forwarded_unattributed'
+          else 'invalid_identity' end,
+        ${state},
         case when ${state} = 'paid' then now() else null end, 0, null, 0,
         ${JSON.stringify({ mode: object.mode, payment_status: object.payment_status })}::jsonb, now()
-      from incoming
+      from incoming left join candidate on true left join attribution on true
       on conflict (checkout_session_id) where checkout_session_id is not null do update set
         payment_intent = coalesce(excluded.payment_intent, sales.payment_intent),
         email = coalesce(excluded.email, sales.email), amount_cents = coalesce(excluded.amount_cents, sales.amount_cents),
         client_reference_id = coalesce(excluded.client_reference_id, sales.client_reference_id),
-        lead_id = coalesce(excluded.lead_id, sales.lead_id), touch_ref = coalesce(excluded.touch_ref, sales.touch_ref),
+        email_message_id = coalesce(sales.email_message_id, excluded.email_message_id),
+        lead_id = coalesce(sales.lead_id, excluded.lead_id), touch_ref = coalesce(sales.touch_ref, excluded.touch_ref),
+        attribution_outcome = case
+          when sales.attribution_outcome = 'attributed' then sales.attribution_outcome
+          when excluded.attribution_outcome = 'attributed' then excluded.attribution_outcome
+          else coalesce(excluded.attribution_outcome, sales.attribution_outcome) end,
         payment_state = case when sales.paid_at is not null then sales.payment_state else excluded.payment_state end,
         paid_at = case when excluded.payment_state = 'paid' then coalesce(sales.paid_at, now()) else sales.paid_at end,
         raw = excluded.raw, updated_at = now()

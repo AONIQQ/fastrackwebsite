@@ -7,11 +7,11 @@ const read = (path) => readFile(new URL(path, import.meta.url), 'utf8')
 
 test('internal offer links preserve bounded acquisition parameters', () => {
   const output = new URL(`https://www.fastrack.school${withAttributionQuery(
-    '/credit-map?lead_ref=lead-7-results',
+    '/credit-map?checkout_ref=opaque-signed-token',
     '?utm_source=google&utm_medium=cpc&utm_campaign=validation&gclid=abc&fbclid=def&email=private',
   )}`)
   assert.equal(output.pathname, '/credit-map')
-  assert.equal(output.searchParams.get('lead_ref'), 'lead-7-results')
+  assert.equal(output.searchParams.get('checkout_ref'), 'opaque-signed-token')
   assert.equal(output.searchParams.get('utm_source'), 'google')
   assert.equal(output.searchParams.get('utm_medium'), 'cpc')
   assert.equal(output.searchParams.get('utm_campaign'), 'validation')

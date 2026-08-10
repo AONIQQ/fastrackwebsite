@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import SiteFooter from '@/components/SiteFooter'
 import { Check } from 'lucide-react'
-import { withCheckoutReference } from '@/lib/checkout-url.mjs'
+import { isCheckoutTokenShape, withCheckoutReference } from '@/lib/checkout-url.mjs'
 
 const CHECKOUT_URL = process.env.NEXT_PUBLIC_CREDIT_MAP_CHECKOUT_URL
 
@@ -14,16 +14,11 @@ function checkoutHref(): string {
   if (!CHECKOUT_URL) return ''
   if (typeof window === 'undefined') return CHECKOUT_URL
   const p = new URLSearchParams(window.location.search)
-  const leadRef = p.get('lead_ref')
-  if (leadRef && /^lead-\d+-(?:results|n[1-4])$/.test(leadRef)) {
-    return withCheckoutReference(CHECKOUT_URL, leadRef)
+  const checkoutRef = p.get('checkout_ref')
+  if (isCheckoutTokenShape(checkoutRef)) {
+    return withCheckoutReference(CHECKOUT_URL, checkoutRef)
   }
-  const src = ['utm_source', 'utm_medium', 'utm_campaign', 'gclid', 'fbclid']
-    .map((k) => (p.get(k) ? `${k}:${p.get(k)}` : null))
-    .filter(Boolean)
-    .join('|')
-    .slice(0, 190)
-  return withCheckoutReference(CHECKOUT_URL, src)
+  return CHECKOUT_URL
 }
 
 const deliverables = [

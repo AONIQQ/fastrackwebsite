@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { createUnsubscribeToken, unsubscribeHeaders, verifyUnsubscribeToken } from '../lib/unsubscribe.mjs'
 import { claimable, logicalMessageKey, nextDueStage, providerIdempotencyKey, retryDelayMs } from '../lib/message-policy.mjs'
-import { checkoutPaymentState, disputeState, parseLeadTouch } from '../lib/stripe-ledger.mjs'
+import { checkoutPaymentState, disputeState } from '../lib/stripe-ledger.mjs'
 import { aggregateCumulativeRefunds, latestDisputeState } from '../lib/stripe-ledger.mjs'
 import { withCheckoutReference } from '../lib/checkout-url.mjs'
 
@@ -44,13 +44,6 @@ test('unsubscribe tokens are signed and produce RFC one-click headers', () => {
   assert.equal(headers['List-Unsubscribe-Post'], 'List-Unsubscribe=One-Click')
 })
 
-test('every supported Credit Map touch resolves to a durable lead join', () => {
-  for (const touch of ['results', 'n1', 'n2', 'n3', 'n4']) {
-    assert.deepEqual(parseLeadTouch(`lead-73-${touch}`), { leadId: 73, touchRef: touch })
-  }
-  assert.deepEqual(parseLeadTouch('utm_source:email'), { leadId: null, touchRef: null })
-})
-
 test('checkout is revenue eligible only after paid confirmation', () => {
   assert.equal(checkoutPaymentState('checkout.session.completed', { payment_status: 'unpaid' }), 'pending')
   assert.equal(checkoutPaymentState('checkout.session.completed', { payment_status: 'paid' }), 'paid')
@@ -84,12 +77,12 @@ test('refund reconciliation sums the latest cumulative amount per charge', () =>
 
 test('checkout references preserve provider query parameters', () => {
   const base = 'https://buy.stripe.com/example?prefilled_promo_code=SAVE&locale=en'
-  const output = new URL(withCheckoutReference(base, 'lead-73-n2', { prefilled_email: 'parent@example.com' }))
+  const output = new URL(withCheckoutReference(base, 'opaque-signed-reference'))
   assert.equal(output.searchParams.get('prefilled_promo_code'), 'SAVE')
   assert.equal(output.searchParams.get('locale'), 'en')
-  assert.equal(output.searchParams.get('client_reference_id'), 'lead-73-n2')
-  assert.equal(output.searchParams.get('prefilled_email'), 'parent@example.com')
-  assert.equal([...output.searchParams.keys()].length, 4)
+  assert.equal(output.searchParams.get('client_reference_id'), 'opaque-signed-reference')
+  assert.equal(output.searchParams.has('prefilled_email'), false)
+  assert.equal([...output.searchParams.keys()].length, 3)
 })
 
 test('integration source keeps atomic leases, result work, and lead projections', async () => {
@@ -107,16 +100,16 @@ test('integration source keeps atomic leases, result work, and lead projections'
   assert.match(ledger, /candidate as materialized[\s\S]+accepted as[\s\S]+projected as/)
 })
 
-test('all email Credit Map paths carry a durable touch reference', async () => {
+test('all email Credit Map paths use logical-message tracking identities', async () => {
   const [mail, nurture, creditMap] = await Promise.all([
     readFile(new URL('../lib/mail.ts', import.meta.url), 'utf8'),
     readFile(new URL('../lib/nurture.ts', import.meta.url), 'utf8'),
     readFile(new URL('../app/credit-map/page.tsx', import.meta.url), 'utf8'),
   ])
-  assert.match(mail, /lead-\$\{r\.leadId\}-results/)
-  assert.match(nurture, /leadRef = `lead-\$\{leadId\}-n\$\{step\.stage\}`/)
-  assert.equal((nurture.match(/lead_ref=__LEAD_REF__/g) || []).length, 2)
-  assert.match(creditMap, /\^lead-\\d\+-\(\?:results\|n\[1-4\]\)\$/)
+  assert.match(mail, /messageTrackingLinks\(r\.trackingId, 'results'\)/)
+  assert.match(nurture, /messageTrackingLinks\(trackingId, stepTag\)/)
+  assert.doesNotMatch(mail + nurture + creditMap, /lead_ref|lead-\\d|prefilled_email|Buffer\.from\(to\.toLowerCase/)
+  assert.match(creditMap, /isCheckoutTokenShape\(checkoutRef\)/)
 })
 
 test('dispatch and opt-out integration fail safe around duplicates and scanners', async () => {

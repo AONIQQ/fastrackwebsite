@@ -311,9 +311,9 @@ export async function funnelStats() {
   `) as { count: number; cents: number }[];
   const emailPerf = (await sql`
     select step,
-      count(distinct email) filter (where kind = 'open')::int as opens,
-      count(distinct email) filter (where kind = 'click')::int as clicks
-    from email_events
+      count(distinct email_message_id) filter (where event_type = 'open')::int as opens,
+      count(distinct email_message_id) filter (where event_type = 'click')::int as clicks
+    from email_engagement_events
     group by step order by step
   `) as { step: string; opens: number; clicks: number }[];
   return { bySource, byStage, sales: sales[0], emailPerf };

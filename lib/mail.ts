@@ -2,6 +2,7 @@ import nodemailer from 'nodemailer'
 import { google } from 'googleapis'
 import { Resend } from 'resend'
 import { createUnsubscribeToken, unsubscribeHeaders } from './unsubscribe.mjs'
+import { messageTrackingLinks } from './tracking-links.mjs'
 
 const OAuth2 = google.auth.OAuth2
 
@@ -149,13 +150,15 @@ export type ResultsEmail = {
   earlyEarnings: number | null
   totalAdvantage: number | null
   yearsSaved: number
-  leadId: number
+  trackingId: string
   providerIdempotencyKey: string
 }
 
 const SITE = 'https://www.fastrack.school'
 
-function resultsHtml(r: ResultsEmail) {
+type ResultsLinks = { creditMap: string; calculator: string; pixel: string }
+
+function resultsHtml(r: ResultsEmail, links: ResultsLinks) {
   const row = (label: string, a: string, b: string) => `
     <tr>
       <td class="lbl" style="padding:12px 16px;border-bottom:1px solid #e6e6ef;color:#5a5a78;font-size:14px;">${esc(label)}</td>
@@ -253,11 +256,11 @@ function resultsHtml(r: ResultsEmail) {
           </p>
           <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
             <tr><td bgcolor="#605dba" style="background:#605dba;border-radius:8px;">
-              <a href="${SITE}/credit-map?utm_source=email&utm_medium=results&utm_campaign=results&lead_ref=lead-${r.leadId}-results" style="display:inline-block;padding:14px 28px;color:#ffffff;font-size:16px;font-weight:600;text-decoration:none;">Get your done-for-you Credit Map</a>
+              <a href="${links.creditMap}" style="display:inline-block;padding:14px 28px;color:#ffffff;font-size:16px;font-weight:600;text-decoration:none;">Get your done-for-you Credit Map</a>
             </td></tr>
           </table>
           <p style="margin:12px 0 0;text-align:center;font-size:14px;">
-            <a href="${SITE}/calculator" style="color:#605dba;">Run the numbers for another school &rarr;</a>
+            <a href="${links.calculator}" style="color:#605dba;">Run the numbers for another school &rarr;</a>
           </p>
         </td></tr>
 
@@ -276,9 +279,9 @@ function resultsHtml(r: ResultsEmail) {
       </table>
     </td></tr>
   </table>
-</body></html>`
+<img src="${links.pixel}" width="1" height="1" alt="" style="display:block;"></body></html>`
 }
-function resultsText(r: ResultsEmail) {
+function resultsText(r: ResultsEmail, links: ResultsLinks) {
   return [
     `Your results for ${r.collegeName}`,
     '',
@@ -289,7 +292,7 @@ function resultsText(r: ResultsEmail) {
     `Early earnings:   ${money(r.earlyEarnings)} (${r.yearsSaved} extra years in the workforce)`,
     `Total advantage:  ${money(r.totalAdvantage)}`,
     '',
-    `Get your done-for-you Credit Map: ${SITE}/credit-map?utm_source=email&utm_medium=results&utm_campaign=results&lead_ref=lead-${r.leadId}-results`,
+    `Get your done-for-you Credit Map: ${links.creditMap}`,
     '',
     'Figures use average net price and median post-enrollment earnings from the U.S. Department',
     'of Education College Scorecard, and assume 60 dual-credit hours at $80 per credit.',
@@ -302,12 +305,14 @@ function resultsText(r: ResultsEmail) {
 /** Sends the prospect their own results. */
 export async function sendResultsEmail(r: ResultsEmail) {
   const token = createUnsubscribeToken(r.to, process.env.UNSUBSCRIBE_SECRET || process.env.CRON_SECRET)
+  const tracking = messageTrackingLinks(r.trackingId, 'results')
+  const links = { creditMap: tracking.click('credit_map'), calculator: tracking.click('calculator'), pixel: tracking.pixel }
   return sendMail({
     to: r.to,
     replyTo: 'info@fastrack.school',
     subject: `${r.collegeName}: ${money(r.totalAdvantage)} and ${r.yearsSaved} years back`,
-    text: `${resultsText(r)}\n\nUnsubscribe: ${SITE}/api/u?t=${encodeURIComponent(token)}`,
-    html: resultsHtml(r).replaceAll('__UNSUB__', `${SITE}/api/u?t=${encodeURIComponent(token)}`),
+    text: `${resultsText(r, links)}\n\nUnsubscribe: ${SITE}/api/u?t=${encodeURIComponent(token)}`,
+    html: resultsHtml(r, links).replaceAll('__UNSUB__', `${SITE}/api/u?t=${encodeURIComponent(token)}`),
     headers: unsubscribeHeaders(SITE, token),
     idempotencyKey: r.providerIdempotencyKey,
     requireIdempotentProvider: true,
