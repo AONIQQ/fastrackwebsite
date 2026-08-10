@@ -12,6 +12,8 @@ import {
 } from '@/lib/capture.mjs'
 import { attributionValidity, reportingReasonForInputError } from '@/lib/capture-reporting.mjs'
 import type { CaptureReportEvent } from '@/lib/db'
+import { isAdmin } from '@/lib/admin'
+import { verifyFixtureAuthorization } from '@/lib/fixture-authorization.mjs'
 import {
   CAPTURE_RATE_POLICIES, CAPTURE_RISK_POLICY_VERSION, CAPTURE_RISK_RETENTION_DAYS,
   CaptureRiskConfigurationError, buildCaptureRiskKeys, captureNetworkAddress, smsDispatchEnabled,
@@ -20,14 +22,27 @@ import {
 export const dynamic = 'force-dynamic'
 
 async function recordRejected(reasonCode: string, attribution: CaptureReportEvent['attributionValidity'] = 'unknown') {
-  await recordCaptureReportingEvents([
-    { eventType: 'attempt', reasonCode: 'none', attributionValidity: attribution, trafficClass: 'unknown' },
-    { eventType: 'rejected', reasonCode, attributionValidity: attribution, trafficClass: 'unknown' },
-  ])
+  try {
+    await recordCaptureReportingEvents([
+      { eventType: 'attempt', reasonCode: 'none', attributionValidity: attribution, trafficClass: 'unknown' },
+      { eventType: 'rejected', reasonCode, attributionValidity: attribution, trafficClass: 'unknown' },
+    ])
+  } catch {
+    console.error('[capture rejection reporting unavailable]')
+  }
 }
 
 export async function POST(request: Request) {
   let reportingAttribution: CaptureReportEvent['attributionValidity'] = 'unknown'
+  let persistenceAttempted = false
+  const fixtureAuthorization = request.headers.get('x-fastrack-fixture-authorization')
+  const isFixture = fixtureAuthorization !== null
+  if (isFixture && (!isAdmin() || !verifyFixtureAuthorization(fixtureAuthorization, process.env.ADMIN_TOKEN))) {
+    return NextResponse.json({ error: 'Unauthorized', code: 'fixture_unauthorized' }, {
+      status: 401,
+      headers: { 'Cache-Control': 'no-store' },
+    })
+  }
   try {
     if (process.env.CAPTURE_ACK_ENABLED === '0') {
       return NextResponse.json({ error: 'Capture is temporarily unavailable', code: 'capture_disabled' }, { status: 503 })
@@ -90,6 +105,7 @@ export async function POST(request: Request) {
     const userAgent = request.headers.get('user-agent')?.slice(0, 512) ?? null
     const utm = Object.fromEntries(Object.entries(input.attribution).filter(([key, value]) => key !== 'normalized_referrer' && value)) as Record<string, string>
 
+    persistenceAttempted = true
     const lead = await insertLead({
       captureId: input.captureId, captureRequestHash, email: input.email, phone: input.phone,
       state: input.state, residency: input.residency, college: college.name,
@@ -99,7 +115,7 @@ export async function POST(request: Request) {
       normalizedPhone: input.phone, utm,
       smsConsentAt: input.smsConsent ? new Date() : null,
       smsConsentVersion: input.smsConsent ? SMS_CONSENT_VERSION : null,
-      isFixture: false,
+      isFixture,
       riskDecisionId: risk.id,
       attributionValidity: reportingAttribution,
     })
@@ -127,21 +143,27 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, id: lead.id, capture_id: input.captureId, roi: lead.snapshot })
   } catch (error) {
     if (error instanceof CaptureInputError) {
-      try { await recordRejected(reportingReasonForInputError(error.code), error.code === 'invalid_attribution' || error.code === 'invalid_referrer' ? 'invalid' : reportingAttribution) } catch { console.error('[capture reporting unavailable]') }
+      await recordRejected(reportingReasonForInputError(error.code), error.code === 'invalid_attribution' || error.code === 'invalid_referrer' ? 'invalid' : reportingAttribution)
       return NextResponse.json({ error: error.message, code: error.code }, { status: 400 })
     }
     if (error instanceof CaptureRiskConfigurationError) {
       return NextResponse.json({ error: 'Capture is temporarily unavailable', code: 'risk_unavailable' }, { status: 503 })
     }
-    // A failed primary database response cannot prove whether PostgreSQL committed.
-    // Record only the uncertainty when a separate aggregate write is durably accepted.
-    try {
-      await recordCaptureReportingEvents([{
-        eventType: 'persistence_unconfirmed', reasonCode: 'database_or_response_unconfirmed',
-        attributionValidity: reportingAttribution, trafficClass: 'unknown',
-      }])
-    } catch { console.error('[capture failure unobservable]') }
-    console.error('[capture persistence or response unconfirmed]')
+    if (persistenceAttempted) {
+      // Once the lead statement starts, a failed response cannot prove whether
+      // PostgreSQL committed. Before this phase, persistence is known not to
+      // have been attempted and must never be reported as uncertain.
+      try {
+        await recordCaptureReportingEvents([{
+          eventType: 'persistence_unconfirmed', reasonCode: 'database_or_response_unconfirmed',
+          attributionValidity: reportingAttribution,
+          trafficClass: isFixture ? 'fixture' : 'unknown',
+        }])
+      } catch { console.error('[capture failure unobservable]') }
+      console.error('[capture persistence or response unconfirmed]')
+    } else {
+      console.error('[capture failed before lead persistence]')
+    }
     return NextResponse.json({ error: 'Failed to capture results', code: 'capture_failed' }, { status: 500 })
   }
 }

@@ -333,6 +333,7 @@ export async function insertLead(lead: {
         gclid, fbclid, normalized_referrer, normalized_phone,
         sms_consent_at, sms_consent_version, is_fixture,
         capture_risk_decision_id, capture_risk_accepted_at, capture_risk_policy_version,
+        capture_risk_decision,
         phone_verified_at, sms_eligible, attribution_validity
       ) select
         ${lead.email}, ${lead.phone ?? null}, ${lead.state ? lead.state.toUpperCase().slice(0, 2) : null},
@@ -345,7 +346,7 @@ export async function insertLead(lead: {
         ${lead.utm?.gclid ?? null}, ${lead.utm?.fbclid ?? null},
         ${lead.normalizedReferrer ?? null}, ${lead.normalizedPhone ?? null},
         ${lead.smsConsentAt ?? null}, ${lead.smsConsentVersion ?? null}, ${lead.isFixture ?? false},
-        eligible_risk.id, eligible_risk.accepted_at, eligible_risk.policy_version,
+        eligible_risk.id, eligible_risk.accepted_at, eligible_risk.policy_version, 'accepted',
         null, false, ${lead.attributionValidity}
       from eligible_risk
       on conflict (capture_id) where capture_id is not null do update
@@ -465,28 +466,39 @@ export async function captureOperationsReport(days = 30) {
     order by event_type, reason_code, attribution_validity, traffic_class
   `) as { event_type: string; reason_code: string; attribution_validity: string; traffic_class: string; count: number }[];
   const leads = (await sql`
-    with raw_classified as (
+    with risk_bound as (
       select
         case
-          when snapshot ? '_legacy_mongo_id' then 'retired'
-          when coalesce(is_fixture, false)
-            or (capture_id is null and (
-              coalesce(utm->>'utm_campaign', '') ~* '(^|[-_])(test|verify|e2e)([-_]|$)'
-              or coalesce(referrer, '') ~* '(^|[?&/_-])(test|verify|e2e)([=&/_-]|$)'
-              or split_part(lower(email), '@', 1) ~ '(^|[._+-])(test|verify|e2e)([._+-]|$)'
+          when leads.snapshot ? '_legacy_mongo_id' then 'retired'
+          when coalesce(leads.is_fixture, false)
+            or (leads.capture_id is null and (
+              coalesce(leads.utm->>'utm_campaign', '') ~* '(^|[-_])(test|verify|e2e)([-_]|$)'
+              or coalesce(leads.referrer, '') ~* '(^|[?&/_-])(test|verify|e2e)([=&/_-]|$)'
+              or split_part(lower(leads.email), '@', 1) ~ '(^|[._+-])(test|verify|e2e)([._+-]|$)'
             )) then 'test'
-          when capture_id is not null and capture_risk_accepted_at is not null then 'genuine'
+          when accepted_risk.id is not null then 'genuine'
           else 'unclassified'
         end as classification,
-        coalesce(utm_source, utm->>'utm_source',
-          case when normalized_referrer is not null then 'referral' else 'direct' end) as raw_source
+        lower(coalesce(leads.utm_source, leads.utm->>'utm_source',
+          case when leads.normalized_referrer is not null then 'referral' else 'direct' end)) as raw_source
       from leads
-      where created_at >= now() - (${safeDays}::text || ' days')::interval
+      left join capture_risk_decisions accepted_risk
+        on accepted_risk.id = leads.capture_risk_decision_id
+        and accepted_risk.capture_id = leads.capture_id
+        and accepted_risk.request_hash = leads.capture_request_hash
+        and accepted_risk.decision = 'accepted'
+        and accepted_risk.accepted_at = leads.capture_risk_accepted_at
+        and accepted_risk.policy_version = leads.capture_risk_policy_version
+      where leads.created_at >= now() - (${safeDays}::text || ' days')::interval
     ), classified as (
       select classification,
-        case when raw_source ~ '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$'
-          then lower(raw_source) else 'invalid_source' end as source
-      from raw_classified
+        case
+          when classification = 'test' then 'fixture'
+          when raw_source in ('direct', 'referral', 'google', 'reddit', 'facebook', 'forum', 'email', 'youtube')
+            then raw_source
+          else 'other'
+        end as source
+      from risk_bound
     )
     select classification, source, count(*)::int as count
     from classified group by classification, source order by classification, source
@@ -604,15 +616,23 @@ export async function getAllComputableColleges() {
 /** Funnel view: where leads come from, how deep the drip has taken them, and sales. */
 export async function funnelStats() {
   const bySource = (await sql`
-    select coalesce(utm->>'utm_source', case when referrer <> '' then 'referral' else 'direct' end) as source,
-           count(*)::int as leads
-    from leads
-    where created_at >= '2026-08-06'
-    group by 1 order by leads desc limit 10
+    with classified as (
+      select case
+        when lower(coalesce(utm_source, utm->>'utm_source',
+          case when normalized_referrer is not null then 'referral' else 'direct' end))
+          in ('direct', 'referral', 'google', 'reddit', 'facebook', 'forum', 'email', 'youtube')
+        then lower(coalesce(utm_source, utm->>'utm_source',
+          case when normalized_referrer is not null then 'referral' else 'direct' end))
+        else 'other' end as source
+      from leads
+      where created_at >= '2026-08-06' and coalesce(is_fixture, false) = false
+    )
+    select source, count(*)::int as leads
+    from classified group by source order by leads desc
   `) as { source: string; leads: number }[];
   const byStage = (await sql`
     select nurture_stage, count(*)::int as leads
-    from leads where created_at >= '2026-08-06'
+    from leads where created_at >= '2026-08-06' and coalesce(is_fixture, false) = false
     group by 1 order by 1
   `) as { nurture_stage: number; leads: number }[];
   const sales = (await sql`
@@ -623,12 +643,21 @@ export async function funnelStats() {
           then greatest(coalesce(amount_cents, 0) - coalesce(refunded_cents, 0), 0) else 0 end
       ),0)::int as cents
     from sales
+    where not exists (
+      select 1 from leads where leads.id = sales.lead_id and coalesce(leads.is_fixture, false)
+    )
+      and not exists (
+        select 1 from email_messages
+        where email_messages.id = sales.email_message_id and email_messages.is_fixture
+      )
   `) as { count: number; cents: number }[];
   const emailPerf = (await sql`
     select step,
       count(distinct email_message_id) filter (where event_type = 'open')::int as opens,
       count(distinct email_message_id) filter (where event_type = 'click')::int as clicks
     from email_engagement_events
+    join email_messages on email_messages.id = email_engagement_events.email_message_id
+    where email_messages.is_fixture = false
     group by step order by step
   `) as { step: string; opens: number; clicks: number }[];
   return { bySource, byStage, sales: sales[0], emailPerf };

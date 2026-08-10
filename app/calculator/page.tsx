@@ -84,6 +84,7 @@ export default function Calculator() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [creditMapHref, setCreditMapHref] = useState('/credit-map')
   const [displayAcknowledgement, setDisplayAcknowledgement] = useState<string | null>(null)
+  const fixtureCaptureRef = useRef(false)
 
   const attributionRef = useRef<{ referrer: string; utm: Record<string, string> }>({ referrer: '', utm: {} })
   const pendingCollegeIdRef = useRef<number | null>(null)
@@ -91,6 +92,7 @@ export default function Calculator() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
+    fixtureCaptureRef.current = params.get('fixture') === '1'
     const utm: Record<string, string> = {}
     params.forEach((v, k) => { if (k.startsWith('utm_') || k === 'gclid' || k === 'fbclid') utm[k] = v })
     attributionRef.current = { referrer: document.referrer || '', utm }
@@ -208,8 +210,17 @@ export default function Calculator() {
       : crypto.randomUUID()
     captureAttemptRef.current = { id: captureId, fingerprint }
     try {
+      let headers: Record<string, string> = {}
+      if (fixtureCaptureRef.current) {
+        const authorizationResponse = await fetch('/api/admin/capture-fixture/authorize', { method: 'POST' })
+        if (!authorizationResponse.ok) throw new Error('fixture authorization unavailable')
+        const fixtureAuthorization = await authorizationResponse.json()
+        if (typeof fixtureAuthorization?.authorization !== 'string') throw new Error('invalid fixture authorization')
+        headers = { 'x-fastrack-fixture-authorization': fixtureAuthorization.authorization }
+      }
       await completeCapture({
         fetcher: fetch,
+        headers,
         payload: {
           captureId, email, phone: phoneNumber, smsConsent, state, residency,
           collegeId: college.id, referrer: attributionRef.current.referrer,
