@@ -269,31 +269,68 @@ export async function claimCaptureRisk(input: {
   return rows[0] ?? null;
 }
 
-export async function cleanupCaptureAbuseState() {
+export async function cleanupCaptureRateWindows() {
   const rows = (await sql`
     with expired_windows as (
       select ctid from capture_rate_windows where expires_at < now() order by expires_at limit ${CAPTURE_ABUSE_CLEANUP_BATCH_SIZE}
     ), deleted_windows as (
       delete from capture_rate_windows where ctid in (select ctid from expired_windows) returning 1
-    ), expired_decisions as (
-      select ctid from capture_risk_decisions where expires_at < now() order by expires_at limit ${CAPTURE_ABUSE_CLEANUP_BATCH_SIZE}
-    ), deleted_decisions as (
-      delete from capture_risk_decisions where ctid in (select ctid from expired_decisions) returning 1
     )
     select
       (select count(*)::int from deleted_windows) as deleted_windows,
-      (select count(*)::int from deleted_decisions) as deleted_decisions,
       greatest(0, (select count(*)::int from capture_rate_windows where expires_at < now())
-        - (select count(*)::int from deleted_windows)) as remaining_windows,
-      greatest(0, (select count(*)::int from capture_risk_decisions where expires_at < now())
-        - (select count(*)::int from deleted_decisions)) as remaining_decisions
+        - (select count(*)::int from deleted_windows)) as remaining_windows
   `) as {
     deleted_windows: number;
-    deleted_decisions: number;
     remaining_windows: number;
-    remaining_decisions: number;
   }[];
-  if (!rows[0]) throw new Error('capture abuse cleanup did not return aggregate state');
+  if (!rows[0]) throw new Error('capture rate-window cleanup did not return aggregate state');
+  return rows[0];
+}
+
+export async function cleanupCaptureRiskDecisions() {
+  const rows = (await sql`
+    with expired_unreferenced_decisions as (
+      select decision.id
+      from capture_risk_decisions decision
+      where decision.expires_at < now()
+        and not exists (
+          select 1 from leads where leads.capture_risk_decision_id = decision.id
+        )
+      order by decision.expires_at, decision.id
+      limit ${CAPTURE_ABUSE_CLEANUP_BATCH_SIZE}
+    ), deleted_unreferenced_decisions as (
+      delete from capture_risk_decisions decision
+      where decision.id in (select id from expired_unreferenced_decisions)
+        and not exists (
+          select 1 from leads where leads.capture_risk_decision_id = decision.id
+        )
+      returning 1
+    )
+    select
+      (select count(*)::int from deleted_unreferenced_decisions) as deleted_unreferenced_decisions,
+      greatest(0, (
+        select count(*)::int
+        from capture_risk_decisions decision
+        where decision.expires_at < now()
+          and not exists (
+            select 1 from leads where leads.capture_risk_decision_id = decision.id
+          )
+      ) - (select count(*)::int from deleted_unreferenced_decisions)) as remaining_unreferenced_decisions,
+      (
+        select count(*)::int
+        from capture_risk_decisions decision
+        where decision.expires_at < now()
+          and exists (
+            select 1 from leads where leads.capture_risk_decision_id = decision.id
+          )
+      ) as retained_referenced_decisions
+  `) as {
+    deleted_unreferenced_decisions: number;
+    remaining_unreferenced_decisions: number;
+    retained_referenced_decisions: number;
+  }[];
+  if (!rows[0]) throw new Error('capture risk-decision cleanup did not return aggregate state');
   return rows[0];
 }
 

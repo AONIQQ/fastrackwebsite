@@ -109,8 +109,9 @@ test('scheduled abuse cleanup is exact-secret authorized, bounded and outpaces a
   assert.equal(CAPTURE_ABUSE_CLEANUP_MAX_BATCHES, 4)
   assert.ok(CAPTURE_ABUSE_CLEANUP_BATCH_SIZE * CAPTURE_ABUSE_CLEANUP_MAX_BATCHES > CAPTURE_ABUSE_MAX_NEW_DECISIONS_PER_DAY)
   assert.ok(CAPTURE_ABUSE_CLEANUP_BATCH_SIZE * CAPTURE_ABUSE_CLEANUP_MAX_BATCHES > CAPTURE_ABUSE_MAX_NEW_WINDOWS_PER_DAY)
-  assert.equal(captureAbuseCleanupHasBacklog({ remaining_windows: 1, remaining_decisions: 0 }), true)
-  assert.equal(captureAbuseCleanupHasBacklog({ remaining_windows: 0, remaining_decisions: 0 }), false)
+  assert.equal(captureAbuseCleanupHasBacklog({ remaining_windows: 1, remaining_unreferenced_decisions: 0 }), true)
+  assert.equal(captureAbuseCleanupHasBacklog({ remaining_windows: 0, remaining_unreferenced_decisions: 1 }), true)
+  assert.equal(captureAbuseCleanupHasBacklog({ remaining_windows: 0, remaining_unreferenced_decisions: 0, retained_referenced_decisions: 99 }), false)
 })
 
 test('installed Neon driver submits advisory lock and decision as one READ COMMITTED batch transaction', async () => {
@@ -249,7 +250,8 @@ test('database capture is joined to one accepted durable risk decision before wo
   assert.match(source, /where not exists \(select 1 from known\)[\s\S]*on conflict \(capture_id\)/)
   assert.match(source, /with eligible_risk as[\s\S]*decision = 'accepted'[\s\S]*insert into leads/)
   assert.match(source, /phone_verified_at, sms_eligible[\s\S]*null, false/)
-  assert.match(source, /expired_windows as[\s\S]*CAPTURE_ABUSE_CLEANUP_BATCH_SIZE[\s\S]*expired_decisions as/)
+  assert.match(source, /cleanupCaptureRateWindows[\s\S]*expired_windows as[\s\S]*CAPTURE_ABUSE_CLEANUP_BATCH_SIZE/)
+  assert.match(source, /cleanupCaptureRiskDecisions[\s\S]*expired_unreferenced_decisions as[\s\S]*not exists[\s\S]*leads\.capture_risk_decision_id = decision\.id/)
 })
 
 test('capture route gates work on durable risk and verified SMS eligibility', async () => {
@@ -272,7 +274,11 @@ test('abuse cleanup has a separate authorized cron and aggregate-only result', a
   assert.match(route, /captureAbuseCleanupAuthorized/)
   assert.match(route, /CAPTURE_ABUSE_CLEANUP_MAX_BATCHES/)
   assert.match(route, /deleted_windows/)
-  assert.match(route, /remaining_decisions/)
+  assert.match(route, /deleted_unreferenced_decisions/)
+  assert.match(route, /remaining_unreferenced_decisions/)
+  assert.match(route, /retained_referenced_decisions/)
+  assert.match(route, /cleanupCaptureRateWindows\(\)[\s\S]*cleanupCaptureRiskDecisions\(\)/)
+  assert.match(route, /backlog_remaining: null, cleanup_failed: true/)
   assert.doesNotMatch(route, /email|phone|key_digest|capture_id/i)
   assert.ok(vercel.crons.some((cron) => cron.path === '/api/cron/capture-abuse-cleanup' && cron.schedule === '15 6 * * *'))
 })
