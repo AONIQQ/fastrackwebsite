@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer'
 import { google } from 'googleapis'
 import { Resend } from 'resend'
+import { createUnsubscribeToken, unsubscribeHeaders } from './unsubscribe.mjs'
 
 const OAuth2 = google.auth.OAuth2
 
@@ -27,7 +28,12 @@ export type SendArgs = {
   text: string
   html?: string
   replyTo?: string
+  headers?: Record<string, string>
+  idempotencyKey?: string
+  requireIdempotentProvider?: boolean
 }
+
+export type SendReceipt = { provider: 'resend' | 'gmail'; messageId: string | null }
 
 function fromAddress() {
   return process.env.EMAIL_FROM || process.env.EMAIL_USER || 'info@fastrack.school'
@@ -35,15 +41,17 @@ function fromAddress() {
 
 async function sendViaResend(args: SendArgs) {
   const resend = new Resend(process.env.RESEND_API_KEY!)
-  const { error } = await resend.emails.send({
+  const { data, error } = await resend.emails.send({
     from: process.env.RESEND_FROM || `Fastrack <${fromAddress()}>`,
     to: args.to,
     subject: args.subject,
     text: args.text,
     html: args.html,
     replyTo: args.replyTo,
-  })
+    headers: args.headers,
+  }, args.idempotencyKey ? { idempotencyKey: args.idempotencyKey } : undefined)
   if (error) throw new Error(`Resend: ${error.message}`)
+  return { provider: 'resend' as const, messageId: data?.id ?? null }
 }
 
 export async function getTransporter() {
@@ -78,32 +86,36 @@ export async function getTransporter() {
 
 async function sendViaGmail(args: SendArgs) {
   const transporter = await getTransporter()
-  await transporter.sendMail({
+  const receipt = await transporter.sendMail({
     from: fromAddress(),
     to: args.to,
     replyTo: args.replyTo,
     subject: args.subject,
     text: args.text,
     html: args.html,
+    headers: args.headers,
   })
+  return { provider: 'gmail' as const, messageId: receipt.messageId || null }
 }
 
 /** Single entry point. Throws only if every configured provider fails. */
-export async function sendMail(args: SendArgs): Promise<void> {
+export async function sendMail(args: SendArgs): Promise<SendReceipt> {
   const errors: string[] = []
 
   if (process.env.RESEND_API_KEY) {
     try {
-      await sendViaResend(args)
-      return
+      return await sendViaResend(args)
     } catch (err) {
       errors.push(`resend: ${(err as Error).message}`)
     }
   }
 
+  if (args.requireIdempotentProvider) {
+    throw new Error(errors.length ? 'Idempotent mail provider rejected the request' : 'Idempotent mail provider is not configured')
+  }
+
   try {
-    await sendViaGmail(args)
-    return
+    return await sendViaGmail(args)
   } catch (err) {
     const message = (err as Error).message
     errors.push(`gmail: ${message}`)
@@ -137,6 +149,8 @@ export type ResultsEmail = {
   earlyEarnings: number | null
   totalAdvantage: number | null
   yearsSaved: number
+  leadId: number
+  providerIdempotencyKey: string
 }
 
 const SITE = 'https://www.fastrack.school'
@@ -239,7 +253,7 @@ function resultsHtml(r: ResultsEmail) {
           </p>
           <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
             <tr><td bgcolor="#605dba" style="background:#605dba;border-radius:8px;">
-              <a href="${SITE}/credit-map" style="display:inline-block;padding:14px 28px;color:#ffffff;font-size:16px;font-weight:600;text-decoration:none;">Get your done-for-you Credit Map</a>
+              <a href="${SITE}/credit-map?utm_source=email&utm_medium=results&utm_campaign=results&lead_ref=lead-${r.leadId}-results" style="display:inline-block;padding:14px 28px;color:#ffffff;font-size:16px;font-weight:600;text-decoration:none;">Get your done-for-you Credit Map</a>
             </td></tr>
           </table>
           <p style="margin:12px 0 0;text-align:center;font-size:14px;">
@@ -256,6 +270,7 @@ function resultsHtml(r: ResultsEmail) {
           <p class="muted" style="margin:12px 0 0;color:#8a8aa8;font-size:12px;">
             Fastrack &middot; 1007 N Orange St, Wilmington, Delaware &middot;
             <a href="mailto:info@fastrack.school" style="color:#8a8aa8;">info@fastrack.school</a>
+            &middot; <a href="__UNSUB__" style="color:#8a8aa8;">Unsubscribe</a>
           </p>
         </td></tr>
       </table>
@@ -274,7 +289,7 @@ function resultsText(r: ResultsEmail) {
     `Early earnings:   ${money(r.earlyEarnings)} (${r.yearsSaved} extra years in the workforce)`,
     `Total advantage:  ${money(r.totalAdvantage)}`,
     '',
-    `Get your done-for-you Credit Map: ${SITE}/credit-map`,
+    `Get your done-for-you Credit Map: ${SITE}/credit-map?utm_source=email&utm_medium=results&utm_campaign=results&lead_ref=lead-${r.leadId}-results`,
     '',
     'Figures use average net price and median post-enrollment earnings from the U.S. Department',
     'of Education College Scorecard, and assume 60 dual-credit hours at $80 per credit.',
@@ -286,12 +301,16 @@ function resultsText(r: ResultsEmail) {
 
 /** Sends the prospect their own results. */
 export async function sendResultsEmail(r: ResultsEmail) {
-  await sendMail({
+  const token = createUnsubscribeToken(r.to, process.env.UNSUBSCRIBE_SECRET || process.env.CRON_SECRET)
+  return sendMail({
     to: r.to,
     replyTo: 'info@fastrack.school',
     subject: `${r.collegeName}: ${money(r.totalAdvantage)} and ${r.yearsSaved} years back`,
-    text: resultsText(r),
-    html: resultsHtml(r),
+    text: `${resultsText(r)}\n\nUnsubscribe: ${SITE}/api/u?t=${encodeURIComponent(token)}`,
+    html: resultsHtml(r).replaceAll('__UNSUB__', `${SITE}/api/u?t=${encodeURIComponent(token)}`),
+    headers: unsubscribeHeaders(SITE, token),
+    idempotencyKey: r.providerIdempotencyKey,
+    requireIdempotentProvider: true,
   })
 }
 

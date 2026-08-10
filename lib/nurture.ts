@@ -1,4 +1,6 @@
 import { sendMail } from './mail'
+import { createUnsubscribeToken, unsubscribeHeaders } from './unsubscribe.mjs'
+import { withCheckoutReference } from './checkout-url.mjs'
 
 const SITE = 'https://www.fastrack.school'
 const U = (step: string) => `utm_source=email&utm_medium=nurture&utm_campaign=${step}`
@@ -43,7 +45,7 @@ export const NURTURE_STEPS: { stage: number; afterDays: number; subject: string;
       p('One number worth knowing before your student enrolls in anything: roughly 1 in 7 dual-enrollment courses is denied at transfer. Not because the course was bad, but because it did not fit the degree the student ended up pursuing.') +
         p('Some common courses are far worse. College Algebra and intro economics get denied for degree fit more than half the time at some schools.') +
         p('The fix is boring but effective: check every course against the actual transfer rules of the target college before enrolling, not after. That is exactly what we do:') +
-        btn(`${SITE}/credit-map?${U('n2')}`, 'See how the Credit Map works'),
+        btn(`${SITE}/credit-map?${U('n2')}&lead_ref=__LEAD_REF__`, 'See how the Credit Map works'),
     ),
   },
   {
@@ -64,28 +66,33 @@ export const NURTURE_STEPS: { stage: number; afterDays: number; subject: string;
     html: wrap(
       p('I will keep this short. Course registration windows are the deadline that matters: once your student picks next term’s classes, the planning either happened or it did not.') +
         p('If you want the plan done for you, it is here:') +
-        btn(`${SITE}/credit-map?${U('n4')}`, 'Get the Credit Map') +
+        btn(`${SITE}/credit-map?${U('n4')}&lead_ref=__LEAD_REF__`, 'Get the Credit Map') +
         p('If you would rather do it yourself, the free guide and calculator stay free forever. Either way, check every course against the target college’s transfer rules before enrolling. It is the one step that protects all the others.'),
     ),
   },
 ]
 
-export async function sendNurtureStep(to: string, step: (typeof NURTURE_STEPS)[number], leadId?: number) {
-  const checkout = `${CHECKOUT}?prefilled_email=${encodeURIComponent(to)}&client_reference_id=${encodeURIComponent(`lead-${leadId ?? 0}-n${step.stage}`)}`
+export async function sendNurtureStep(to: string, step: (typeof NURTURE_STEPS)[number], leadId: number, providerIdempotencyKey: string) {
+  const leadRef = `lead-${leadId}-n${step.stage}`
+  const checkout = withCheckoutReference(CHECKOUT, leadRef, { prefilled_email: to })
   const e = Buffer.from(to.toLowerCase()).toString('base64url')
+  const token = createUnsubscribeToken(to, process.env.UNSUBSCRIBE_SECRET || process.env.CRON_SECRET)
   const stepTag = `n${step.stage}`
   const trackLink = (dest: string) =>
     `${SITE}/api/t/c?e=${e}&s=${stepTag}&u=${encodeURIComponent(dest)}`
-  let html = step.html.replaceAll('__CHECKOUT__', checkout)
+  let html = step.html.replaceAll('__CHECKOUT__', checkout).replaceAll('__LEAD_REF__', leadRef)
   // route every href through the click tracker (unsubscribe mailto stays direct)
   html = html.replace(/href="(https:\/\/[^"]+)"/g, (_m, dest) => `href="${trackLink(dest)}"`)
   html = html.replaceAll('__PIXEL__', `${SITE}/api/t/o?e=${e}&s=${stepTag}`)
-  html = html.replaceAll('__UNSUB__', `${SITE}/api/u?e=${e}`)
-  await sendMail({
+  html = html.replaceAll('__UNSUB__', `${SITE}/api/u?t=${encodeURIComponent(token)}`)
+  return sendMail({
     to,
     subject: step.subject,
     html,
-    text: 'View this email in an HTML capable client. Calculator: https://www.fastrack.school/calculator',
+    text: `View this email in an HTML capable client. Calculator: https://www.fastrack.school/calculator\n\nUnsubscribe: ${SITE}/api/u?t=${encodeURIComponent(token)}`,
     replyTo: 'info@fastrack.school',
+    headers: unsubscribeHeaders(SITE, token),
+    idempotencyKey: providerIdempotencyKey,
+    requireIdempotentProvider: true,
   })
 }

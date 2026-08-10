@@ -143,11 +143,11 @@ test('concurrent same-key acknowledgements converge on one durable identity', as
   assert.equal(durable.size, 1)
 })
 
-test('database capture source binds hash and atomically records delivery claim and event without xmax', async () => {
+test('database capture source binds hash and atomically records results work and event without xmax', async () => {
   const source = await readFile(new URL('../lib/db.ts', import.meta.url), 'utf8')
   assert.match(source, /where leads\.capture_request_hash = excluded\.capture_request_hash/)
-  assert.match(source, /with captured as[\s\S]*delivery_claim as[\s\S]*event_record as/)
-  assert.match(source, /insert into capture_delivery_claims/)
+  assert.match(source, /with captured as[\s\S]*message_work as[\s\S]*event_record as/)
+  assert.match(source, /insert into email_messages/)
   assert.match(source, /insert into capture_events/)
   assert.doesNotMatch(source, /xmax/)
 })

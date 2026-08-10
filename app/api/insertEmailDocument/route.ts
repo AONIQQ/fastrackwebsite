@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server'
 import { waitUntil } from '@vercel/functions'
 import { createHash } from 'node:crypto'
-import { getCollegeById, insertLead, markResultsEmailSent } from '@/lib/db'
-import { sendResultsEmail, notifyNewLead } from '@/lib/mail'
+import { getCollegeById, insertLead } from '@/lib/db'
+import { notifyNewLead } from '@/lib/mail'
 import { sendSms, resultsSms } from '@/lib/sms'
+import { processResultMessage } from '@/lib/message-ledger'
 import { computeRoi } from '@/lib/roi'
 import {
   CAPTURE_BODY_LIMIT, CaptureInputError, SMS_CONSENT_VERSION,
@@ -62,22 +63,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Capture identity does not match this request', code: 'capture_mismatch' }, { status: 409 })
     }
 
-    if (lead.delivery_claimed) {
+    {
       const deliver = async () => {
-        const results = {
-          to: input.email, collegeName: college.name, residency: input.residency,
-          annualCost: roi.annualCost, standardTotal: roi.standard.totalCost,
-          standardRecoup: roi.standard.recoupLabel, fastrackTotal: roi.fastrack.totalCost,
-          fastrackRecoup: roi.fastrack.recoupLabel, savings: roi.savings,
-          earlyEarnings: roi.earlyEarnings, totalAdvantage: roi.totalAdvantage,
-          yearsSaved: roi.yearsSaved,
+        const work: Promise<unknown>[] = [processResultMessage(lead.id)]
+        if (lead.delivery_claimed) {
+          work.push(notifyNewLead({ email: input.email, phone: input.phone, state: input.state, residency: input.residency, college: college.name, totalAdvantage: roi.totalAdvantage }))
+          work.push(input.smsConsent && input.phone ? sendSms(input.phone, resultsSms(college.name, roi.totalAdvantage)) : Promise.resolve(false))
         }
-        const outcomes = await Promise.allSettled([
-          sendResultsEmail(results).then(() => markResultsEmailSent(lead.id)),
-          notifyNewLead({ email: input.email, phone: input.phone, state: input.state, residency: input.residency, college: college.name, totalAdvantage: roi.totalAdvantage }),
-          input.smsConsent && input.phone ? sendSms(input.phone, resultsSms(college.name, roi.totalAdvantage)) : Promise.resolve(false),
-        ])
-        for (const outcome of outcomes) if (outcome.status === 'rejected') console.error('[lead delivery]', lead.id, outcome.reason)
+        const outcomes = await Promise.allSettled(work)
+        for (const outcome of outcomes) if (outcome.status === 'rejected') console.error('[lead delivery failure]')
       }
       waitUntil(deliver().catch((error) => console.error('[lead delivery]', error)))
     }

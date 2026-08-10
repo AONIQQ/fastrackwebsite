@@ -153,31 +153,30 @@ export async function insertLead(lead: {
         set capture_id = excluded.capture_id
         where leads.capture_request_hash = excluded.capture_request_hash
       returning id, created_at, snapshot, is_fixture
-    ), delivery_claim as (
-      insert into capture_delivery_claims (lead_id, capture_id)
-      select id, ${lead.captureId}::uuid from captured
-      on conflict do nothing
+    ), message_work as (
+      insert into email_messages (
+        lead_id, kind, logical_key, provider_idempotency_key, is_fixture
+      ) select id, 'results', 'lead:' || id || ':results', 'ft-lead-' || id || '-results',
+        coalesce(is_fixture, false)
+      from captured
+      on conflict (logical_key) do nothing
       returning lead_id
     ), event_record as (
       insert into capture_events (capture_id, lead_id, event_type, is_fixture)
       select ${lead.captureId}::uuid, captured.id,
-        case when delivery_claim.lead_id is not null then 'accepted' else 'replayed' end,
+        case when message_work.lead_id is not null then 'accepted' else 'replayed' end,
         coalesce(captured.is_fixture, false)
       from captured
-      left join delivery_claim on delivery_claim.lead_id = captured.id
+      left join message_work on message_work.lead_id = captured.id
       returning id
     )
     select captured.id, captured.created_at, captured.snapshot,
-      (delivery_claim.lead_id is not null) as delivery_claimed
+      (message_work.lead_id is not null) as delivery_claimed
     from captured
-    left join delivery_claim on delivery_claim.lead_id = captured.id
+    left join message_work on message_work.lead_id = captured.id
     cross join event_record
   `) as { id: number; created_at: string; snapshot: Record<string, unknown>; delivery_claimed: boolean }[];
   return rows[0];
-}
-
-export async function markResultsEmailSent(id: number) {
-  await sql`update leads set results_email_sent_at = now() where id = ${id}`;
 }
 
 export async function listLeads(limit = 500, offset = 0) {
@@ -302,7 +301,12 @@ export async function funnelStats() {
     group by 1 order by 1
   `) as { nurture_stage: number; leads: number }[];
   const sales = (await sql`
-    select count(*)::int as count, coalesce(sum(amount_cents),0)::int as cents
+    select
+      count(*) filter (where paid_at is not null)::int as count,
+      coalesce(sum(
+        case when paid_at is not null and coalesce(dispute_state, '') not in ('open', 'lost')
+          then greatest(coalesce(amount_cents, 0) - coalesce(refunded_cents, 0), 0) else 0 end
+      ),0)::int as cents
     from sales
   `) as { count: number; cents: number }[];
   const emailPerf = (await sql`

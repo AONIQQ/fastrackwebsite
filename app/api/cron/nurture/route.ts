@@ -1,17 +1,12 @@
+import { randomUUID } from 'node:crypto'
 import { NextResponse } from 'next/server'
 import { sql } from '@/lib/db'
-import { NURTURE_STEPS, sendNurtureStep } from '@/lib/nurture'
+import { claimNextMessage, dispatchClaimedMessage, enqueueDueNurture, messageBacklog } from '@/lib/message-ledger'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
 
-/**
- * Daily drip: each lead advances through NURTURE_STEPS based on age since
- * capture. Only leads captured after launch are nurtured; the historical list
- * was worked by hand. Caps sends per run to stay inside provider limits.
- */
-const LAUNCH = '2026-08-06'
-const MAX_SENDS_PER_RUN = 80
+const MAX_MESSAGES_PER_RUN = 80
 
 export async function GET(request: Request) {
   const auth = request.headers.get('authorization')
@@ -19,36 +14,46 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const leads = (await sql`
-    select id, email, created_at, nurture_stage
-    from leads
-    where created_at >= ${LAUNCH}
-      and nurture_stage < ${NURTURE_STEPS.length}
-      and unsubscribed_at is null
-    order by created_at
-    limit 500
-  `) as { id: number; email: string; created_at: string; nurture_stage: number }[]
+  const runKey = randomUUID()
+  const run = (await sql`
+    insert into nurture_runs (run_key) values (${runKey}::uuid) returning id
+  `) as { id: number }[]
+  let considered = 0
+  let claimed = 0
+  let accepted = 0
+  let retried = 0
+  let failed = 0
+  let failureCategory: string | null = null
 
-  let sent = 0
-  const failures: string[] = []
-
-  for (const lead of leads) {
-    if (sent >= MAX_SENDS_PER_RUN) break
-    const ageDays = (Date.now() - new Date(lead.created_at).getTime()) / 86_400_000
-    const next = NURTURE_STEPS.find((s) => s.stage === lead.nurture_stage + 1)
-    if (!next || ageDays < next.afterDays) continue
-
-    try {
-      await sendNurtureStep(lead.email, next, lead.id)
-      await sql`
-        update leads set nurture_stage = ${next.stage}, nurture_last_at = now()
-        where id = ${lead.id}
-      `
-      sent += 1
-    } catch (err) {
-      failures.push(`${lead.email}: ${(err as Error).message}`)
+  try {
+    await enqueueDueNurture()
+    while (claimed < MAX_MESSAGES_PER_RUN) {
+      const message = await claimNextMessage()
+      if (!message) break
+      considered += 1
+      claimed += 1
+      if (message.attempt_count > 1) retried += 1
+      try {
+        await dispatchClaimedMessage(message)
+        accepted += 1
+      } catch {
+        failed += 1
+      }
     }
+  } catch {
+    failureCategory = 'invocation_failure'
   }
 
-  return NextResponse.json({ considered: leads.length, sent, failures: failures.length })
+  let backlog = 0
+  try { backlog = await messageBacklog() } catch { failureCategory = failureCategory || 'backlog_count_failure' }
+  await sql`
+    update nurture_runs set completed_at = now(), considered = ${considered}, claimed = ${claimed},
+      accepted = ${accepted}, retried = ${retried}, failed = ${failed}, backlog = ${backlog},
+      failure_category = ${failureCategory}
+    where id = ${run[0].id}
+  `
+  return NextResponse.json(
+    { considered, claimed, accepted, retried, failed, backlog },
+    { status: failureCategory ? 500 : 200 },
+  )
 }

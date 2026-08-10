@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import CalBookingButton from '@/components/cal/CalBookingButton'
 import SiteFooter from '@/components/SiteFooter'
 import { Check } from 'lucide-react'
+import { withCheckoutReference } from '@/lib/checkout-url.mjs'
 
 const CHECKOUT_URL = process.env.NEXT_PUBLIC_CREDIT_MAP_CHECKOUT_URL
 
@@ -14,12 +15,16 @@ function checkoutHref(): string {
   if (!CHECKOUT_URL) return ''
   if (typeof window === 'undefined') return CHECKOUT_URL
   const p = new URLSearchParams(window.location.search)
+  const leadRef = p.get('lead_ref')
+  if (leadRef && /^lead-\d+-(?:results|n[1-4])$/.test(leadRef)) {
+    return withCheckoutReference(CHECKOUT_URL, leadRef)
+  }
   const src = ['utm_source', 'utm_medium', 'utm_campaign', 'gclid', 'fbclid']
     .map((k) => (p.get(k) ? `${k}:${p.get(k)}` : null))
     .filter(Boolean)
     .join('|')
     .slice(0, 190)
-  return src ? `${CHECKOUT_URL}?client_reference_id=${encodeURIComponent(src)}` : CHECKOUT_URL
+  return withCheckoutReference(CHECKOUT_URL, src)
 }
 
 const deliverables = [
