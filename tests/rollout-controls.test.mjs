@@ -8,10 +8,13 @@ import {
   captureRolloutPlan,
   captureAcknowledgementReady,
   effectiveRolloutControls,
+  nurtureCronPreflight,
   publicRolloutStatus,
+  rolloutConfigurationStatus,
   rolloutControls,
   rolloutDependencyWarnings,
 } from '../lib/rollout-controls.mjs'
+import { isAuthorizedCronRequest, runNurtureCron } from '../lib/nurture-cron-runner.mjs'
 
 const allEnabled = () => Object.fromEntries(Object.keys(ROLLOUT_CONTROL_NAMES).map((key) => [key, true]))
 
@@ -31,14 +34,124 @@ test('every rollout control is exact-on and fails closed when missing or malform
 })
 
 test('control status reveals only enabled and configuration classification', () => {
+  const explicitOff = Object.fromEntries(Object.values(ROLLOUT_CONTROL_NAMES).map((name) => [name, '0']))
   const status = publicRolloutStatus({
+    ...explicitOff,
     [ROLLOUT_CONTROL_NAMES.shadowLedger]: '1',
     [ROLLOUT_CONTROL_NAMES.resultsEnqueue]: 'not-valid',
   })
   assert.deepEqual(status.controls.shadowLedger, { enabled: true, configuration: 'valid', effective: true })
   assert.deepEqual(status.controls.resultsEnqueue, { enabled: false, configuration: 'malformed', effective: false })
+  assert.equal(status.configuration_status, 'invalid_configuration')
+  assert.deepEqual(status.configuration_issues, ['resultsEnqueue_malformed'])
   assert.equal(status.dependency_status, 'valid')
   assert.equal(JSON.stringify(status).includes('not-valid'), false)
+})
+
+test('cron preflight classifies every raw control before execution', () => {
+  const explicitOff = Object.fromEntries(Object.values(ROLLOUT_CONTROL_NAMES).map((name) => [name, '0']))
+  const valid = nurtureCronPreflight(explicitOff)
+  assert.equal(valid.configurationStatus, 'valid')
+  assert.equal(valid.shouldRun, false)
+  assert.deepEqual(valid.configurationIssues, [])
+
+  const missing = rolloutConfigurationStatus({})
+  assert.equal(missing.configurationStatus, 'invalid_configuration')
+  assert.equal(missing.configurationIssues.length, 10)
+  assert.ok(missing.configurationIssues.every((issue) => issue.endsWith('_missing')))
+
+  const malformed = rolloutConfigurationStatus({
+    ...explicitOff,
+    [ROLLOUT_CONTROL_NAMES.resultsEnqueue]: 'enabled',
+  })
+  assert.equal(malformed.configurationStatus, 'invalid_configuration')
+  assert.deepEqual(malformed.configurationIssues, ['resultsEnqueue_malformed'])
+
+  const incoherent = rolloutConfigurationStatus({
+    ...explicitOff,
+    [ROLLOUT_CONTROL_NAMES.resultsEnqueue]: '1',
+  })
+  assert.equal(incoherent.configurationStatus, 'invalid_dependencies')
+  assert.deepEqual(incoherent.dependencyWarnings, ['results_enqueue_requires_shadow_ledger'])
+})
+
+test('cron authorization preserves exact nonempty bearer-secret semantics', () => {
+  assert.equal(isAuthorizedCronRequest(undefined, null), false)
+  assert.equal(isAuthorizedCronRequest('', 'Bearer '), false)
+  assert.equal(isAuthorizedCronRequest('cron-secret', null), false)
+  assert.equal(isAuthorizedCronRequest('cron-secret', 'cron-secret'), false)
+  assert.equal(isAuthorizedCronRequest('cron-secret', 'Bearer wrong'), false)
+  assert.equal(isAuthorizedCronRequest('cron-secret', 'Bearer cron-secret'), true)
+})
+
+test('invalid and idle cron preflights invoke no database, queue, projection, claim, or dispatch dependency', async () => {
+  const explicitOff = Object.fromEntries(Object.values(ROLLOUT_CONTROL_NAMES).map((name) => [name, '0']))
+  const makeDependencies = () => {
+    const calls = Object.fromEntries([
+      'createRun', 'projectResendEvents', 'enqueueShadowResults', 'enqueueDueNurture',
+      'claimNextMessage', 'dispatchClaimedMessage', 'messageBacklog', 'completeRun',
+    ].map((name) => [name, 0]))
+    const called = (name, result) => async () => { calls[name] += 1; return result }
+    return {
+      calls,
+      dependencies: {
+        createRun: called('createRun', 1),
+        projectResendEvents: called('projectResendEvents', { considered: 0, projected: 0 }),
+        enqueueShadowResults: called('enqueueShadowResults', 0),
+        enqueueDueNurture: called('enqueueDueNurture'),
+        claimNextMessage: called('claimNextMessage', null),
+        dispatchClaimedMessage: called('dispatchClaimedMessage', 'accepted'),
+        messageBacklog: called('messageBacklog', 0),
+        completeRun: called('completeRun'),
+      },
+    }
+  }
+  const cases = [
+    ['missing', {}],
+    ['malformed root', { ...explicitOff, [ROLLOUT_CONTROL_NAMES.shadowLedger]: 'yes' }],
+    ['malformed dependency', { ...explicitOff, [ROLLOUT_CONTROL_NAMES.resultsEnqueue]: 'yes' }],
+    ['incoherent dependency', { ...explicitOff, [ROLLOUT_CONTROL_NAMES.resultsEnqueue]: '1' }],
+    ['explicit all off', explicitOff],
+  ]
+  for (const [label, env] of cases) {
+    const { calls, dependencies } = makeDependencies()
+    const result = await runNurtureCron({
+      preflight: nurtureCronPreflight(env),
+      maxMessages: 80,
+      dependencies,
+    })
+    assert.deepEqual(Object.values(calls), Object.values(calls).map(() => 0), label)
+    assert.equal(result.status, label === 'explicit all off' ? 200 : 500, label)
+    assert.equal(result.body.configuration_status, label === 'explicit all off' ? 'valid_idle'
+      : label === 'incoherent dependency' ? 'invalid_dependencies' : 'invalid_configuration', label)
+    assert.equal(result.body.considered, 0, label)
+    assert.equal(result.body.claimed, 0, label)
+    assert.equal(result.body.accepted, 0, label)
+  }
+})
+
+test('valid cron configuration preserves the bounded operational path', async () => {
+  const env = Object.fromEntries(Object.values(ROLLOUT_CONTROL_NAMES).map((name) => [name, '1']))
+  const calls = []
+  const result = await runNurtureCron({
+    preflight: nurtureCronPreflight(env),
+    maxMessages: 80,
+    dependencies: {
+      createRun: async () => { calls.push('create'); return 7 },
+      projectResendEvents: async () => { calls.push('project'); return { considered: 2, projected: 1 } },
+      enqueueShadowResults: async () => { calls.push('promote'); return 3 },
+      enqueueDueNurture: async () => { calls.push('enqueue') },
+      claimNextMessage: async (kind) => { calls.push(`claim:${kind}`); return null },
+      dispatchClaimedMessage: async () => { calls.push('dispatch'); return 'accepted' },
+      messageBacklog: async () => { calls.push('backlog'); return 4 },
+      completeRun: async (id) => { calls.push(`complete:${id}`) },
+    },
+  })
+  assert.equal(result.status, 200)
+  assert.equal(result.body.configuration_status, 'valid')
+  assert.deepEqual(calls, ['create', 'project', 'promote', 'enqueue', 'claim:results', 'claim:nurture', 'backlog', 'complete:7'])
+  assert.equal(result.body.results_enqueued, 3)
+  assert.equal(result.body.backlog, 4)
 })
 
 test('capture acknowledgement requires durable shadow creation and results enqueue', () => {
@@ -194,7 +307,9 @@ test('source binds each control to its state-changing boundary and aggregate-onl
   assert.match(ledger, /coalesce\(m\.rollout_dispatch_eligible, true\)/)
   assert.match(ledger, /if \(!controls\.nurtureEnqueue\) return 0/)
   assert.match(ledger, /enqueueShadowResults[\s\S]*effectiveControls\(\)[\s\S]*if \(!controls\.resultsEnqueue\) return 0[\s\S]*for update skip locked/)
-  assert.match(cron, /dependencyWarnings\.length[\s\S]*rollout_dependency_invalid[\s\S]*else \{[\s\S]*projectResendEventBacklog/)
+  assert.match(cron, /preflight: nurtureCronPreflight\(\)/)
+  assert.match(cron, /createRun:[\s\S]*projectResendEvents:[\s\S]*enqueueShadowResults[\s\S]*claimNextMessage[\s\S]*dispatchClaimedMessage/)
+  assert.ok(cron.indexOf('isAuthorizedCronRequest(process.env.CRON_SECRET, auth)') < cron.indexOf('runNurtureCron({'))
   assert.match(webhook, /ingestionEnabled: controls\.resendWebhookIngest/)
   assert.match(webhook, /projectionEnabled: controls\.resendWebhookProject/)
   assert.match(providerLedger, /projectResendEventBacklog[\s\S]*candidate_events[\s\S]*limit \$\{boundedLimit\}/)
