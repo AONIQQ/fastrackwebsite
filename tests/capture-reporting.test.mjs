@@ -143,7 +143,7 @@ test('fixture capture requires admin session plus bounded authorization and cann
   const authorizeRoute = await read('../app/api/admin/capture-fixture/authorize/route.ts')
   const calculator = await read('../app/calculator/page.tsx')
   assert.match(publicRoute, /fixtureAuthorization !== null/)
-  assert.match(publicRoute, /isFixture && \(!isAdmin\(\) \|\| !verifyFixtureAuthorization/)
+  assert.match(publicRoute, /isFixture && \(!allowedOrigin \|\| !isAdmin\(\) \|\| !verifyFixtureAuthorization/)
   assert.match(publicRoute, /isFixture,/)
   assert.match(authorizeRoute, /isAllowedCaptureOrigin[\s\S]*isAdmin\(\)/)
   assert.match(authorizeRoute, /createFixtureAuthorization\(process\.env\.ADMIN_TOKEN\)/)

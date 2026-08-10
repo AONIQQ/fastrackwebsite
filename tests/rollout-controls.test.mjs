@@ -5,7 +5,9 @@ import { claimable } from '../lib/message-policy.mjs'
 import {
   ROLLOUT_CONTROL_NAMES,
   canClaimMessage,
+  captureRolloutPlan,
   captureAcknowledgementReady,
+  effectiveRolloutControls,
   publicRolloutStatus,
   rolloutControls,
   rolloutDependencyWarnings,
@@ -33,8 +35,9 @@ test('control status reveals only enabled and configuration classification', () 
     [ROLLOUT_CONTROL_NAMES.shadowLedger]: '1',
     [ROLLOUT_CONTROL_NAMES.resultsEnqueue]: 'not-valid',
   })
-  assert.deepEqual(status.controls.shadowLedger, { enabled: true, configuration: 'valid' })
-  assert.deepEqual(status.controls.resultsEnqueue, { enabled: false, configuration: 'malformed' })
+  assert.deepEqual(status.controls.shadowLedger, { enabled: true, configuration: 'valid', effective: true })
+  assert.deepEqual(status.controls.resultsEnqueue, { enabled: false, configuration: 'malformed', effective: false })
+  assert.equal(status.dependency_status, 'valid')
   assert.equal(JSON.stringify(status).includes('not-valid'), false)
 })
 
@@ -44,6 +47,68 @@ test('capture acknowledgement requires durable shadow creation and results enque
   for (const key of ['captureAcknowledgement', 'shadowLedger', 'resultsEnqueue']) {
     assert.equal(captureAcknowledgementReady({ ...controls, [key]: false }), false, key)
   }
+})
+
+test('capture rollout makes fixture shadow reachable while public persistence stays atomic with acknowledgement', () => {
+  const stopped = rolloutControls({})
+  assert.deepEqual(captureRolloutPlan(stopped), {
+    persist: false, acknowledge: false, createShadowLedger: false,
+    enqueueResults: false, status: 503, code: 'capture_disabled',
+  })
+  assert.deepEqual(captureRolloutPlan(stopped, { fixture: true }), {
+    persist: false, acknowledge: false, createShadowLedger: false,
+    enqueueResults: false, status: 503, code: 'capture_disabled',
+  })
+
+  const shadowOnly = { ...stopped, shadowLedger: true }
+  assert.deepEqual(captureRolloutPlan(shadowOnly), {
+    persist: false, acknowledge: false, createShadowLedger: false,
+    enqueueResults: false, status: 503, code: 'capture_disabled',
+  })
+  assert.deepEqual(captureRolloutPlan(shadowOnly, { fixture: true }), {
+    persist: true, acknowledge: false, createShadowLedger: true,
+    enqueueResults: false, status: 202, code: 'fixture_shadow_recorded',
+  })
+
+  const promotedStage = { ...shadowOnly, resultsEnqueue: true }
+  assert.equal(captureRolloutPlan(promotedStage).persist, false)
+  assert.equal(captureRolloutPlan(promotedStage, { fixture: true }).enqueueResults, false)
+
+  const publicReady = { ...promotedStage, captureAcknowledgement: true }
+  assert.deepEqual(captureRolloutPlan(publicReady), {
+    persist: true, acknowledge: true, createShadowLedger: true,
+    enqueueResults: true, status: 200, code: 'capture_acknowledged',
+  })
+  assert.equal(captureRolloutPlan(publicReady, { fixture: true }).acknowledge, false)
+  assert.equal(captureRolloutPlan(publicReady, { fixture: true }).enqueueResults, false)
+})
+
+test('effective dependency graph makes every partial transition fail closed', () => {
+  const stopped = rolloutControls({})
+  const cases = [
+    ['results enqueue', { resultsEnqueue: true }, 'resultsEnqueue'],
+    ['results dispatch', { resultsDispatch: true }, 'resultsDispatch'],
+    ['results dispatch without shadow', { resultsEnqueue: true, resultsDispatch: true }, 'resultsDispatch'],
+    ['results retry', { resultsRetry: true }, 'resultsRetry'],
+    ['nurture claim', { nurtureClaim: true }, 'nurtureClaim'],
+    ['nurture dispatch', { nurtureClaim: true, nurtureDispatch: true }, 'nurtureDispatch'],
+    ['Resend projection', { resendWebhookProject: true }, 'resendWebhookProject'],
+  ]
+  for (const [label, patch, key] of cases) {
+    assert.equal(effectiveRolloutControls({ ...stopped, ...patch })[key], false, label)
+  }
+
+  const safe = effectiveRolloutControls({
+    ...stopped,
+    shadowLedger: true, resultsEnqueue: true, resultsDispatch: true, resultsRetry: true,
+    nurtureEnqueue: true, nurtureClaim: true, nurtureDispatch: true,
+    resendWebhookIngest: true, resendWebhookProject: true,
+  })
+  for (const key of [
+    'resultsEnqueue', 'resultsDispatch', 'resultsRetry',
+    'nurtureEnqueue', 'nurtureClaim', 'nurtureDispatch',
+    'resendWebhookIngest', 'resendWebhookProject',
+  ]) assert.equal(safe[key], true, key)
 })
 
 test('dependency warnings describe every unsafe staged transition', () => {
@@ -72,7 +137,7 @@ test('results initial dispatch and retries are independently controlled', () => 
   assert.equal(canClaimMessage('results', 'pending', stopped), false)
   assert.equal(canClaimMessage('results', 'retryable', stopped), false)
 
-  const initialOnly = { ...stopped, resultsDispatch: true }
+  const initialOnly = { ...stopped, shadowLedger: true, resultsEnqueue: true, resultsDispatch: true }
   assert.equal(canClaimMessage('results', 'pending', initialOnly), true)
   assert.equal(canClaimMessage('results', 'retryable', initialOnly), false)
   assert.equal(canClaimMessage('results', 'claimed', initialOnly), false)
@@ -87,13 +152,13 @@ test('nurture never claims unless claim and dispatch controls both permit a send
   for (const status of ['pending', 'retryable', 'claimed']) {
     assert.equal(canClaimMessage('nurture', status, { ...stopped, nurtureClaim: true }), false)
     assert.equal(canClaimMessage('nurture', status, { ...stopped, nurtureDispatch: true }), false)
-    assert.equal(canClaimMessage('nurture', status, { ...stopped, nurtureClaim: true, nurtureDispatch: true }), true)
+    assert.equal(canClaimMessage('nurture', status, { ...stopped, nurtureEnqueue: true, nurtureClaim: true, nurtureDispatch: true }), true)
   }
 })
 
 test('stopping claims preserves leases until expiry and permits recovery only after re-enable', () => {
   const now = 10_000
-  const enabled = { ...rolloutControls({}), nurtureClaim: true, nurtureDispatch: true }
+  const enabled = { ...rolloutControls({}), nurtureEnqueue: true, nurtureClaim: true, nurtureDispatch: true }
   const stopped = { ...enabled, nurtureClaim: false }
   const mayClaim = (controls, expiry) => canClaimMessage('nurture', 'claimed', controls)
     && claimable('claimed', now, now, expiry)
@@ -115,21 +180,28 @@ test('source binds each control to its state-changing boundary and aggregate-onl
     readFile(new URL('../lib/rollout-status.ts', import.meta.url), 'utf8'),
     readFile(new URL('../db/migrations/0011_email_rollout_controls.sql', import.meta.url), 'utf8'),
   ])
-  assert.match(route, /captureAcknowledgementReady\(controls\)/)
-  assert.match(route, /createShadowLedger: controls\.shadowLedger/)
-  assert.match(route, /enqueueResults: controls\.resultsEnqueue/)
+  assert.match(route, /captureRolloutPlan\(configuredControls, \{ fixture: isFixture \}\)/)
+  assert.match(route, /createShadowLedger: capturePlan\.createShadowLedger/)
+  assert.match(route, /enqueueResults: capturePlan\.enqueueResults/)
+  assert.match(route, /isFixture[\s\S]*fixture_shadow_recorded/)
+  assert.doesNotMatch(route, /fixture_shadow_recorded[\s\S]{0,300}\broi\b/)
   assert.match(db, /where \$\{lead\.createShadowLedger\}/)
   assert.match(db, /rollout_dispatch_eligible[\s\S]*\$\{lead\.enqueueResults\}/)
+  assert.match(db, /blocked_fixture as materialized[\s\S]*where not exists \(select 1 from blocked_fixture\)/)
+  assert.match(db, /result_message as \([\s\S]*from message_work[\s\S]*union all[\s\S]*from email_messages/)
+  assert.match(db, /fixture_blocked/)
   assert.match(ledger, /canClaimMessage\(kind, 'pending', controls\)/)
   assert.match(ledger, /coalesce\(m\.rollout_dispatch_eligible, true\)/)
   assert.match(ledger, /if \(!controls\.nurtureEnqueue\) return 0/)
-  assert.match(ledger, /enqueueShadowResults[\s\S]*if \(!controls\.resultsEnqueue\) return 0[\s\S]*for update skip locked/)
-  assert.match(cron, /projectResendEventBacklog/)
+  assert.match(ledger, /enqueueShadowResults[\s\S]*effectiveControls\(\)[\s\S]*if \(!controls\.resultsEnqueue\) return 0[\s\S]*for update skip locked/)
+  assert.match(cron, /dependencyWarnings\.length[\s\S]*rollout_dependency_invalid[\s\S]*else \{[\s\S]*projectResendEventBacklog/)
   assert.match(webhook, /ingestionEnabled: controls\.resendWebhookIngest/)
   assert.match(webhook, /projectionEnabled: controls\.resendWebhookProject/)
   assert.match(providerLedger, /projectResendEventBacklog[\s\S]*candidate_events[\s\S]*limit \$\{boundedLimit\}/)
   assert.match(statusRoute, /if \(!isAdmin\(\)\)/)
   assert.match(statusRoute, /Cache-Control': 'no-store'/)
   assert.doesNotMatch(status, /select[\s\S]*(?:lead_row\.email|lead_row\.phone|provider_message_id|provider_event_id|tracking_id|claim_token)/i)
+  assert.match(status, /fixture_ineligible/)
+  assert.match(status, /genuine_ineligible/)
   assert.match(migration, /add column if not exists rollout_dispatch_eligible boolean default true/)
 })

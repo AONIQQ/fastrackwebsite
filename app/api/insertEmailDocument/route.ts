@@ -18,7 +18,7 @@ import {
   CAPTURE_RATE_POLICIES, CAPTURE_RISK_POLICY_VERSION, CAPTURE_RISK_RETENTION_DAYS,
   CaptureRiskConfigurationError, buildCaptureRiskKeys, captureNetworkAddress, smsDispatchEnabled,
 } from '@/lib/capture-abuse.mjs'
-import { captureAcknowledgementReady, rolloutControls } from '@/lib/rollout-controls.mjs'
+import { captureRolloutPlan, effectiveRolloutControls, rolloutControls } from '@/lib/rollout-controls.mjs'
 
 export const dynamic = 'force-dynamic'
 
@@ -38,18 +38,21 @@ export async function POST(request: Request) {
   let persistenceAttempted = false
   const fixtureAuthorization = request.headers.get('x-fastrack-fixture-authorization')
   const isFixture = fixtureAuthorization !== null
-  if (isFixture && (!isAdmin() || !verifyFixtureAuthorization(fixtureAuthorization, process.env.ADMIN_TOKEN))) {
+  const allowedOrigin = isAllowedCaptureOrigin(request.headers.get('origin'), request.url)
+  if (isFixture && (!allowedOrigin || !isAdmin() || !verifyFixtureAuthorization(fixtureAuthorization, process.env.ADMIN_TOKEN))) {
     return NextResponse.json({ error: 'Unauthorized', code: 'fixture_unauthorized' }, {
       status: 401,
       headers: { 'Cache-Control': 'no-store' },
     })
   }
   try {
-    const controls = rolloutControls()
-    if (!captureAcknowledgementReady(controls)) {
+    const configuredControls = rolloutControls()
+    const controls = effectiveRolloutControls(configuredControls)
+    const capturePlan = captureRolloutPlan(configuredControls, { fixture: isFixture })
+    if (!capturePlan.persist) {
       return NextResponse.json({ error: 'Capture is temporarily unavailable', code: 'capture_disabled' }, { status: 503 })
     }
-    if (!isAllowedCaptureOrigin(request.headers.get('origin'), request.url)) {
+    if (!allowedOrigin) {
       return NextResponse.json({ error: 'Request origin is not allowed', code: 'invalid_origin' }, { status: 403 })
     }
     const declaredLength = Number(request.headers.get('content-length') ?? 0)
@@ -120,16 +123,35 @@ export async function POST(request: Request) {
       isFixture,
       riskDecisionId: risk.id,
       attributionValidity: reportingAttribution,
-      createShadowLedger: controls.shadowLedger,
-      enqueueResults: controls.resultsEnqueue,
+      createShadowLedger: capturePlan.createShadowLedger,
+      enqueueResults: capturePlan.enqueueResults,
     })
     if (!lead) {
       return NextResponse.json({ error: 'Capture identity does not match this request', code: 'capture_mismatch' }, { status: 409 })
     }
 
+    if (isFixture) {
+      if (lead.fixture_blocked || !lead.shadow_ready) {
+        return NextResponse.json({
+          ok: false,
+          fixture: true,
+          code: 'fixture_shadow_conflict',
+          rollout_stage: 'not_shadow',
+        }, { status: 409, headers: { 'Cache-Control': 'no-store' } })
+      }
+      return NextResponse.json({
+        ok: false,
+        fixture: true,
+        code: 'fixture_shadow_recorded',
+        rollout_stage: 'shadow',
+      }, { status: 202, headers: { 'Cache-Control': 'no-store' } })
+    }
+
     {
+      if (lead.id === null || lead.snapshot === null) throw new Error('capture persistence invariant failed')
+      const leadId = lead.id
       const deliver = async () => {
-        const work: Promise<unknown>[] = controls.resultsDispatch ? [processResultMessage(lead.id)] : []
+        const work: Promise<unknown>[] = controls.resultsDispatch ? [processResultMessage(leadId)] : []
         if (lead.delivery_claimed && controls.resultsDispatch) {
           work.push(notifyNewLead({ email: input.email, phone: input.phone, state: input.state, residency: input.residency, college: college.name, totalAdvantage: roi.totalAdvantage }))
           work.push(

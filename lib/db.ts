@@ -327,6 +327,20 @@ export async function insertLead(lead: {
       from capture_risk_decisions
       where id = ${lead.riskDecisionId} and capture_id = ${lead.captureId}::uuid
         and request_hash = ${lead.captureRequestHash} and decision = 'accepted'
+    ), blocked_fixture as materialized (
+      select 1
+      from leads existing
+      left join email_messages message
+        on message.lead_id = existing.id and message.kind = 'results'
+      where ${lead.isFixture ?? false}
+        and existing.capture_id = ${lead.captureId}::uuid
+        and existing.capture_request_hash = ${lead.captureRequestHash}
+        and (
+          not coalesce(existing.is_fixture, false)
+          or message.id is null
+          or coalesce(message.rollout_dispatch_eligible, true)
+        )
+      limit 1
     ), captured as (
       insert into leads (
         email, phone, state, residency, college, snapshot, user_agent,
@@ -351,6 +365,7 @@ export async function insertLead(lead: {
         eligible_risk.id, eligible_risk.accepted_at, eligible_risk.policy_version, 'accepted',
         null, false, ${lead.attributionValidity}
       from eligible_risk
+      where not exists (select 1 from blocked_fixture)
       on conflict (capture_id) where capture_id is not null do update
         set capture_id = excluded.capture_id
         where leads.capture_request_hash = excluded.capture_request_hash
@@ -364,7 +379,15 @@ export async function insertLead(lead: {
       from captured
       where ${lead.createShadowLedger}
       on conflict (logical_key) do nothing
-      returning lead_id
+      returning lead_id, is_fixture, rollout_dispatch_eligible
+    ), result_message as (
+      select lead_id, is_fixture, rollout_dispatch_eligible from message_work
+      union all
+      select message.lead_id, message.is_fixture, message.rollout_dispatch_eligible
+      from email_messages message
+      join captured on captured.id = message.lead_id
+      where message.kind = 'results'
+        and not exists (select 1 from message_work where message_work.lead_id = captured.id)
     ), attempt_report as (
       insert into capture_reporting_buckets (
         bucket_start, event_type, reason_code, attribution_validity, traffic_class, event_count
@@ -389,12 +412,21 @@ export async function insertLead(lead: {
       returning 1
     )
     select captured.id, captured.created_at, captured.snapshot,
-      (message_work.lead_id is not null) as delivery_claimed, captured.sms_eligible
+      (message_work.lead_id is not null) as delivery_claimed, captured.sms_eligible,
+      (result_message.is_fixture and not coalesce(result_message.rollout_dispatch_eligible, true)) as shadow_ready,
+      false as fixture_blocked
     from captured
     left join message_work on message_work.lead_id = captured.id
+    left join result_message on result_message.lead_id = captured.id
     cross join attempt_report
     cross join outcome_report
-  `) as { id: number; created_at: string; snapshot: Record<string, unknown>; delivery_claimed: boolean; sms_eligible: boolean }[];
+    union all
+    select null::bigint, null::timestamptz, null::jsonb, false, false, false, true
+    from eligible_risk cross join blocked_fixture
+  `) as {
+    id: number | null; created_at: string | null; snapshot: Record<string, unknown> | null
+    delivery_claimed: boolean; sms_eligible: boolean; shadow_ready: boolean; fixture_blocked: boolean
+  }[];
   return rows[0];
 }
 

@@ -30,6 +30,16 @@ export async function rolloutOperationsReport() {
       select
         count(*) filter (where message.id is not null)::int as recorded,
         count(*) filter (where message.id is null)::int as missing,
+        count(*) filter (where lead_row.is_fixture and message.id is null)::int as fixture_missing,
+        count(*) filter (where lead_row.is_fixture and message.id is not null
+          and not coalesce(message.rollout_dispatch_eligible, true))::int as fixture_ineligible,
+        count(*) filter (where lead_row.is_fixture and message.id is not null
+          and coalesce(message.rollout_dispatch_eligible, true))::int as fixture_eligible,
+        count(*) filter (where not lead_row.is_fixture and message.id is null)::int as genuine_missing,
+        count(*) filter (where not lead_row.is_fixture and message.id is not null
+          and not coalesce(message.rollout_dispatch_eligible, true))::int as genuine_ineligible,
+        count(*) filter (where not lead_row.is_fixture and message.id is not null
+          and coalesce(message.rollout_dispatch_eligible, true))::int as genuine_eligible,
         count(*)::int as total
       from leads lead_row
       left join email_messages message on message.lead_id = lead_row.id and message.kind = 'results'
@@ -65,7 +75,11 @@ export async function rolloutOperationsReport() {
   ])
   const queues = rawQueues as { kind: string; status: string; dispatch_eligible: boolean; count: number }[]
   const leases = rawLeases as { kind: string; lease_state: 'active' | 'expired'; count: number }[]
-  const shadow = rawShadow as { recorded: number; missing: number; total: number }[]
+  const shadow = rawShadow as {
+    recorded: number; missing: number; total: number
+    fixture_missing: number; fixture_ineligible: number; fixture_eligible: number
+    genuine_missing: number; genuine_ineligible: number; genuine_eligible: number
+  }[]
   const delivery = rawDelivery as { stored: number; unmatched: number; projection_pending: number }[]
   return assertRolloutOperationsReport({
     ...publicRolloutStatus(),

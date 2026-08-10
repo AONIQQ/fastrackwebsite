@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 import { sql } from '@/lib/db'
 import { claimNextMessage, dispatchClaimedMessage, enqueueDueNurture, enqueueShadowResults, messageBacklog } from '@/lib/message-ledger'
 import { projectResendEventBacklog } from '@/lib/resend-event-ledger'
-import { rolloutControls } from '@/lib/rollout-controls.mjs'
+import { effectiveRolloutControls, rolloutControls, rolloutDependencyWarnings } from '@/lib/rollout-controls.mjs'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -29,28 +29,35 @@ export async function GET(request: Request) {
   let deliveryEventsConsidered = 0
   let deliveryStatesProjected = 0
   let resultsEnqueued = 0
+  let dependencyWarnings: readonly string[] = []
 
   try {
-    const controls = rolloutControls()
-    if (controls.resendWebhookProject) {
-      const projection = await projectResendEventBacklog()
-      deliveryEventsConsidered = projection.considered
-      deliveryStatesProjected = projection.projected
-    }
-    resultsEnqueued = await enqueueShadowResults()
-    await enqueueDueNurture()
-    for (const kind of ['results', 'nurture'] as const) {
-      while (claimed < MAX_MESSAGES_PER_RUN) {
-        const message = await claimNextMessage(kind)
-        if (!message) break
-        considered += 1
-        claimed += 1
-        if (message.claim_origin !== 'pending') retried += 1
-        try {
-          const outcome = await dispatchClaimedMessage(message)
-          if (outcome === 'accepted') accepted += 1
-        } catch {
-          failed += 1
+    const configuredControls = rolloutControls()
+    const controls = effectiveRolloutControls(configuredControls)
+    dependencyWarnings = rolloutDependencyWarnings(configuredControls)
+    if (dependencyWarnings.length) {
+      failureCategory = 'rollout_dependency_invalid'
+    } else {
+      if (controls.resendWebhookProject) {
+        const projection = await projectResendEventBacklog()
+        deliveryEventsConsidered = projection.considered
+        deliveryStatesProjected = projection.projected
+      }
+      resultsEnqueued = await enqueueShadowResults()
+      await enqueueDueNurture()
+      for (const kind of ['results', 'nurture'] as const) {
+        while (claimed < MAX_MESSAGES_PER_RUN) {
+          const message = await claimNextMessage(kind)
+          if (!message) break
+          considered += 1
+          claimed += 1
+          if (message.claim_origin !== 'pending') retried += 1
+          try {
+            const outcome = await dispatchClaimedMessage(message)
+            if (outcome === 'accepted') accepted += 1
+          } catch {
+            failed += 1
+          }
         }
       }
     }
@@ -67,7 +74,14 @@ export async function GET(request: Request) {
     where id = ${run[0].id}
   `
   return NextResponse.json(
-    { considered, claimed, accepted, retried, failed, backlog, results_enqueued: resultsEnqueued, delivery_events_considered: deliveryEventsConsidered, delivery_states_projected: deliveryStatesProjected },
+    {
+      considered, claimed, accepted, retried, failed, backlog,
+      configuration_status: dependencyWarnings.length ? 'invalid_dependencies' : 'valid',
+      dependency_warnings: dependencyWarnings,
+      results_enqueued: resultsEnqueued,
+      delivery_events_considered: deliveryEventsConsidered,
+      delivery_states_projected: deliveryStatesProjected,
+    },
     { status: failureCategory ? 500 : 200 },
   )
 }

@@ -2,7 +2,9 @@ import { randomUUID } from 'node:crypto'
 import { sql } from './db'
 import { sendResultsEmail } from './mail'
 import { NURTURE_STEPS, sendNurtureStep } from './nurture'
-import { canClaimMessage, rolloutControls } from './rollout-controls.mjs'
+import { canClaimMessage, effectiveRolloutControls, rolloutControls } from './rollout-controls.mjs'
+
+const effectiveControls = () => effectiveRolloutControls(rolloutControls())
 
 type Message = {
   id: number
@@ -37,7 +39,7 @@ const failureCategory = (error: unknown) => {
 }
 
 export async function claimMessageByLead(leadId: number, kind: 'results' | 'nurture' = 'results') {
-  const controls = rolloutControls()
+  const controls = effectiveControls()
   const allowPending = canClaimMessage(kind, 'pending', controls)
   const allowRetry = canClaimMessage(kind, 'retryable', controls)
   if (!allowPending && !allowRetry) return null
@@ -79,7 +81,7 @@ export async function claimMessageByLead(leadId: number, kind: 'results' | 'nurt
 }
 
 export async function claimNextMessage(kind: 'results' | 'nurture') {
-  const controls = rolloutControls()
+  const controls = effectiveControls()
   const allowPending = canClaimMessage(kind, 'pending', controls)
   const allowRetry = canClaimMessage(kind, 'retryable', controls)
   if (!allowPending && !allowRetry) return null
@@ -121,7 +123,7 @@ export async function claimNextMessage(kind: 'results' | 'nurture') {
 }
 
 export async function dispatchClaimedMessage(message: Message) {
-  const controls = rolloutControls()
+  const controls = effectiveControls()
   if (!canClaimMessage(message.kind, message.claim_origin, controls)) {
     return 'stopped' as const
   }
@@ -262,7 +264,7 @@ export async function processResultMessage(leadId: number) {
 }
 
 export async function enqueueShadowResults(limit = 500) {
-  const controls = rolloutControls()
+  const controls = effectiveControls()
   if (!controls.resultsEnqueue) return 0
   const boundedLimit = Math.max(1, Math.min(1000, Math.trunc(limit)))
   const rows = (await sql`
@@ -280,7 +282,7 @@ export async function enqueueShadowResults(limit = 500) {
 }
 
 export async function enqueueDueNurture() {
-  const controls = rolloutControls()
+  const controls = effectiveControls()
   if (!controls.nurtureEnqueue) return 0
   const rows = (await sql`
     with eligible as (
