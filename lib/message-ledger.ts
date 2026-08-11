@@ -199,7 +199,7 @@ export async function dispatchClaimedMessage(message: Message, options: { author
         update email_provider_events event set
           email_message_id = candidate.id, outcome = 'matched', is_fixture = candidate.is_fixture
         from candidate
-        where ${receipt.provider} = 'resend' and ${receipt.messageId} is not null
+        where ${receipt.provider} = 'resend' and ${receipt.messageId}::text is not null
           and event.provider_message_id = ${receipt.messageId}
           and event.email_message_id is null
         returning event.provider_event_id
@@ -208,7 +208,7 @@ export async function dispatchClaimedMessage(message: Message, options: { author
         from email_provider_events event
         cross join (select count(*) from linked_events) linkage_barrier
         where ${controls.resendWebhookProject}
-          and ${receipt.provider} = 'resend' and ${receipt.messageId} is not null
+          and ${receipt.provider} = 'resend' and ${receipt.messageId}::text is not null
           and event.provider_message_id = ${receipt.messageId}
         order by case event.event_type
           when 'sent' then 10 when 'delivery_delayed' then 20 when 'delivered' then 30
