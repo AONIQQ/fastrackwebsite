@@ -63,7 +63,8 @@ test('PostgreSQL targeted fixture claim fails closed for every competing or unsa
         provider_idempotency_key text not null default 'stable-provider-key', updated_at timestamptz not null default now()
       );
       create table email_message_identities (
-        email_message_id bigint primary key references email_messages(id), tracking_id uuid not null
+        email_message_id bigint primary key references email_messages(id), tracking_id uuid not null,
+        created_at timestamptz not null default now()
       );
     `)
 

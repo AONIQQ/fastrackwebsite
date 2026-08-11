@@ -15,6 +15,7 @@ type Message = {
   nurture_stage: number | null
   provider_idempotency_key: string
   tracking_id: string
+  tracking_issued_at: string | number
   claim_token: string
   attempt_count: number
   claim_origin: 'pending' | 'retryable' | 'claimed' | 'fixture_pending' | 'fixture_retryable' | 'fixture_claimed'
@@ -79,7 +80,7 @@ export async function claimMessageByLead(leadId: number, kind: 'results' | 'nurt
       select id, ${trackingId}::uuid from candidate
       on conflict (email_message_id) do update
         set tracking_id = email_message_identities.tracking_id
-      returning email_message_id, tracking_id
+      returning email_message_id, tracking_id, created_at
     ), claimed as (
       update email_messages m set
         status = 'claimed', claim_token = ${token}::uuid,
@@ -87,11 +88,12 @@ export async function claimMessageByLead(leadId: number, kind: 'results' | 'nurt
         attempt_count = attempt_count + 1, updated_at = now()
       from candidate join identity on identity.email_message_id = candidate.id
       where m.id = candidate.id
-      returning m.*, identity.tracking_id, candidate.claim_origin
+      returning m.*, identity.tracking_id, identity.created_at as tracking_created_at, candidate.claim_origin
     )
     select claimed.id, claimed.lead_id, claimed.kind, claimed.nurture_stage,
       claimed.provider_idempotency_key, claimed.claim_token, claimed.attempt_count,
-      claimed.tracking_id, claimed.claim_origin, claimed.is_fixture,
+      claimed.tracking_id, floor(extract(epoch from claimed.tracking_created_at))::bigint as tracking_issued_at,
+      claimed.claim_origin, claimed.is_fixture,
       leads.email, leads.college, leads.residency, leads.snapshot
     from claimed join leads on leads.id = claimed.lead_id
   `) as Message[]
@@ -122,18 +124,20 @@ export async function claimNextMessage(kind: 'results' | 'nurture') {
       select id, ${trackingId}::uuid from candidate
       on conflict (email_message_id) do update
         set tracking_id = email_message_identities.tracking_id
-      returning email_message_id, tracking_id
+      returning email_message_id, tracking_id, created_at
     ), claimed as (
       update email_messages m set
         status = 'claimed', claim_token = ${token}::uuid,
         claim_expires_at = now() + interval '10 minutes',
         attempt_count = attempt_count + 1, updated_at = now()
       from candidate join identity on identity.email_message_id = candidate.id
-      where m.id = candidate.id returning m.*, identity.tracking_id, candidate.claim_origin
+      where m.id = candidate.id
+      returning m.*, identity.tracking_id, identity.created_at as tracking_created_at, candidate.claim_origin
     )
     select claimed.id, claimed.lead_id, claimed.kind, claimed.nurture_stage,
       claimed.provider_idempotency_key, claimed.claim_token, claimed.attempt_count,
-      claimed.tracking_id, claimed.claim_origin, claimed.is_fixture,
+      claimed.tracking_id, floor(extract(epoch from claimed.tracking_created_at))::bigint as tracking_issued_at,
+      claimed.claim_origin, claimed.is_fixture,
       leads.email, leads.college, leads.residency, leads.snapshot
     from claimed join leads on leads.id = claimed.lead_id
   `) as Message[]
@@ -182,6 +186,7 @@ export async function dispatchClaimedMessage(message: Message, options: { author
           totalAdvantage: message.snapshot?.totalAdvantage == null ? null : Number(message.snapshot.totalAdvantage),
           yearsSaved: Number(message.snapshot?.yearsSaved || 2),
           trackingId: message.tracking_id,
+          trackingIssuedAt: Number(message.tracking_issued_at),
           providerIdempotencyKey: message.provider_idempotency_key,
         })
       : await sendNurtureStep(
@@ -189,6 +194,7 @@ export async function dispatchClaimedMessage(message: Message, options: { author
           NURTURE_STEPS.find((step) => step.stage === message.nurture_stage)!,
           message.tracking_id,
           message.provider_idempotency_key,
+          Number(message.tracking_issued_at),
         )
 
     const updated = (await sql`

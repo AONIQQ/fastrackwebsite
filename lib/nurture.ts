@@ -68,10 +68,10 @@ export const NURTURE_STEPS: { stage: number; afterDays: number; subject: string;
   },
 ]
 
-export async function sendNurtureStep(to: string, step: (typeof NURTURE_STEPS)[number], trackingId: string, providerIdempotencyKey: string) {
+export function buildNurtureEmailArgs(to: string, step: (typeof NURTURE_STEPS)[number], trackingId: string, providerIdempotencyKey: string, trackingIssuedAt: number) {
   const token = createUnsubscribeToken(to, process.env.UNSUBSCRIBE_SECRET || process.env.CRON_SECRET)
   const stepTag = `n${step.stage}`
-  const tracking = messageTrackingLinks(trackingId, stepTag)
+  const tracking = messageTrackingLinks(trackingId, stepTag, trackingIssuedAt)
   let html = step.html.replaceAll('__CHECKOUT__', CREDIT_MAP_CHECKOUT)
   html = html.replace(/href="(https:\/\/[^"]+)"/g, (match, dest) => {
     const destination = destinationForUrl(dest)
@@ -79,7 +79,7 @@ export async function sendNurtureStep(to: string, step: (typeof NURTURE_STEPS)[n
   })
   html = html.replaceAll('__PIXEL__', tracking.pixel)
   html = html.replaceAll('__UNSUB__', `${SITE}/api/u?t=${encodeURIComponent(token)}`)
-  return sendMail({
+  return {
     to,
     subject: step.subject,
     html,
@@ -88,5 +88,9 @@ export async function sendNurtureStep(to: string, step: (typeof NURTURE_STEPS)[n
     headers: unsubscribeHeaders(SITE, token),
     idempotencyKey: providerIdempotencyKey,
     requireIdempotentProvider: true,
-  })
+  }
+}
+
+export async function sendNurtureStep(to: string, step: (typeof NURTURE_STEPS)[number], trackingId: string, providerIdempotencyKey: string, trackingIssuedAt: number) {
+  return sendMail(buildNurtureEmailArgs(to, step, trackingId, providerIdempotencyKey, trackingIssuedAt))
 }

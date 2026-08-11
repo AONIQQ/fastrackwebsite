@@ -41,9 +41,10 @@ function fromAddress() {
   return process.env.EMAIL_FROM || process.env.EMAIL_USER || 'info@fastrack.school'
 }
 
-async function sendViaResend(args: SendArgs) {
-  const resend = new Resend(process.env.RESEND_API_KEY!)
-  const { data, error } = await resend.emails.send({
+type ResendSender = { emails: { send: (payload: ReturnType<typeof resendRequestPayload>, options?: { idempotencyKey: string }) => Promise<{ data: { id?: string } | null; error: { message: string } | null }> } }
+
+export function resendRequestPayload(args: SendArgs) {
+  return {
     from: process.env.RESEND_FROM || `Fastrack <${fromAddress()}>`,
     to: args.to,
     subject: args.subject,
@@ -51,7 +52,15 @@ async function sendViaResend(args: SendArgs) {
     html: args.html,
     replyTo: args.replyTo,
     headers: args.headers,
-  }, args.idempotencyKey ? { idempotencyKey: args.idempotencyKey } : undefined)
+  }
+}
+
+export async function sendViaResend(args: SendArgs, client?: ResendSender) {
+  const resend = client || new Resend(process.env.RESEND_API_KEY!)
+  const { data, error } = await resend.emails.send(
+    resendRequestPayload(args),
+    args.idempotencyKey ? { idempotencyKey: args.idempotencyKey } : undefined,
+  )
   if (error) throw new Error(`Resend: ${error.message}`)
   return { provider: 'resend' as const, messageId: data?.id ?? null }
 }
@@ -163,6 +172,7 @@ export type ResultsEmail = {
   totalAdvantage: number | null
   yearsSaved: number
   trackingId: string
+  trackingIssuedAt: number
   providerIdempotencyKey: string
 }
 
@@ -324,11 +334,11 @@ function resultsText(r: ResultsEmail, links: ResultsLinks) {
 }
 
 /** Sends the prospect their own results. */
-export async function sendResultsEmail(r: ResultsEmail) {
+export function buildResultsEmailArgs(r: ResultsEmail): SendArgs {
   const token = createUnsubscribeToken(r.to, process.env.UNSUBSCRIBE_SECRET || process.env.CRON_SECRET)
-  const tracking = messageTrackingLinks(r.trackingId, 'results')
+  const tracking = messageTrackingLinks(r.trackingId, 'results', r.trackingIssuedAt)
   const links = { creditMap: tracking.click('credit_map'), calculator: tracking.click('calculator'), pixel: tracking.pixel }
-  return sendMail({
+  return {
     to: r.to,
     replyTo: 'info@fastrack.school',
     subject: `${r.collegeName}: your modeled cost scenario`,
@@ -337,7 +347,11 @@ export async function sendResultsEmail(r: ResultsEmail) {
     headers: unsubscribeHeaders(SITE, token),
     idempotencyKey: r.providerIdempotencyKey,
     requireIdempotentProvider: true,
-  })
+  }
+}
+
+export async function sendResultsEmail(r: ResultsEmail) {
+  return sendMail(buildResultsEmailArgs(r))
 }
 
 /** Tells Andrew a lead came in, while it is still warm. */

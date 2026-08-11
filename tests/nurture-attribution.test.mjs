@@ -106,8 +106,8 @@ test('all email Credit Map paths use logical-message tracking identities', async
     readFile(new URL('../lib/nurture.ts', import.meta.url), 'utf8'),
     readFile(new URL('../app/credit-map/page.tsx', import.meta.url), 'utf8'),
   ])
-  assert.match(mail, /messageTrackingLinks\(r\.trackingId, 'results'\)/)
-  assert.match(nurture, /messageTrackingLinks\(trackingId, stepTag\)/)
+  assert.match(mail, /messageTrackingLinks\(r\.trackingId, 'results', r\.trackingIssuedAt\)/)
+  assert.match(nurture, /messageTrackingLinks\(trackingId, stepTag, trackingIssuedAt\)/)
   assert.doesNotMatch(mail + nurture + creditMap, /lead_ref|lead-\\d|prefilled_email|Buffer\.from\(to\.toLowerCase/)
   assert.match(creditMap, /isCheckoutTokenShape\(checkoutRef\)/)
 })
