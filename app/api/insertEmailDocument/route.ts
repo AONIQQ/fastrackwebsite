@@ -13,13 +13,14 @@ import {
 import { attributionValidity, reportingReasonForInputError } from '@/lib/capture-reporting.mjs'
 import type { CaptureReportEvent } from '@/lib/db'
 import { isAdmin } from '@/lib/admin'
-import { verifyFixtureAuthorization } from '@/lib/fixture-authorization.mjs'
+import { fixtureDiagnosticAuthorization } from '@/lib/fixture-authorization.mjs'
 import {
   CAPTURE_RATE_POLICIES, CAPTURE_RISK_POLICY_VERSION, CAPTURE_RISK_RETENTION_DAYS,
   CaptureRiskConfigurationError, buildCaptureRiskKeys, captureNetworkAddress, smsDispatchEnabled,
 } from '@/lib/capture-abuse.mjs'
 import { captureRolloutPlan, effectiveRolloutControls, rolloutControls } from '@/lib/rollout-controls.mjs'
-import { captureFailureDiagnostic } from '@/lib/capture-failure-diagnostics.mjs'
+import { captureFailureHttpResponse, captureFailureResponse } from '@/lib/capture-failure-diagnostics.mjs'
+import { fixedCaptureErrorResponse, inputCaptureErrorResponse } from '@/lib/capture-route-errors.mjs'
 import type { CaptureFailurePhase } from '@/lib/capture-failure-diagnostics.mjs'
 
 export const dynamic = 'force-dynamic'
@@ -42,31 +43,34 @@ export async function POST(request: Request) {
   const fixtureAuthorization = request.headers.get('x-fastrack-fixture-authorization')
   const isFixture = fixtureAuthorization !== null
   const allowedOrigin = isAllowedCaptureOrigin(request.headers.get('origin'), request.url)
-  if (isFixture && (!allowedOrigin || !isAdmin() || !verifyFixtureAuthorization(fixtureAuthorization, process.env.ADMIN_TOKEN))) {
-    return NextResponse.json({ error: 'Unauthorized', code: 'fixture_unauthorized' }, {
-      status: 401,
-      headers: { 'Cache-Control': 'no-store' },
-    })
+  const fixtureDiagnosticAuthorized = fixtureDiagnosticAuthorization({
+    token: fixtureAuthorization,
+    allowedOrigin,
+    admin: isFixture && isAdmin(),
+    secret: process.env.ADMIN_TOKEN,
+  })
+  if (isFixture && !fixtureDiagnosticAuthorized) {
+    return fixedCaptureErrorResponse('fixture_unauthorized')
   }
   try {
     const configuredControls = rolloutControls()
     const controls = effectiveRolloutControls(configuredControls)
     const capturePlan = captureRolloutPlan(configuredControls, { fixture: isFixture })
     if (!capturePlan.persist) {
-      return NextResponse.json({ error: 'Capture is temporarily unavailable', code: 'capture_disabled' }, { status: 503 })
+      return fixedCaptureErrorResponse('capture_disabled')
     }
     if (!allowedOrigin) {
-      return NextResponse.json({ error: 'Request origin is not allowed', code: 'invalid_origin' }, { status: 403 })
+      return fixedCaptureErrorResponse('invalid_origin')
     }
     const declaredLength = Number(request.headers.get('content-length') ?? 0)
     if (declaredLength > CAPTURE_BODY_LIMIT) {
       await recordRejected('payload_too_large')
-      return NextResponse.json({ error: 'Request is too large', code: 'payload_too_large' }, { status: 413 })
+      return fixedCaptureErrorResponse('payload_too_large')
     }
     const raw = await request.text()
     if (Buffer.byteLength(raw, 'utf8') > CAPTURE_BODY_LIMIT) {
       await recordRejected('payload_too_large')
-      return NextResponse.json({ error: 'Request is too large', code: 'payload_too_large' }, { status: 413 })
+      return fixedCaptureErrorResponse('payload_too_large')
     }
     let body: unknown
     try { body = JSON.parse(raw) } catch { throw new CaptureInputError('invalid_json', 'Invalid request') }
@@ -82,7 +86,7 @@ export async function POST(request: Request) {
     })
     if (!riskKeys) {
       await recordRejected('risk_identity_missing', reportingAttribution)
-      return NextResponse.json({ error: 'Request identity is unavailable', code: 'risk_identity_missing' }, { status: 403 })
+      return fixedCaptureErrorResponse('risk_identity_missing')
     }
     failurePhase = 'risk_claim'
     const risk = await claimCaptureRisk({
@@ -100,15 +104,15 @@ export async function POST(request: Request) {
     failurePhase = null
     if (!risk) {
       await recordRejected('capture_mismatch', reportingAttribution)
-      return NextResponse.json({ error: 'Capture identity does not match this request', code: 'capture_mismatch' }, { status: 409 })
+      return fixedCaptureErrorResponse('capture_mismatch')
     }
     if (risk.validation_code === 'invalid_college') {
       await recordRejected('invalid_college', reportingAttribution)
-      return NextResponse.json({ error: 'College does not match the selected state', code: 'invalid_college' }, { status: 400 })
+      return fixedCaptureErrorResponse('invalid_college')
     }
     if (risk.decision !== 'accepted') {
       await recordRejected(risk.reason_code, reportingAttribution)
-      return NextResponse.json({ error: 'Please wait before trying again', code: 'rate_limited' }, { status: 429 })
+      return fixedCaptureErrorResponse('rate_limited')
     }
     failurePhase = 'college_lookup'
     const college = await getCollegeById(input.collegeId)
@@ -139,7 +143,7 @@ export async function POST(request: Request) {
     })
     failurePhase = null
     if (!lead) {
-      return NextResponse.json({ error: 'Capture identity does not match this request', code: 'capture_mismatch' }, { status: 409 })
+      return fixedCaptureErrorResponse('capture_mismatch')
     }
 
     if (isFixture) {
@@ -182,10 +186,10 @@ export async function POST(request: Request) {
   } catch (error) {
     if (error instanceof CaptureInputError) {
       await recordRejected(reportingReasonForInputError(error.code), error.code === 'invalid_attribution' || error.code === 'invalid_referrer' ? 'invalid' : reportingAttribution)
-      return NextResponse.json({ error: error.message, code: error.code }, { status: 400 })
+      return inputCaptureErrorResponse(error.message, error.code)
     }
     if (error instanceof CaptureRiskConfigurationError) {
-      return NextResponse.json({ error: 'Capture is temporarily unavailable', code: 'risk_unavailable' }, { status: 503 })
+      return fixedCaptureErrorResponse('risk_unavailable')
     }
     if (persistenceAttempted) {
       // Once the lead statement starts, a failed response cannot prove whether
@@ -199,10 +203,8 @@ export async function POST(request: Request) {
         }])
       } catch { /* The final failure log below is the only permitted diagnostic. */ }
     }
-    if (failurePhase !== null) {
-      const diagnostic = captureFailureDiagnostic(failurePhase, error)
-      console.error(JSON.stringify(diagnostic))
-    }
-    return NextResponse.json({ error: 'Failed to capture results', code: 'capture_failed' }, { status: 500 })
+    const failure = captureFailureResponse(fixtureDiagnosticAuthorized, failurePhase, error)
+    if (failure.diagnostic !== null) console.error(JSON.stringify(failure.diagnostic))
+    return captureFailureHttpResponse(failure)
   }
 }

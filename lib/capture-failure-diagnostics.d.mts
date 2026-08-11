@@ -53,3 +53,28 @@ export type CaptureFailureDiagnostic = Readonly<
 >
 
 export function captureFailureDiagnostic(phase: CaptureFailurePhase, error: unknown): CaptureFailureDiagnostic
+
+export type CaptureFailureResponse = Readonly<
+  | {
+      body: Readonly<{ error: 'Failed to capture results'; code: 'capture_failed' }>
+      diagnostic: null
+      noStore: false
+    }
+  | {
+      body: Readonly<{
+        error: 'Failed to capture results'
+        code: 'capture_failed'
+        diagnostic: CaptureFailureDiagnostic
+      }>
+      diagnostic: CaptureFailureDiagnostic
+      noStore: true
+    }
+>
+
+export function captureFailureResponse(
+  fixtureAuthorized: boolean,
+  phase: CaptureFailurePhase | null,
+  error: unknown,
+): CaptureFailureResponse
+
+export function captureFailureHttpResponse(failure: CaptureFailureResponse): Response
