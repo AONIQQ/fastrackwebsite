@@ -234,7 +234,7 @@ export async function claimCaptureRisk(input: {
           and exists (select 1 from valid_business_identity)
           and exists (select 1 from email_window)
           and (${input.keys.phone}::text is null or exists (select 1 from phone_window))
-          then ${now} else null end,
+          then ${now}::timestamptz else null end,
         ${decisionExpires}
       where not exists (select 1 from known) and exists (select 1 from global_window)
       on conflict (capture_id) do update set capture_id = excluded.capture_id

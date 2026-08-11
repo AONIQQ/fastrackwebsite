@@ -166,6 +166,31 @@ test('installed Neon driver preserves an explicit type for nullable phone predic
   }
 })
 
+test('installed Neon driver preserves timestamptz for the conditional accepted-at parameter', async () => {
+  const previousFetch = neonConfig.fetchFunction
+  let requestBody
+  neonConfig.fetchFunction = async (_url, init) => {
+    requestBody = JSON.parse(init.body)
+    return new Response(JSON.stringify({
+      results: [
+        { fields: [{ name: 'accepted_at', dataTypeID: 1184 }], rows: [['2026-08-11 12:00:00+00']], rowCount: 1, command: 'SELECT' },
+      ],
+    }), { status: 200, headers: { 'content-type': 'application/json' } })
+  }
+  try {
+    const driver = neon('postgresql://user:password@example.neon.tech/database')
+    const acceptedAt = new Date('2026-08-11T12:00:00.000Z')
+    await driver.transaction((txn) => [
+      txn`select case when true then ${acceptedAt}::timestamptz else null end as accepted_at`,
+    ], { isolationLevel: 'ReadCommitted' })
+    assert.equal(requestBody.queries.length, 1)
+    assert.equal(requestBody.queries[0].query, 'select case when true then $1::timestamptz else null end as accepted_at')
+    assert.equal(Date.parse(requestBody.queries[0].params[0]), acceptedAt.getTime())
+  } finally {
+    neonConfig.fetchFunction = previousFetch
+  }
+})
+
 test('SMS dispatch is disabled by default and requires exact explicit enablement', () => {
   assert.equal(smsDispatchEnabled({}), false)
   assert.equal(smsDispatchEnabled({ CAPTURE_SMS_ENABLED: 'true' }), false)
@@ -268,6 +293,7 @@ test('database capture is joined to one accepted durable risk decision before wo
   assert.match(source, /transaction\(\(txn\) => \[[\s\S]*pg_advisory_xact_lock[\s\S]*with known as/)
   assert.equal((source.match(/\$\{input\.keys\.phone\}::text is (?:not )?null/g) ?? []).length, 4)
   assert.doesNotMatch(source, /\$\{input\.keys\.phone\} is (?:not )?null/)
+  assert.match(source, /then \$\{now\}::timestamptz else null end/)
   assert.match(source, /isolationLevel: 'ReadCommitted'/)
   assert.match(source, /valid_business_identity as[\s\S]*from colleges[\s\S]*id = \$\{input\.collegeId\}[\s\S]*state = \$\{input\.state\}/)
   assert.match(source, /email_window as[\s\S]*exists \(select 1 from network_window\)[\s\S]*exists \(select 1 from valid_business_identity\)/)
