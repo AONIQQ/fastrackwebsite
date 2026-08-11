@@ -114,7 +114,7 @@ export async function POST(request: Request) {
         join email_message_identities identity on identity.email_message_id = message_row.id
         where identity.tracking_id = ${claims?.trackingId ?? null}::uuid
           and ((${claims?.step ?? null} = 'results' and message_row.kind = 'results' and message_row.nurture_stage is null)
-            or (${nurtureStage} is not null and message_row.kind = 'nurture'
+            or (${nurtureStage}::integer is not null and message_row.kind = 'nurture'
               and message_row.nurture_stage = ${nurtureStage}))
         limit 1
       ), attribution as (
@@ -130,7 +130,7 @@ export async function POST(request: Request) {
         ${checkoutEmail}, ${object.amount_total ?? null}, ${rawReference || null},
         attribution.email_message_id, attribution.lead_id,
         case when attribution.email_message_id is not null then ${claims?.step ?? null} else null end,
-        case when ${invalidOutcome} is not null then ${invalidOutcome}
+        case when ${invalidOutcome}::text is not null then ${invalidOutcome}
           when attribution.email_message_id is not null then 'attributed'
           when candidate.email_message_id is not null then 'forwarded_unattributed'
           else 'invalid_identity' end,
