@@ -40,7 +40,6 @@ export const NURTURE_STEPS: { stage: number; afterDays: number; subject: string;
     subject: 'Will your student’s credits actually transfer?',
     html: wrap(
       p('One number worth knowing before your student enrolls in anything: roughly 1 in 7 dual-enrollment courses is denied at transfer. Not because the course was bad, but because it did not fit the degree the student ended up pursuing.') +
-        p('Some common courses are far worse. College Algebra and intro economics get denied for degree fit more than half the time at some schools.') +
         p('The fix is boring but effective: check every course against the actual transfer rules of the target college before enrolling, not after. That is exactly what we do:') +
         btn(`${SITE}/credit-map?${U('n2')}`, 'See how the Credit Map works'),
     ),

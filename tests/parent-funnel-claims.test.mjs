@@ -93,3 +93,15 @@ test('guide retains its price but makes no time, savings, applicability, or fulf
   assert.match(source, /Policies and course applicability vary by state, school, major, and catalog year/)
   assert.doesNotMatch(source, /Graduate College in 2 Years|Save Up to 50%|tens of thousands|Works in any U\.S\. state|straight-A|shave off a year|Instant Download|lifetime access|updates included|7 days|on track/i)
 })
+
+test('state and nurture copy do not overstate course-specific denial rates', async () => {
+  const [state, nurture] = await Promise.all([
+    read('../app/savings/[state]/page.tsx'),
+    read('../lib/nurture.ts'),
+  ])
+
+  for (const source of [state, nurture]) {
+    assert.doesNotMatch(source, /College Algebra[\s\S]{0,160}more than half/i)
+    assert.doesNotMatch(source, /intro economics[\s\S]{0,160}more than half/i)
+  }
+})
