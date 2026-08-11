@@ -6,6 +6,7 @@ import SiteFooter from '@/components/SiteFooter'
 import { getCollegeById } from '@/lib/db'
 import { STATE_NAMES, stateSlug } from '@/lib/states'
 import { withAttributionQuery } from '@/lib/attribution-url.mjs'
+import { collegeSeoMetadata, collegeSeoOpening } from '@/lib/college-seo-experiment.mjs'
 
 // ISR: rendered on first request, cached for a week. The underlying federal
 // data refreshes rarely, and there are ~5,000 of these pages.
@@ -23,6 +24,14 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   if (!id) return {}
   const c = await getCollegeById(id)
   if (!c) return {}
+  const experiment = collegeSeoMetadata(c)
+  if (experiment) {
+    return {
+      title: experiment.title,
+      description: experiment.description,
+      alternates: { canonical: experiment.canonicalPath },
+    }
+  }
   const price = fmt(c.net_price)
   return {
     title: `${c.name} College Scorecard Cost Data${price ? ` (${price}/yr average net price)` : ''} | Fastrack`,
@@ -37,6 +46,7 @@ export default async function CollegePage({ params, searchParams }: { params: { 
   if (!c) notFound()
 
   const stateName = STATE_NAMES[c.state] ?? c.state
+  const experiment = collegeSeoOpening(c)
   const calcHref = `/calculator?state=${c.state}&residency=inState&collegeId=${c.id}`
   const trackedCalcHref = withAttributionQuery(calcHref, searchParams)
   const creditMapHref = withAttributionQuery('/credit-map', searchParams)
@@ -73,19 +83,19 @@ export default async function CollegePage({ params, searchParams }: { params: { 
               &middot; College Costs
             </p>
             <h1 className="mx-auto mt-4 max-w-3xl text-3xl sm:text-4xl md:text-5xl font-bold leading-tight">
-              College Scorecard cost data for {c.name}
+              {experiment?.heading ?? `College Scorecard cost data for ${c.name}`}
             </h1>
             <p className="mx-auto mt-6 max-w-2xl text-lg text-blue-100">
-              {c.net_price
+              {experiment?.answer ?? (c.net_price
                 ? `The College Scorecard reports an average net price of about ${fmt(c.net_price)} per year at ${c.name} for federal-aid recipients. It is not your family’s personalized aid offer. The calculator compares that figure with a modeled dual-credit scenario.`
-                : `Here is the available cost picture for ${c.name}, plus a modeled dual-credit scenario.`}
+                : `Here is the available cost picture for ${c.name}, plus a modeled dual-credit scenario.`)}
             </p>
             <div className="mt-8">
               <Link
                 href={trackedCalcHref}
                 className="inline-block rounded-lg bg-white px-8 py-4 text-lg font-semibold text-[#080b53] hover:bg-blue-100"
               >
-                Model your family&rsquo;s costs at {c.name.length > 30 ? 'this school' : c.name}
+                {experiment?.calculatorCta ?? <>Model your family&rsquo;s costs at {c.name.length > 30 ? 'this school' : c.name}</>}
               </Link>
             </div>
           </div>
