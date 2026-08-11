@@ -2,7 +2,9 @@ import { randomUUID } from 'node:crypto'
 import { sql } from './db'
 import { sendResultsEmail } from './mail'
 import { NURTURE_STEPS, sendNurtureStep } from './nurture'
-import { canClaimMessage, effectiveRolloutControls, rolloutControls } from './rollout-controls.mjs'
+import { canClaimMessage, effectiveRolloutControls, rolloutConfigurationStatus, rolloutControls } from './rollout-controls.mjs'
+import { fixtureResultDispatchRolloutReady, RESEND_RESERVED_TEST_RECIPIENTS } from './fixture-result-dispatch.mjs'
+import { RESERVED_FIXTURE_RESULT_CLAIM_SQL } from './fixture-result-claim-sql.mjs'
 
 const effectiveControls = () => effectiveRolloutControls(rolloutControls())
 
@@ -15,7 +17,8 @@ type Message = {
   tracking_id: string
   claim_token: string
   attempt_count: number
-  claim_origin: 'pending' | 'retryable' | 'claimed'
+  claim_origin: 'pending' | 'retryable' | 'claimed' | 'fixture_pending' | 'fixture_retryable' | 'fixture_claimed'
+  is_fixture: boolean
   email: string
   college: string | null
   residency: string | null
@@ -88,7 +91,7 @@ export async function claimMessageByLead(leadId: number, kind: 'results' | 'nurt
     )
     select claimed.id, claimed.lead_id, claimed.kind, claimed.nurture_stage,
       claimed.provider_idempotency_key, claimed.claim_token, claimed.attempt_count,
-      claimed.tracking_id, claimed.claim_origin,
+      claimed.tracking_id, claimed.claim_origin, claimed.is_fixture,
       leads.email, leads.college, leads.residency, leads.snapshot
     from claimed join leads on leads.id = claimed.lead_id
   `) as Message[]
@@ -130,16 +133,31 @@ export async function claimNextMessage(kind: 'results' | 'nurture') {
     )
     select claimed.id, claimed.lead_id, claimed.kind, claimed.nurture_stage,
       claimed.provider_idempotency_key, claimed.claim_token, claimed.attempt_count,
-      claimed.tracking_id, claimed.claim_origin,
+      claimed.tracking_id, claimed.claim_origin, claimed.is_fixture,
       leads.email, leads.college, leads.residency, leads.snapshot
     from claimed join leads on leads.id = claimed.lead_id
   `) as Message[]
   return rows[0] ?? null
 }
 
-export async function dispatchClaimedMessage(message: Message) {
+export async function claimReservedFixtureResult(captureId: string) {
+  if (!fixtureResultDispatchRolloutReady(rolloutConfigurationStatus())) return null
+  const token = randomUUID()
+  const trackingId = randomUUID()
+  const rows = (await sql.query(RESERVED_FIXTURE_RESULT_CLAIM_SQL, [
+    captureId, token, trackingId, RESEND_RESERVED_TEST_RECIPIENTS,
+  ])) as Message[]
+  return rows[0] ?? null
+}
+
+export async function dispatchClaimedMessage(message: Message, options: { authorizedFixtureDispatch?: boolean } = {}) {
   const controls = effectiveControls()
-  if (!canClaimMessage(message.kind, message.claim_origin, controls)) {
+  const targetedFixtureDispatch = options.authorizedFixtureDispatch === true
+    && message.kind === 'results'
+    && ['fixture_pending', 'fixture_retryable', 'fixture_claimed'].includes(message.claim_origin)
+    && message.is_fixture === true
+    && fixtureResultDispatchRolloutReady(rolloutConfigurationStatus())
+  if (!targetedFixtureDispatch && !canClaimMessage(message.kind, message.claim_origin, controls)) {
     return 'stopped' as const
   }
   try {
