@@ -46,6 +46,19 @@ test('calculator labels its scenario and surfaces assumptions before capture', a
   assert.doesNotMatch(source, /Typical salary|What a degree really costs/)
 })
 
+test('calculator declares one clean canonical while preserving functional query-prefill support', async () => {
+  const [layout, page] = await Promise.all([
+    read('../app/calculator/layout.tsx'),
+    read('../app/calculator/page.tsx'),
+  ])
+  assert.equal((layout.match(/canonical:/g) ?? []).length, 1)
+  assert.match(layout, /canonical: '\/calculator'/)
+  assert.doesNotMatch(layout, /state|residency|collegeId|utm_|gclid|fbclid/)
+  assert.match(page, /params\.get\('state'\)/)
+  assert.match(page, /params\.get\('residency'\)/)
+  assert.match(page, /params\.get\('collegeId'\)/)
+})
+
 test('homepage describes only the approved Credit Map offer', async () => {
   const source = await read('../app/page.tsx')
   assert.match(source, /For 11th and 12th graders/)

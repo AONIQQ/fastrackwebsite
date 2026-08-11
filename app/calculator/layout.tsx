@@ -5,6 +5,9 @@ export const metadata: Metadata = {
   title: 'Free College Savings Calculator | Fastrack',
   description:
     'A free calculator: pick any of 6,000+ U.S. colleges and see what a degree really costs, and how much your family saves when your student earns college credit in high school.',
+  alternates: {
+    canonical: '/calculator',
+  },
   openGraph: {
     title: 'Free College Savings Calculator',
     description:
