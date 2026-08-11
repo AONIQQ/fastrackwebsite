@@ -202,7 +202,7 @@ export async function claimCaptureRisk(input: {
       )
       select 'phone', ${input.keys.phone}, ${bucket(phonePolicy.windowSeconds)},
         ${phonePolicy.windowSeconds}, 1, ${expires(phonePolicy.windowSeconds)}
-      where ${input.keys.phone} is not null and not exists (select 1 from known)
+      where ${input.keys.phone}::text is not null and not exists (select 1 from known)
         and exists (select 1 from email_window)
       on conflict (scope, key_digest, window_start) do update
         set attempt_count = capture_rate_windows.attempt_count + 1
@@ -218,14 +218,14 @@ export async function claimCaptureRisk(input: {
           and exists (select 1 from network_window)
           and exists (select 1 from valid_business_identity)
           and exists (select 1 from email_window)
-          and (${input.keys.phone} is null or exists (select 1 from phone_window))
+          and (${input.keys.phone}::text is null or exists (select 1 from phone_window))
           then 'accepted' else 'rejected' end,
         case
           when not exists (select 1 from global_window) then 'global_limit'
           when not exists (select 1 from network_window) then 'network_limit'
           when not exists (select 1 from valid_business_identity) then 'email_limit'
           when not exists (select 1 from email_window) then 'email_limit'
-          when ${input.keys.phone} is not null and not exists (select 1 from phone_window) then 'phone_limit'
+          when ${input.keys.phone}::text is not null and not exists (select 1 from phone_window) then 'phone_limit'
           else 'accepted' end,
         case when not exists (select 1 from valid_business_identity) then 'invalid_college' else null end,
         ${input.smsConsentRequested}, false,
@@ -233,7 +233,7 @@ export async function claimCaptureRisk(input: {
           and exists (select 1 from network_window)
           and exists (select 1 from valid_business_identity)
           and exists (select 1 from email_window)
-          and (${input.keys.phone} is null or exists (select 1 from phone_window))
+          and (${input.keys.phone}::text is null or exists (select 1 from phone_window))
           then ${now} else null end,
         ${decisionExpires}
       where not exists (select 1 from known) and exists (select 1 from global_window)
