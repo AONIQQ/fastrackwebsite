@@ -3,8 +3,13 @@ import { sql } from './db'
 import { sendResultsEmail } from './mail'
 import { NURTURE_STEPS, sendNurtureStep } from './nurture'
 import { canClaimMessage, effectiveRolloutControls, rolloutConfigurationStatus, rolloutControls } from './rollout-controls.mjs'
-import { fixtureResultDispatchRolloutReady, RESEND_RESERVED_TEST_RECIPIENTS } from './fixture-result-dispatch.mjs'
+import {
+  fixtureResultDispatchRolloutReady,
+  fixtureResultQuarantineRolloutReady,
+  RESEND_RESERVED_TEST_RECIPIENTS,
+} from './fixture-result-dispatch.mjs'
 import { RESERVED_FIXTURE_RESULT_CLAIM_SQL } from './fixture-result-claim-sql.mjs'
+import { RESERVED_FIXTURE_RESULT_QUARANTINE_SQL } from './fixture-result-quarantine-sql.mjs'
 
 const effectiveControls = () => effectiveRolloutControls(rolloutControls())
 
@@ -152,6 +157,14 @@ export async function claimReservedFixtureResult(captureId: string) {
     captureId, token, trackingId, RESEND_RESERVED_TEST_RECIPIENTS,
   ])) as Message[]
   return rows[0] ?? null
+}
+
+export async function quarantineReservedFixtureResult(captureId: string) {
+  if (!fixtureResultQuarantineRolloutReady(rolloutConfigurationStatus())) return false
+  const rows = (await sql.query(RESERVED_FIXTURE_RESULT_QUARANTINE_SQL, [
+    captureId, RESEND_RESERVED_TEST_RECIPIENTS,
+  ])) as { quarantined: number }[]
+  return rows[0]?.quarantined === 1
 }
 
 export async function dispatchClaimedMessage(message: Message, options: { authorizedFixtureDispatch?: boolean } = {}) {
