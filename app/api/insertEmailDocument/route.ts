@@ -19,6 +19,8 @@ import {
   CaptureRiskConfigurationError, buildCaptureRiskKeys, captureNetworkAddress, smsDispatchEnabled,
 } from '@/lib/capture-abuse.mjs'
 import { captureRolloutPlan, effectiveRolloutControls, rolloutControls } from '@/lib/rollout-controls.mjs'
+import { captureFailureDiagnostic } from '@/lib/capture-failure-diagnostics.mjs'
+import type { CaptureFailurePhase } from '@/lib/capture-failure-diagnostics.mjs'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,6 +38,7 @@ async function recordRejected(reasonCode: string, attribution: CaptureReportEven
 export async function POST(request: Request) {
   let reportingAttribution: CaptureReportEvent['attributionValidity'] = 'unknown'
   let persistenceAttempted = false
+  let failurePhase: CaptureFailurePhase | null = null
   const fixtureAuthorization = request.headers.get('x-fastrack-fixture-authorization')
   const isFixture = fixtureAuthorization !== null
   const allowedOrigin = isAllowedCaptureOrigin(request.headers.get('origin'), request.url)
@@ -68,7 +71,8 @@ export async function POST(request: Request) {
     let body: unknown
     try { body = JSON.parse(raw) } catch { throw new CaptureInputError('invalid_json', 'Invalid request') }
     const input = validateCaptureInput(body, request.url)
-    reportingAttribution = attributionValidity(input.attribution)
+    const captureAttribution = attributionValidity(input.attribution)
+    reportingAttribution = captureAttribution
     const captureRequestHash = createHash('sha256').update(captureFingerprintInput(input)).digest('hex')
     const riskKeys = buildCaptureRiskKeys({
       secret: process.env.CAPTURE_ABUSE_SECRET,
@@ -80,6 +84,7 @@ export async function POST(request: Request) {
       await recordRejected('risk_identity_missing', reportingAttribution)
       return NextResponse.json({ error: 'Request identity is unavailable', code: 'risk_identity_missing' }, { status: 403 })
     }
+    failurePhase = 'risk_claim'
     const risk = await claimCaptureRisk({
       captureId: input.captureId,
       requestHash: captureRequestHash,
@@ -92,6 +97,7 @@ export async function POST(request: Request) {
       smsConsentRequested: input.smsConsent,
       retentionDays: CAPTURE_RISK_RETENTION_DAYS,
     })
+    failurePhase = null
     if (!risk) {
       await recordRejected('capture_mismatch', reportingAttribution)
       return NextResponse.json({ error: 'Capture identity does not match this request', code: 'capture_mismatch' }, { status: 409 })
@@ -104,13 +110,18 @@ export async function POST(request: Request) {
       await recordRejected(risk.reason_code, reportingAttribution)
       return NextResponse.json({ error: 'Please wait before trying again', code: 'rate_limited' }, { status: 429 })
     }
+    failurePhase = 'college_lookup'
     const college = await getCollegeById(input.collegeId)
+    failurePhase = null
     if (!college || college.state !== input.state) throw new CaptureInputError('invalid_college', 'College does not match the selected state')
+    failurePhase = 'roi_compute'
     const roi = computeRoi(college, input.residency)
+    failurePhase = null
     const userAgent = request.headers.get('user-agent')?.slice(0, 512) ?? null
     const utm = Object.fromEntries(Object.entries(input.attribution).filter(([key, value]) => key !== 'normalized_referrer' && value)) as Record<string, string>
 
     persistenceAttempted = true
+    failurePhase = 'lead_insert'
     const lead = await insertLead({
       captureId: input.captureId, captureRequestHash, email: input.email, phone: input.phone,
       state: input.state, residency: input.residency, college: college.name,
@@ -122,10 +133,11 @@ export async function POST(request: Request) {
       smsConsentVersion: input.smsConsent ? SMS_CONSENT_VERSION : null,
       isFixture,
       riskDecisionId: risk.id,
-      attributionValidity: reportingAttribution,
+      attributionValidity: captureAttribution,
       createShadowLedger: capturePlan.createShadowLedger,
       enqueueResults: capturePlan.enqueueResults,
     })
+    failurePhase = null
     if (!lead) {
       return NextResponse.json({ error: 'Capture identity does not match this request', code: 'capture_mismatch' }, { status: 409 })
     }
@@ -163,7 +175,7 @@ export async function POST(request: Request) {
         const outcomes = await Promise.allSettled(work)
         for (const outcome of outcomes) if (outcome.status === 'rejected') console.error('[lead delivery failure]')
       }
-      waitUntil(deliver().catch((error) => console.error('[lead delivery]', error)))
+      waitUntil(deliver().catch(() => console.error('[lead delivery failure]')))
     }
 
     return NextResponse.json({ ok: true, id: lead.id, capture_id: input.captureId, roi: lead.snapshot })
@@ -185,10 +197,11 @@ export async function POST(request: Request) {
           attributionValidity: reportingAttribution,
           trafficClass: isFixture ? 'fixture' : 'unknown',
         }])
-      } catch { console.error('[capture failure unobservable]') }
-      console.error('[capture persistence or response unconfirmed]')
-    } else {
-      console.error('[capture failed before lead persistence]')
+      } catch { /* The final failure log below is the only permitted diagnostic. */ }
+    }
+    if (failurePhase !== null) {
+      const diagnostic = captureFailureDiagnostic(failurePhase, error)
+      console.error(JSON.stringify(diagnostic))
     }
     return NextResponse.json({ error: 'Failed to capture results', code: 'capture_failed' }, { status: 500 })
   }
