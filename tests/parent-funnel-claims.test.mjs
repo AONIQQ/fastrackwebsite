@@ -84,6 +84,11 @@ test('college and state routes qualify costs and keep calculator prefill queries
   assert.doesNotMatch(state, /What college actually costs|Net price is what families actually pay/i)
   assert.match(state, /calculatorHref\(c\.id\)/)
   assert.match(state, /withAttributionQuery/)
+  assert.match(state, /<table className="block w-full[^\"]*md:table/)
+  assert.match(state, /<tbody className="block md:table-row-group">/)
+  assert.match(state, /<tr key=\{c\.id\} className="grid grid-cols-1[^\"]*md:table-row/)
+  assert.match(state, /className="inline-flex min-h-11 w-full[^\"]*md:w-auto[^\"]*"/)
+  assert.doesNotMatch(state, /overflow-x-auto/)
   assert.doesNotMatch(state, /The fix is|exactly what a Fastrack Credit Map does|semester .* you never pay/i)
 })
 

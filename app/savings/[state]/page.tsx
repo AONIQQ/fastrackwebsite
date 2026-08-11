@@ -79,9 +79,9 @@ export default async function StateSavingsPage({ params, searchParams }: { param
             not a personalized estimate of what your family will pay or the aid offer it will receive. Pick a school to
             explore the modeled cost scenario.
           </p>
-          <div className="mx-auto mt-8 max-w-4xl overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
-            <table className="w-full text-left text-sm md:text-base">
-              <thead className="bg-gray-50 text-gray-600">
+          <div className="mx-auto mt-8 max-w-4xl overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+            <table className="block w-full text-left text-sm md:table md:text-base">
+              <thead className="sr-only bg-gray-50 text-gray-600 md:not-sr-only md:table-header-group">
                 <tr>
                   <th className="px-4 py-3">College</th>
                   <th className="px-4 py-3">City</th>
@@ -89,20 +89,20 @@ export default async function StateSavingsPage({ params, searchParams }: { param
                   <th className="px-4 py-3"></th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="block md:table-row-group">
                 {colleges.map((c) => (
-                  <tr key={c.id} className="border-t border-gray-100">
-                    <td className="px-4 py-3 font-medium">
+                  <tr key={c.id} className="grid grid-cols-1 gap-1 border-t border-gray-100 p-4 md:table-row md:p-0">
+                    <td className="block py-1 font-medium md:table-cell md:px-4 md:py-3">
                       <Link href={`/college/${collegeSlug(c.id, c.name)}`} className="hover:text-[#605dba] hover:underline">
                         {c.name}
                       </Link>
                     </td>
-                    <td className="px-4 py-3 text-gray-600">{c.city ?? ''}</td>
-                    <td className="px-4 py-3">{fmt(c.net_price)}</td>
-                    <td className="px-4 py-3">
+                    <td className="block py-1 text-gray-600 md:table-cell md:px-4 md:py-3">{c.city ?? ''}</td>
+                    <td className="block py-1 md:table-cell md:px-4 md:py-3">{fmt(c.net_price)}</td>
+                    <td className="block pt-2 md:table-cell md:px-4 md:py-3">
                       <Link
                         href={calculatorHref(c.id)}
-                        className="font-semibold text-[#605dba] hover:underline"
+                        className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#605dba] px-4 py-2 font-semibold text-[#605dba] hover:underline md:min-h-0 md:w-auto md:justify-start md:rounded-none md:border-0 md:p-0"
                       >
                         Model costs &rarr;
                       </Link>
