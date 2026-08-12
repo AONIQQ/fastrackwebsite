@@ -58,11 +58,9 @@ const membershipLogos = [
 export default function Home() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [offerHref, setOfferHref] = useState('/credit-map')
-  const [calculatorHref, setCalculatorHref] = useState('/calculator')
 
   useEffect(() => {
     setOfferHref(withAttributionQuery('/credit-map', window.location.search))
-    setCalculatorHref(withAttributionQuery('/calculator', window.location.search))
   }, [])
 
   const toggleMenu = () => setIsMenuOpen((prev) => !prev)
@@ -77,41 +75,34 @@ export default function Home() {
             </Link>
           </div>
           <nav className="hidden md:flex items-center space-x-4">
-            <Button asChild variant="ghost" className="text-white text-base">
-              <Link href={offerHref}>
+            <Link href={offerHref}>
+              <Button variant="ghost" className="text-white text-base">
                 Credit Map
-              </Link>
-            </Button>
-            <Button asChild variant="ghost" className="text-white text-base">
-              <Link href={calculatorHref}>
+              </Button>
+            </Link>
+            <Link href="/calculator">
+              <Button variant="ghost" className="text-white text-base">
                 Calculator
-              </Link>
-            </Button>
+              </Button>
+            </Link>
           </nav>
-          <Button
-            variant="ghost"
-            className="md:hidden min-h-11 min-w-11 text-white p-2"
-            onClick={toggleMenu}
-            aria-label="Toggle menu"
-            aria-expanded={isMenuOpen}
-            aria-controls="mobile-navigation"
-          >
+          <Button variant="ghost" className="md:hidden text-white p-2" onClick={toggleMenu} aria-label="Toggle menu">
             {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
           </Button>
         </div>
         {isMenuOpen && (
-          <nav id="mobile-navigation" aria-label="Mobile navigation" className="md:hidden mt-4 flex flex-col items-center space-y-2">
-            <Button asChild variant="ghost" className="min-h-11 text-white text-base">
-              <Link href={offerHref}>
+          <div className="md:hidden mt-4 flex flex-col items-center space-y-2">
+            <Link href={offerHref}>
+              <Button variant="ghost" className="text-white text-base">
                 Credit Map
-              </Link>
-            </Button>
-            <Button asChild variant="ghost" className="min-h-11 text-white text-base">
-              <Link href={calculatorHref}>
+              </Button>
+            </Link>
+            <Link href="/calculator">
+              <Button variant="ghost" className="text-white text-base">
                 Calculator
-              </Link>
-            </Button>
-          </nav>
+              </Button>
+            </Link>
+          </div>
         )}
       </header>
 
@@ -128,16 +119,11 @@ export default function Home() {
                 sources, flags open questions, and shows what to confirm before a student enrolls.
               </p>
               <div className="mt-8 flex flex-col sm:flex-row gap-4">
-                <Button asChild className="bg-white text-[#080b53] hover:bg-blue-100 font-semibold px-8 py-6 text-lg">
-                  <Link href={offerHref}>
+                <Link href={offerHref}>
+                  <Button className="bg-white text-[#080b53] hover:bg-blue-100 font-semibold px-8 py-6 text-lg">
                     Explore the Credit Map ($497)
-                  </Link>
-                </Button>
-                <Button asChild variant="outline" className="border-blue-200 bg-transparent text-white hover:bg-white/10 hover:text-white font-semibold px-8 py-6 text-lg">
-                  <Link href={calculatorHref}>
-                    Try the free calculator
-                  </Link>
-                </Button>
+                  </Button>
+                </Link>
               </div>
             </div>
             <div className="mt-12 grid gap-6 sm:grid-cols-2">
@@ -194,11 +180,11 @@ export default function Home() {
               </p>
               <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm text-gray-500">30-day satisfaction refund after delivery.</p>
-                <Button asChild className="bg-[#605dba] hover:bg-[#4e4a9e] text-white">
-                  <Link href={offerHref}>
+                <Link href={offerHref}>
+                  <Button className="bg-[#605dba] hover:bg-[#4e4a9e] text-white">
                     View the $497 Credit Map
-                  </Link>
-                </Button>
+                  </Button>
+                </Link>
               </div>
             </div>
           </div>
