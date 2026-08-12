@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import SiteFooter from '@/components/SiteFooter'
-import { getStateSavingsStats, getTopCollegesForState } from '@/lib/db'
+import { getCollegesByState, getStateSavingsStats, getTopCollegesForState } from '@/lib/db'
 import { STATE_NAMES, codeFromSlug, collegeSlug, stateSlug } from '@/lib/states'
 import { withAttributionQuery } from '@/lib/attribution-url.mjs'
 
@@ -27,8 +27,16 @@ export default async function StateSavingsPage({ params, searchParams }: { param
   const code = codeFromSlug(params.state)
   if (!code) notFound()
   const name = STATE_NAMES[code]
-  const [stats, colleges] = await Promise.all([getStateSavingsStats(code), getTopCollegesForState(code, 20)])
+  const [stats, colleges, stateColleges] = await Promise.all([
+    getStateSavingsStats(code),
+    getTopCollegesForState(code, 20),
+    getCollegesByState(code),
+  ])
   if (!colleges.length) notFound()
+  const featuredIds = new Set(colleges.map((college) => college.id))
+  const directoryColleges = stateColleges
+    .filter((college) => !featuredIds.has(college.id))
+    .sort((a, b) => a.name.localeCompare(b.name) || (a.city ?? '').localeCompare(b.city ?? '') || a.id - b.id)
   const calculatorHref = (collegeId?: number) => withAttributionQuery(
     `/calculator?state=${code}&residency=inState${collegeId ? `&collegeId=${collegeId}` : ''}`,
     searchParams,
@@ -112,6 +120,29 @@ export default async function StateSavingsPage({ params, searchParams }: { param
               </tbody>
             </table>
           </div>
+          {directoryColleges.length > 0 && (
+            <details className="mx-auto mt-8 max-w-4xl rounded-xl border border-gray-200 bg-white px-5 py-4">
+              <summary className="cursor-pointer font-semibold text-[#080b53] marker:text-[#605dba]">
+                Browse {directoryColleges.length} more {name} colleges
+              </summary>
+              <p className="mt-3 text-sm text-gray-600">
+                Choose a college to see its published cost data and continue to the calculator with that school selected.
+              </p>
+              <ul className="mt-5 grid gap-x-8 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
+                {directoryColleges.map((college) => (
+                  <li key={college.id} className="min-w-0">
+                    <Link
+                      href={`/college/${collegeSlug(college.id, college.name)}`}
+                      className="block rounded-md py-1 text-sm font-medium text-[#605dba] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#605dba]"
+                    >
+                      <span className="break-words">{college.name}</span>
+                      {college.city && <span className="block text-xs font-normal text-gray-600">{college.city}</span>}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
         </section>
 
         <section className="bg-white py-14">
