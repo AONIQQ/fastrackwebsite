@@ -12,17 +12,24 @@ const selected = [
   [209551, 'University of Oregon', '/college/209551-university-of-oregon'],
   [218672, 'USC Lancaster', '/college/218672-university-of-south-carolina-lancaster'],
   [100663, 'UAB', '/college/100663-university-of-alabama-at-birmingham'],
+  [164748, 'Berklee College of Music', '/college/164748-berklee-college-of-music'],
 ]
 
 const college = (id) => ({
   id,
-  name: id === 209551 ? 'University of Oregon' : id === 218672 ? 'University of South Carolina-Lancaster' : 'University of Alabama at Birmingham',
+  name: id === 209551
+    ? 'University of Oregon'
+    : id === 218672
+      ? 'University of South Carolina-Lancaster'
+      : id === 164748
+        ? 'Berklee College of Music'
+        : 'University of Alabama at Birmingham',
   tuition_in: 12_345,
   tuition_out: 45_678,
   net_price: 23_456,
 })
 
-test('the experiment is an exact three-ID allowlist with clean self-canonicals', () => {
+test('the experiment is an exact four-ID allowlist with clean self-canonicals', () => {
   for (const [id, searchName, canonicalPath] of selected) {
     assert.deepEqual(collegeSeoExperiment(id), { searchName, canonicalPath })
     const metadata = collegeSeoMetadata(college(id))
@@ -33,11 +40,29 @@ test('the experiment is an exact three-ID allowlist with clean self-canonicals',
     assert.equal(new URL(metadata.canonicalPath, 'https://www.fastrack.school').search, '')
   }
 
-  for (const id of [1, 100654, 209550, 209552, 218671, 218673]) {
+  for (const id of [1, 100654, 164747, 164749, 209550, 209552, 218671, 218673]) {
     assert.equal(collegeSeoExperiment(id), null)
     assert.equal(collegeSeoMetadata(college(id)), null)
     assert.equal(collegeSeoOpening(college(id)), null)
   }
+})
+
+test('adding Berklee changes no nonselected presentation', () => {
+  const nonselected = [
+    college(100654),
+    college(164747),
+    college(164749),
+    college(233921),
+  ]
+  const before = nonselected.map((entry) => ({
+    metadata: null,
+    opening: null,
+  }))
+  const after = nonselected.map((entry) => ({
+    metadata: collegeSeoMetadata(entry),
+    opening: collegeSeoOpening(entry),
+  }))
+  assert.deepEqual(after, before)
 })
 
 test('copy uses only supplied authoritative cost fields and keeps claim boundaries explicit', () => {
@@ -55,6 +80,26 @@ test('copy uses only supplied authoritative cost fields and keeps claim boundari
   }
 })
 
+test('Berklee presentation answers current supplied cost fields without conflating them', () => {
+  const berklee = {
+    id: 164748,
+    name: 'Berklee College of Music',
+    tuition_in: 52_040,
+    tuition_out: 52_040,
+    net_price: 49_465,
+  }
+  const metadata = collegeSeoMetadata(berklee)
+  const opening = collegeSeoOpening(berklee)
+  assert.equal(metadata.title, 'Berklee College of Music Cost and Tuition | Fastrack')
+  assert.ok(metadata.title.length <= 60)
+  assert.ok(metadata.description.length <= 160)
+  assert.equal(metadata.canonicalPath, '/college/164748-berklee-college-of-music')
+  assert.equal(opening.heading, 'How much does Berklee College of Music cost?')
+  assert.match(opening.answer, /published tuition of \$52,040 for in-state students and \$52,040 for out-of-state students/)
+  assert.match(opening.answer, /average net price of \$49,465 per year for federal-aid recipients after grant and scholarship aid/)
+  assert.match(opening.answer, /neither is your family’s personalized aid offer/)
+})
+
 test('missing fields are described as unavailable rather than invented', () => {
   const missing = collegeSeoOpening({ ...college(209551), tuition_in: null, tuition_out: null, net_price: null })
   assert.match(missing.answer, /Published tuition is not available/)
@@ -70,6 +115,14 @@ test('calculator CTA destination preserves prefill and only approved attribution
   assert.deepEqual(Object.fromEntries(output.searchParams), {
     state: 'OR', residency: 'inState', collegeId: '209551',
     utm_source: 'google', utm_medium: 'organic', utm_campaign: 'agent-20260811', gclid: 'g-1', fbclid: 'f-1',
+  })
+  const berklee = new URL(`https://www.fastrack.school${withAttributionQuery(
+    '/calculator?state=MA&residency=inState&collegeId=164748',
+    { utm_source: 'google', utm_medium: 'organic', utm_campaign: 'agent-20260811', gclid: 'g-2', ignored: 'private' },
+  )}`)
+  assert.deepEqual(Object.fromEntries(berklee.searchParams), {
+    state: 'MA', residency: 'inState', collegeId: '164748',
+    utm_source: 'google', utm_medium: 'organic', utm_campaign: 'agent-20260811', gclid: 'g-2',
   })
 })
 
