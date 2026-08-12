@@ -29,6 +29,7 @@ export type CollegeRow = {
   net_price: number | null;
   earnings_6yr: number | null;
   earnings_10yr: number | null;
+  same_name_count: number;
 };
 
 /**
@@ -79,6 +80,7 @@ const COLLEGE_FIELDS = `
   c.id, c.name, c.city, c.state, c.ownership,
   c.tuition_in, c.tuition_out, c.net_price,
   c.earnings_6yr, c.earnings_10yr,
+  (select count(*)::int from colleges d where lower(d.name) = lower(c.name)) as same_name_count,
   col.annual_cost as cost_of_living
 `;
 

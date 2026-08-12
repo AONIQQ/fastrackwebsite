@@ -8,6 +8,7 @@ import { getCollegeById } from '@/lib/db'
 import { STATE_NAMES, stateDirectoryHref } from '@/lib/states'
 import { withAttributionQuery } from '@/lib/attribution-url.mjs'
 import { collegeSeoMetadata, collegeSeoOpening } from '@/lib/college-seo-experiment.mjs'
+import { collegeDefaultMetadata } from '@/lib/college-default-metadata.mjs'
 import { collegeBreadcrumbData } from '@/lib/structured-data.mjs'
 
 // ISR: rendered on first request, cached for a week. The underlying federal
@@ -34,11 +35,7 @@ export async function generateMetadata({ params }: { params: { slug: string } })
       alternates: { canonical: experiment.canonicalPath },
     }
   }
-  const price = fmt(c.net_price)
-  return {
-    title: `${c.name} College Scorecard Cost Data${price ? ` (${price}/yr average net price)` : ''} | Fastrack`,
-    description: `Real net price, tuition, and graduate earnings for ${c.name}${c.city ? ` in ${c.city}` : ''}, plus a modeled dual-credit cost scenario with important limitations.`,
-  }
+  return collegeDefaultMetadata(c)
 }
 
 export default async function CollegePage({ params, searchParams }: { params: { slug: string }, searchParams: Record<string, string | string[] | undefined> }) {
