@@ -71,12 +71,22 @@ test('homepage describes only the approved Credit Map offer', async () => {
 })
 
 test('Credit Map preserves price and bounded refund without transfer absolutes', async () => {
-  const source = await read('../app/credit-map/page.tsx')
+  const [source, layout] = await Promise.all([
+    read('../app/credit-map/page.tsx'),
+    read('../app/credit-map/layout.tsx'),
+  ])
   assert.match(source, /Get Your Credit Map \(\$497\)/)
   assert.match(source, /30-day refund, no questions asked/)
   assert.match(source, /Final\s+transfer decisions always rest with the receiving college/)
   assert.doesNotMatch(source, /CalBookingButton|Book a Free Fit Check/)
   assert.doesNotMatch(source, /every course actually counts|no wasted credits|nothing they take is wasted/i)
+
+  assert.equal((layout.match(/canonical:/g) ?? []).length, 1)
+  assert.match(layout, /canonical: '\/credit-map'/)
+  assert.match(layout, /url: 'https:\/\/www\.fastrack\.school\/credit-map'/)
+  assert.doesNotMatch(layout, /utm_|gclid|fbclid|checkout_ref|searchParams/)
+  assert.match(layout, /Sourced Dual Credit Plan \| Fastrack Credit Map/)
+  assert.match(layout, /source links, open questions, and items to confirm with the receiving college/)
 })
 
 test('college and state routes qualify costs and keep calculator prefill queries', async () => {
