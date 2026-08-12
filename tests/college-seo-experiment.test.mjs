@@ -13,6 +13,7 @@ const selected = [
   [218672, 'USC Lancaster', '/college/218672-university-of-south-carolina-lancaster'],
   [100663, 'UAB', '/college/100663-university-of-alabama-at-birmingham'],
   [164748, 'Berklee College of Music', '/college/164748-berklee-college-of-music'],
+  [139940, 'Georgia State University', '/college/139940-georgia-state-university'],
 ]
 
 const college = (id) => ({
@@ -23,15 +24,20 @@ const college = (id) => ({
       ? 'University of South Carolina-Lancaster'
       : id === 164748
         ? 'Berklee College of Music'
+        : id === 139940
+          ? 'Georgia State University'
         : 'University of Alabama at Birmingham',
   tuition_in: 12_345,
   tuition_out: 45_678,
   net_price: 23_456,
 })
 
-test('the experiment is an exact four-ID allowlist with clean self-canonicals', () => {
+test('the experiment is an exact five-ID allowlist with clean self-canonicals', () => {
   for (const [id, searchName, canonicalPath] of selected) {
-    assert.deepEqual(collegeSeoExperiment(id), { searchName, canonicalPath })
+    const experiment = collegeSeoExperiment(id)
+    assert.equal(experiment.searchName, searchName)
+    assert.equal(experiment.canonicalPath, canonicalPath)
+    if (id !== 139940) assert.equal(experiment.residencyNote, undefined)
     const metadata = collegeSeoMetadata(college(id))
     assert.equal(metadata.canonicalPath, canonicalPath)
     assert.match(metadata.title, new RegExp(`^${searchName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} Cost and Tuition`))
@@ -40,16 +46,18 @@ test('the experiment is an exact four-ID allowlist with clean self-canonicals', 
     assert.equal(new URL(metadata.canonicalPath, 'https://www.fastrack.school').search, '')
   }
 
-  for (const id of [1, 100654, 164747, 164749, 209550, 209552, 218671, 218673]) {
+  for (const id of [1, 100654, 139939, 139941, 164747, 164749, 209550, 209552, 218671, 218673]) {
     assert.equal(collegeSeoExperiment(id), null)
     assert.equal(collegeSeoMetadata(college(id)), null)
     assert.equal(collegeSeoOpening(college(id)), null)
   }
 })
 
-test('adding Berklee changes no nonselected presentation', () => {
+test('adding Georgia State changes no nonselected presentation', () => {
   const nonselected = [
     college(100654),
+    college(139939),
+    college(139941),
     college(164747),
     college(164749),
     college(233921),
@@ -100,6 +108,29 @@ test('Berklee presentation answers current supplied cost fields without conflati
   assert.match(opening.answer, /neither is your family’s personalized aid offer/)
 })
 
+test('Georgia State presentation distinguishes current tuition, net price, residency, and aid', () => {
+  const georgiaState = {
+    id: 139940,
+    name: 'Georgia State University',
+    tuition_in: 8_664,
+    tuition_out: 24_840,
+    net_price: 15_931,
+  }
+  const metadata = collegeSeoMetadata(georgiaState)
+  const opening = collegeSeoOpening(georgiaState)
+  assert.equal(metadata.title, 'Georgia State University Cost and Tuition | Fastrack')
+  assert.ok(metadata.title.length <= 60)
+  assert.ok(metadata.description.length <= 160)
+  assert.equal(metadata.canonicalPath, '/college/139940-georgia-state-university')
+  assert.equal(opening.heading, 'How much does Georgia State University cost?')
+  assert.match(opening.answer, /published tuition of \$8,664 for in-state students and \$24,840 for out-of-state students/)
+  assert.match(opening.answer, /average net price of \$15,931 per year for federal-aid recipients after grant and scholarship aid/)
+  assert.match(opening.answer, /different measures/)
+  assert.match(opening.answer, /neither is your family’s personalized aid offer/)
+  assert.match(opening.answer, /Residency classification determines which published tuition applies/)
+  assert.match(opening.answer, /choosing in-state in the calculator does not establish eligibility/)
+})
+
 test('missing fields are described as unavailable rather than invented', () => {
   const missing = collegeSeoOpening({ ...college(209551), tuition_in: null, tuition_out: null, net_price: null })
   assert.match(missing.answer, /Published tuition is not available/)
@@ -123,6 +154,14 @@ test('calculator CTA destination preserves prefill and only approved attribution
   assert.deepEqual(Object.fromEntries(berklee.searchParams), {
     state: 'MA', residency: 'inState', collegeId: '164748',
     utm_source: 'google', utm_medium: 'organic', utm_campaign: 'agent-20260811', gclid: 'g-2',
+  })
+  const georgiaState = new URL(`https://www.fastrack.school${withAttributionQuery(
+    '/calculator?state=GA&residency=inState&collegeId=139940',
+    { utm_source: 'google', utm_medium: 'organic', utm_campaign: 'agent-20260811', gclid: 'g-3', fbclid: 'f-3', email: 'private@example.com' },
+  )}`)
+  assert.deepEqual(Object.fromEntries(georgiaState.searchParams), {
+    state: 'GA', residency: 'inState', collegeId: '139940',
+    utm_source: 'google', utm_medium: 'organic', utm_campaign: 'agent-20260811', gclid: 'g-3', fbclid: 'f-3',
   })
 })
 
