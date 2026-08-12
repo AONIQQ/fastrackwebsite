@@ -3,10 +3,12 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import SiteFooter from '@/components/SiteFooter'
+import StructuredData from '@/components/StructuredData'
 import { getCollegeById } from '@/lib/db'
 import { STATE_NAMES, stateDirectoryHref } from '@/lib/states'
 import { withAttributionQuery } from '@/lib/attribution-url.mjs'
 import { collegeSeoMetadata, collegeSeoOpening } from '@/lib/college-seo-experiment.mjs'
+import { collegeBreadcrumbData } from '@/lib/structured-data.mjs'
 
 // ISR: rendered on first request, cached for a week. The underlying federal
 // data refreshes rarely, and there are ~5,000 of these pages.
@@ -47,6 +49,7 @@ export default async function CollegePage({ params, searchParams }: { params: { 
 
   const stateName = STATE_NAMES[c.state] ?? c.state
   const stateHref = stateDirectoryHref(c.state)
+  const breadcrumbData = collegeBreadcrumbData({ collegeName: c.name, stateName, statePath: stateHref })
   const experiment = collegeSeoOpening(c)
   const calcHref = `/calculator?state=${c.state}&residency=inState&collegeId=${c.id}`
   const trackedCalcHref = withAttributionQuery(calcHref, searchParams)
@@ -61,6 +64,7 @@ export default async function CollegePage({ params, searchParams }: { params: { 
 
   return (
     <div className="flex min-h-screen flex-col bg-gray-100 text-gray-900">
+      <StructuredData data={breadcrumbData} />
       <header className="bg-[#080b53] text-white p-4 sticky top-0 z-50">
         <div className="container mx-auto flex justify-between items-center">
           <Link href="/" className="flex items-center space-x-2">

@@ -3,9 +3,11 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import SiteFooter from '@/components/SiteFooter'
+import StructuredData from '@/components/StructuredData'
 import { getCollegesByState, getStateSavingsStats, getTopCollegesForState } from '@/lib/db'
 import { STATE_NAMES, codeFromSlug, collegeSlug, stateSlug } from '@/lib/states'
 import { withAttributionQuery } from '@/lib/attribution-url.mjs'
+import { stateBreadcrumbData } from '@/lib/structured-data.mjs'
 
 // ISR: rendered on first request (the DB is only reachable in the deployed
 // environment), then cached for a day.
@@ -42,9 +44,11 @@ export default async function StateSavingsPage({ params, searchParams }: { param
     searchParams,
   )
   const creditMapHref = withAttributionQuery('/credit-map', searchParams)
+  const breadcrumbData = stateBreadcrumbData(name)
 
   return (
     <div className="flex min-h-screen flex-col bg-gray-100 text-gray-900">
+      <StructuredData data={breadcrumbData} />
       <header className="bg-[#080b53] text-white p-4 sticky top-0 z-50">
         <div className="container mx-auto flex justify-between items-center">
           <Link href="/" className="flex items-center space-x-2">
