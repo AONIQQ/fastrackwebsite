@@ -92,6 +92,11 @@ export default function Calculator() {
   const captureAttemptRef = useRef<{ id: string; fingerprint: string } | null>(null)
   const captureErrorRef = useRef<HTMLParagraphElement>(null)
   const resultHeadingRef = useRef<HTMLHeadingElement>(null)
+  const residencyActionRef = useRef<HTMLButtonElement | null>(null)
+  const collegeActionRef = useRef<HTMLButtonElement | null>(null)
+  const requestResultsActionRef = useRef<HTMLButtonElement | null>(null)
+  const modalReturnFocusRef = useRef<HTMLButtonElement | null>(null)
+  const restoreModalFocusRef = useRef(false)
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -137,6 +142,23 @@ export default function Calculator() {
   useEffect(() => {
     if (result) resultHeadingRef.current?.focus()
   }, [result])
+
+  const openEmailModal = (action: HTMLButtonElement | null) => {
+    modalReturnFocusRef.current = action
+    restoreModalFocusRef.current = false
+    setIsEmailModalOpen(true)
+  }
+
+  const handleEmailModalOpenChange = (open: boolean) => {
+    if (!open) restoreModalFocusRef.current = true
+    setIsEmailModalOpen(open)
+  }
+
+  const handleEmailModalCloseAutoFocus = (event: Event) => {
+    event.preventDefault()
+    if (restoreModalFocusRef.current) modalReturnFocusRef.current?.focus()
+    restoreModalFocusRef.current = false
+  }
 
   useEffect(() => {
     fetch('/api/states')
@@ -200,14 +222,14 @@ export default function Calculator() {
   useEffect(() => {
     if (!college || !residency) return
     if (sessionStorage.getItem('session-capture-ack')) { fetchRoi(college, residency); return }
-    if (userIntentRef.current) setIsEmailModalOpen(true)
+    if (userIntentRef.current) openEmailModal(modalReturnFocusRef.current)
   }, [college, residency, fetchRoi])
 
   const requestResults = () => {
     userIntentRef.current = true
     if (!college || !residency) return
     if (sessionStorage.getItem('session-capture-ack')) { fetchRoi(college, residency); return }
-    setIsEmailModalOpen(true)
+    openEmailModal(requestResultsActionRef.current)
   }
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
@@ -332,8 +354,8 @@ export default function Calculator() {
             </Field>
 
             <Field id="residency-label" label="Residency">
-              <Select name="residency" required value={residency || undefined} onValueChange={(v) => { userIntentRef.current = true; setResidency(v as 'inState' | 'outOfState') }}>
-                <SelectTrigger aria-labelledby="residency-label" aria-required="true" className="h-12 w-full rounded-lg border-slate-300 bg-white text-base text-[#080b53] focus:ring-2 focus:ring-[#605dba]/30">
+              <Select name="residency" required value={residency || undefined} onValueChange={(v) => { userIntentRef.current = true; modalReturnFocusRef.current = residencyActionRef.current; setResidency(v as 'inState' | 'outOfState') }}>
+                <SelectTrigger ref={residencyActionRef} aria-labelledby="residency-label" aria-required="true" className="h-12 w-full rounded-lg border-slate-300 bg-white text-base text-[#080b53] focus:ring-2 focus:ring-[#605dba]/30">
                   <SelectValue placeholder="Select" />
                 </SelectTrigger>
                 <SelectContent>
@@ -347,12 +369,13 @@ export default function Calculator() {
               <CollegeCombobox
                 options={colleges}
                 value={college}
-                onChange={(c) => { userIntentRef.current = true; setCollege(c) }}
+                onChange={(c) => { userIntentRef.current = true; modalReturnFocusRef.current = collegeActionRef.current; setCollege(c) }}
                 disabled={!state}
                 loading={isCollegesLoading}
                 placeholder={state ? 'Select' : 'Pick a state first'}
                 emptyLabel={`No colleges found in ${STATE_NAMES[state] ?? state}`}
                 labelId="college-label"
+                onActionReady={(action) => { collegeActionRef.current = action }}
               />
             </Field>
           </div>
@@ -362,6 +385,7 @@ export default function Calculator() {
           {college && residency && !result && !isResultLoading && (
             <div className="mt-5 flex justify-center">
               <button
+                ref={requestResultsActionRef}
                 type="button"
                 onClick={requestResults}
                 className="rounded-lg bg-[#605dba] px-8 py-3 text-base font-semibold text-white hover:bg-[#4e4a9e]"
@@ -516,8 +540,8 @@ export default function Calculator() {
         </div>
       </footer>
 
-      <Dialog open={isEmailModalOpen} onOpenChange={setIsEmailModalOpen}>
-        <DialogContent className="sm:max-w-md rounded-xl border-slate-200 bg-white p-6">
+      <Dialog open={isEmailModalOpen} onOpenChange={handleEmailModalOpenChange}>
+        <DialogContent onCloseAutoFocus={handleEmailModalCloseAutoFocus} className="sm:max-w-md rounded-xl border-slate-200 bg-white p-6">
           <DialogHeader className="space-y-2 text-left">
             <DialogTitle className="text-xl font-bold tracking-tight text-[#080b53]">
               Where should we send your results?

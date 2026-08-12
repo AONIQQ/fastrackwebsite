@@ -73,8 +73,24 @@ test('small modal actions and disclosures meet the scoped usability bar', async 
   const picker = await read('../app/calculator/CollegeCombobox.tsx')
   const dialog = await read('../components/ui/dialog.tsx')
 
-  assert.match(picker, /aria-label="Clear college search" className="-m-3 flex h-11 w-11/)
+  assert.match(picker, /aria-label="Clear college search" className="-m-3 flex h-11 w-11 shrink-0/)
   assert.match(dialog, /DialogPrimitive\.Close className="[^"]*h-11 w-11/)
   assert.match(page, /className="text-center text-sm leading-relaxed text-slate-600"/)
   assert.match(page, /className="text-sm leading-relaxed text-slate-600"/)
+})
+
+test('every dismiss path restores focus to the calculator action that opened the modal', async () => {
+  const page = await read('../app/calculator/page.tsx')
+  const picker = await read('../app/calculator/CollegeCombobox.tsx')
+
+  assert.match(page, /modalReturnFocusRef = useRef<HTMLButtonElement \| null>\(null\)/)
+  assert.match(page, /restoreModalFocusRef = useRef\(false\)/)
+  assert.match(page, /modalReturnFocusRef\.current = residencyActionRef\.current/)
+  assert.match(page, /modalReturnFocusRef\.current = collegeActionRef\.current/)
+  assert.match(page, /openEmailModal\(requestResultsActionRef\.current\)/)
+  assert.match(page, /if \(!open\) restoreModalFocusRef\.current = true/)
+  assert.match(page, /onCloseAutoFocus=\{handleEmailModalCloseAutoFocus\}/)
+  assert.match(page, /event\.preventDefault\(\)[\s\S]*if \(restoreModalFocusRef\.current\) modalReturnFocusRef\.current\?\.focus\(\)/)
+  assert.match(picker, /onActionReady\?: \(action: HTMLButtonElement \| null\) => void/)
+  assert.match(picker, /onActionReady\?\.\(node\)/)
 })

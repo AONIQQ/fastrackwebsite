@@ -21,6 +21,7 @@ export function CollegeCombobox({
   placeholder = 'Select a College',
   emptyLabel = 'No colleges found',
   labelId,
+  onActionReady,
 }: {
   options: CollegeOption[]
   value: CollegeOption | null
@@ -30,12 +31,13 @@ export function CollegeCombobox({
   placeholder?: string
   emptyLabel?: string
   labelId: string
+  onActionReady?: (action: HTMLButtonElement | null) => void
 }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [highlight, setHighlight] = useState(0)
   const rootRef = useRef<HTMLDivElement>(null)
-  const triggerRef = useRef<HTMLButtonElement>(null)
+  const triggerRef = useRef<HTMLButtonElement | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLUListElement>(null)
   const wasOpenRef = useRef(false)
@@ -109,7 +111,10 @@ export function CollegeCombobox({
   return (
     <div ref={rootRef} className="relative w-full">
       <button
-        ref={triggerRef}
+        ref={(node) => {
+          triggerRef.current = node
+          onActionReady?.(node)
+        }}
         type="button"
         disabled={disabled}
         onClick={() => setOpen((o) => !o)}
@@ -144,7 +149,7 @@ export function CollegeCombobox({
               role="combobox"
             />
             {query && (
-              <button type="button" onClick={() => setQuery('')} aria-label="Clear college search" className="-m-3 flex h-11 w-11 items-center justify-center">
+              <button type="button" onClick={() => setQuery('')} aria-label="Clear college search" className="-m-3 flex h-11 w-11 shrink-0 items-center justify-center">
                 <X className="h-4 w-4 text-slate-400 hover:text-slate-600" />
               </button>
             )}
