@@ -50,10 +50,10 @@ type RoiResult = {
 const money = (v: number | null | undefined) =>
   v == null ? '-' : `$${Math.round(v).toLocaleString('en-US')}`
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ id, label, children }: { id: string; label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <span className="block text-xs font-medium uppercase tracking-wider text-slate-500">{label}</span>
+      <span id={id} className="block text-xs font-medium uppercase tracking-wider text-slate-500">{label}</span>
       {children}
     </div>
   )
@@ -78,6 +78,7 @@ export default function Calculator() {
   const [email, setEmail] = useState('')
   const [phoneNumber, setPhoneNumber] = useState('')
   const [smsConsent, setSmsConsent] = useState(false)
+  const [emailInvalid, setEmailInvalid] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [captureError, setCaptureError] = useState<string | null>(null)
   const [website, setWebsite] = useState('')
@@ -89,6 +90,8 @@ export default function Calculator() {
   const attributionRef = useRef<{ referrer: string; utm: Record<string, string> }>({ referrer: '', utm: {} })
   const pendingCollegeIdRef = useRef<number | null>(null)
   const captureAttemptRef = useRef<{ id: string; fingerprint: string } | null>(null)
+  const captureErrorRef = useRef<HTMLParagraphElement>(null)
+  const resultHeadingRef = useRef<HTMLHeadingElement>(null)
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -126,6 +129,14 @@ export default function Calculator() {
     void acknowledge()
     return () => { cancelled = true }
   }, [result, displayAcknowledgement])
+
+  useEffect(() => {
+    if (captureError) captureErrorRef.current?.focus()
+  }, [captureError])
+
+  useEffect(() => {
+    if (result) resultHeadingRef.current?.focus()
+  }, [result])
 
   useEffect(() => {
     fetch('/api/states')
@@ -307,9 +318,9 @@ export default function Calculator() {
 
         <section className="rounded-xl border border-slate-200 bg-white p-5 md:p-6 shadow-sm">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Field label="State">
-              <Select value={state || undefined} onValueChange={(v) => { userIntentRef.current = true; setState(v) }}>
-                <SelectTrigger className="h-12 w-full rounded-lg border-slate-300 bg-white text-base text-[#080b53] focus:ring-2 focus:ring-[#605dba]/30">
+            <Field id="state-label" label="State">
+              <Select name="state" required value={state || undefined} onValueChange={(v) => { userIntentRef.current = true; setState(v) }}>
+                <SelectTrigger aria-labelledby="state-label" aria-required="true" className="h-12 w-full rounded-lg border-slate-300 bg-white text-base text-[#080b53] focus:ring-2 focus:ring-[#605dba]/30">
                   <SelectValue placeholder="Select" />
                 </SelectTrigger>
                 <SelectContent className="max-h-[300px]">
@@ -320,9 +331,9 @@ export default function Calculator() {
               </Select>
             </Field>
 
-            <Field label="Residency">
-              <Select value={residency || undefined} onValueChange={(v) => { userIntentRef.current = true; setResidency(v as 'inState' | 'outOfState') }}>
-                <SelectTrigger className="h-12 w-full rounded-lg border-slate-300 bg-white text-base text-[#080b53] focus:ring-2 focus:ring-[#605dba]/30">
+            <Field id="residency-label" label="Residency">
+              <Select name="residency" required value={residency || undefined} onValueChange={(v) => { userIntentRef.current = true; setResidency(v as 'inState' | 'outOfState') }}>
+                <SelectTrigger aria-labelledby="residency-label" aria-required="true" className="h-12 w-full rounded-lg border-slate-300 bg-white text-base text-[#080b53] focus:ring-2 focus:ring-[#605dba]/30">
                   <SelectValue placeholder="Select" />
                 </SelectTrigger>
                 <SelectContent>
@@ -332,7 +343,7 @@ export default function Calculator() {
               </Select>
             </Field>
 
-            <Field label="College">
+            <Field id="college-label" label="College">
               <CollegeCombobox
                 options={colleges}
                 value={college}
@@ -341,11 +352,12 @@ export default function Calculator() {
                 loading={isCollegesLoading}
                 placeholder={state ? 'Select' : 'Pick a state first'}
                 emptyLabel={`No colleges found in ${STATE_NAMES[state] ?? state}`}
+                labelId="college-label"
               />
             </Field>
           </div>
 
-          {hint && !isResultLoading && <p className="mt-4 text-sm text-slate-500">{hint}</p>}
+          {hint && !isResultLoading && <p role="status" aria-live="polite" className="mt-4 text-sm text-slate-500">{hint}</p>}
 
           {college && residency && !result && !isResultLoading && (
             <div className="mt-5 flex justify-center">
@@ -360,12 +372,13 @@ export default function Calculator() {
           )}
 
           {error && (
-            <p className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800 border border-red-200">{error}</p>
+            <p role="alert" className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800 border border-red-200">{error}</p>
           )}
         </section>
 
         {isResultLoading && (
-          <div className="mt-8 space-y-3" aria-busy="true">
+          <div role="status" aria-live="polite" aria-busy="true" className="mt-8 space-y-3">
+            <span className="sr-only">Calculating your results.</span>
             <div className="h-48 rounded-xl border border-slate-200 bg-white animate-pulse" />
             <div className="h-24 rounded-xl border border-slate-200 bg-white animate-pulse" />
           </div>
@@ -377,7 +390,7 @@ export default function Calculator() {
                 same baseline, so the eye reads across and the gap is the point. */}
             <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
               <div className="border-b border-slate-200 px-5 py-4">
-                <h2 className="text-lg font-semibold tracking-tight">{result.college.name}</h2>
+                <h2 ref={resultHeadingRef} tabIndex={-1} className="text-lg font-semibold tracking-tight focus:outline-none">{result.college.name}</h2>
                 {result.college.city && (
                   <p className="text-sm text-slate-500">
                     {result.college.city}, {result.college.state} &middot;{' '}
@@ -476,7 +489,7 @@ export default function Calculator() {
               </Link>
             </section>
 
-            <ul className="space-y-1.5 text-xs leading-relaxed text-slate-500">
+            <ul className="space-y-1.5 text-sm leading-relaxed text-slate-600">
               {result.notes.map((n) => <li key={n}>{n}</li>)}
               <li>
                 Cost and earnings data from the U.S. Department of Education College Scorecard. Net price is an average
@@ -524,25 +537,28 @@ export default function Calculator() {
               <label htmlFor="email" className="block text-xs font-medium uppercase tracking-wider text-slate-500">
                 Email
               </label>
-              <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com" required autoComplete="email"
+              <Input id="email" name="email" type="email" value={email} onChange={(e) => { setEmail(e.target.value); setEmailInvalid(false) }}
+                onInvalid={() => setEmailInvalid(true)} aria-invalid={emailInvalid || undefined}
+                aria-describedby={emailInvalid ? 'email-error' : undefined}
+                placeholder="you@example.com" required autoComplete="email" inputMode="email"
                 className="h-11 rounded-lg border-slate-300 text-base" />
+              {emailInvalid && <p id="email-error" role="alert" className="text-sm text-red-700">Enter a valid email address.</p>}
             </div>
 
             <div className="space-y-1.5">
               <label htmlFor="phone" className="block text-xs font-medium uppercase tracking-wider text-slate-500">
                 Phone <span className="normal-case tracking-normal text-slate-400">(optional)</span>
               </label>
-              <Input id="phone" type="tel" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)}
-                placeholder="(555) 123-4567" autoComplete="tel"
+              <Input id="phone" name="phone" type="tel" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)}
+                placeholder="(555) 123-4567" autoComplete="tel" inputMode="tel"
                 className="h-11 rounded-lg border-slate-300 text-base" />
             </div>
 
             {phoneNumber.trim() && (
               <label className="flex items-start gap-2.5 rounded-lg bg-slate-50 p-3 cursor-pointer">
-                <input type="checkbox" checked={smsConsent} onChange={(e) => setSmsConsent(e.target.checked)}
+                <input name="smsConsent" type="checkbox" checked={smsConsent} onChange={(e) => setSmsConsent(e.target.checked)}
                   className="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#605dba] focus:ring-[#605dba]" />
-                <span className="text-xs leading-relaxed text-slate-600">
+                <span className="text-sm leading-relaxed text-slate-600">
                   Text me my results and occasional college-planning tips. Message and data rates may
                   apply. Reply STOP at any time to opt out.
                 </span>
@@ -550,7 +566,7 @@ export default function Calculator() {
             )}
 
             {captureError && (
-              <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{captureError}</p>
+              <p ref={captureErrorRef} tabIndex={-1} role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 focus:outline-none">{captureError}</p>
             )}
 
             <Button type="submit" disabled={isSubmitting}
@@ -558,7 +574,7 @@ export default function Calculator() {
               {isSubmitting ? 'Calculating…' : 'Show my results'}
             </Button>
 
-            <p className="text-center text-xs text-slate-400">
+            <p className="text-center text-sm leading-relaxed text-slate-600">
               We never sell your information. <Link href="/privacypolicy" className="underline hover:text-[#605dba]">Privacy Policy</Link>
             </p>
           </form>

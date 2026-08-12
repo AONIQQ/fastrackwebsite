@@ -20,6 +20,7 @@ export function CollegeCombobox({
   loading,
   placeholder = 'Select a College',
   emptyLabel = 'No colleges found',
+  labelId,
 }: {
   options: CollegeOption[]
   value: CollegeOption | null
@@ -28,13 +29,16 @@ export function CollegeCombobox({
   loading?: boolean
   placeholder?: string
   emptyLabel?: string
+  labelId: string
 }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [highlight, setHighlight] = useState(0)
   const rootRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLUListElement>(null)
+  const wasOpenRef = useRef(false)
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -54,8 +58,16 @@ export function CollegeCombobox({
   useEffect(() => setHighlight(0), [query])
 
   useEffect(() => {
-    if (open) inputRef.current?.focus()
-    else setQuery('')
+    if (open) {
+      inputRef.current?.focus()
+      wasOpenRef.current = true
+    } else {
+      setQuery('')
+      if (wasOpenRef.current) {
+        wasOpenRef.current = false
+        triggerRef.current?.focus()
+      }
+    }
   }, [open])
 
   useEffect(() => {
@@ -97,14 +109,16 @@ export function CollegeCombobox({
   return (
     <div ref={rootRef} className="relative w-full">
       <button
+        ref={triggerRef}
         type="button"
         disabled={disabled}
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-labelledby={`${labelId} college-trigger-value`}
         className="flex h-12 w-full items-center justify-between rounded-lg border border-slate-300 bg-white px-3 text-left text-base text-[#080b53] transition-shadow focus:outline-none focus:ring-2 focus:ring-[#605dba]/30 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        <span className={value ? 'truncate' : 'truncate text-slate-400'}>
+        <span id="college-trigger-value" className={value ? 'truncate' : 'truncate text-slate-400'}>
           {loading ? 'Loading colleges…' : value ? value.name : placeholder}
         </span>
         <ChevronDown className="h-4 w-4 opacity-50 shrink-0 ml-2" />
@@ -121,19 +135,26 @@ export function CollegeCombobox({
               onKeyDown={onKeyDown}
               placeholder="Type to search…"
               className="w-full bg-transparent text-base text-[#080b53] outline-none placeholder:text-slate-400"
-              aria-label="Search colleges"
+              aria-labelledby={labelId}
+              aria-controls="college-options"
+              aria-expanded="true"
+              aria-required="true"
+              aria-autocomplete="list"
+              aria-activedescendant={filtered[highlight] ? `college-option-${filtered[highlight].id}` : undefined}
+              role="combobox"
             />
             {query && (
-              <button type="button" onClick={() => setQuery('')} aria-label="Clear search">
+              <button type="button" onClick={() => setQuery('')} aria-label="Clear college search" className="-m-3 flex h-11 w-11 items-center justify-center">
                 <X className="h-4 w-4 text-slate-400 hover:text-slate-600" />
               </button>
             )}
           </div>
 
-          <ul ref={listRef} role="listbox" className="max-h-[300px] overflow-y-auto py-1">
+          <ul id="college-options" ref={listRef} role="listbox" aria-labelledby={labelId} className="max-h-[300px] overflow-y-auto py-1">
             {filtered.map((o, i) => (
               <li
                 key={o.id}
+                id={`college-option-${o.id}`}
                 role="option"
                 aria-selected={value?.id === o.id}
                 onMouseEnter={() => setHighlight(i)}
