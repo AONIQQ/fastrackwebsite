@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import SiteFooter from '@/components/SiteFooter'
 import { getCollegeById } from '@/lib/db'
-import { STATE_NAMES, stateSlug } from '@/lib/states'
+import { STATE_NAMES, stateDirectoryHref } from '@/lib/states'
 import { withAttributionQuery } from '@/lib/attribution-url.mjs'
 import { collegeSeoMetadata, collegeSeoOpening } from '@/lib/college-seo-experiment.mjs'
 
@@ -46,6 +46,7 @@ export default async function CollegePage({ params, searchParams }: { params: { 
   if (!c) notFound()
 
   const stateName = STATE_NAMES[c.state] ?? c.state
+  const stateHref = stateDirectoryHref(c.state)
   const experiment = collegeSeoOpening(c)
   const calcHref = `/calculator?state=${c.state}&residency=inState&collegeId=${c.id}`
   const trackedCalcHref = withAttributionQuery(calcHref, searchParams)
@@ -77,9 +78,9 @@ export default async function CollegePage({ params, searchParams }: { params: { 
         <section className="bg-[#080b53] text-white">
           <div className="container mx-auto px-4 py-14 text-center">
             <p className="uppercase text-sm tracking-wider text-blue-200">
-              <Link href={`/savings/${stateSlug(c.state)}`} className="hover:underline">
-                {stateName}
-              </Link>{' '}
+              {stateHref ? (
+                <Link href={stateHref} className="hover:underline">{stateName}</Link>
+              ) : stateName}{' '}
               &middot; College Costs
             </p>
             <h1 className="mx-auto mt-4 max-w-3xl text-3xl sm:text-4xl md:text-5xl font-bold leading-tight">
@@ -156,9 +157,11 @@ export default async function CollegePage({ params, searchParams }: { params: { 
         <section className="container mx-auto px-4 py-14 text-center">
           <p className="text-gray-600">
             See costs for more schools in{' '}
-            <Link href={`/savings/${stateSlug(c.state)}`} className="font-semibold text-[#605dba] hover:underline">
-              {stateName}
-            </Link>{' '}
+            {stateHref ? (
+              <Link href={stateHref} className="font-semibold text-[#605dba] hover:underline">
+                {stateName}
+              </Link>
+            ) : stateName}{' '}
             or{' '}
             <Link href="/savings" className="font-semibold text-[#605dba] hover:underline">
               browse every state

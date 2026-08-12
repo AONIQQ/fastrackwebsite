@@ -16,6 +16,12 @@ export function stateSlug(code: string): string {
   return (STATE_NAMES[code.toUpperCase()] ?? code).toLowerCase().replace(/[^a-z]+/g, '-')
 }
 
+/** Return a state-directory route only when that route is backed by STATE_NAMES. */
+export function stateDirectoryHref(code: string): string | null {
+  const normalized = code.toUpperCase()
+  return STATE_NAMES[normalized] ? `/savings/${stateSlug(normalized)}` : null
+}
+
 /** Reverse lookup: "pennsylvania" -> "PA". Returns null for unknown slugs. */
 export function codeFromSlug(slug: string): string | null {
   const entry = Object.entries(STATE_NAMES).find(([code]) => stateSlug(code) === slug.toLowerCase())
