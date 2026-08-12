@@ -14,6 +14,7 @@ const selected = [
   [100663, 'UAB', '/college/100663-university-of-alabama-at-birmingham'],
   [164748, 'Berklee College of Music', '/college/164748-berklee-college-of-music'],
   [139940, 'Georgia State University', '/college/139940-georgia-state-university'],
+  [216287, 'Swarthmore College', '/college/216287-swarthmore-college'],
 ]
 
 const college = (id) => ({
@@ -26,13 +27,15 @@ const college = (id) => ({
         ? 'Berklee College of Music'
         : id === 139940
           ? 'Georgia State University'
-        : 'University of Alabama at Birmingham',
+          : id === 216287
+            ? 'Swarthmore College'
+            : 'University of Alabama at Birmingham',
   tuition_in: 12_345,
   tuition_out: 45_678,
   net_price: 23_456,
 })
 
-test('the experiment is an exact five-ID allowlist with clean self-canonicals', () => {
+test('the experiment is an exact six-ID allowlist with clean self-canonicals', () => {
   for (const [id, searchName, canonicalPath] of selected) {
     const experiment = collegeSeoExperiment(id)
     assert.equal(experiment.searchName, searchName)
@@ -46,20 +49,22 @@ test('the experiment is an exact five-ID allowlist with clean self-canonicals', 
     assert.equal(new URL(metadata.canonicalPath, 'https://www.fastrack.school').search, '')
   }
 
-  for (const id of [1, 100654, 139939, 139941, 164747, 164749, 209550, 209552, 218671, 218673]) {
+  for (const id of [1, 100654, 139939, 139941, 164747, 164749, 209550, 209552, 216286, 216288, 218671, 218673]) {
     assert.equal(collegeSeoExperiment(id), null)
     assert.equal(collegeSeoMetadata(college(id)), null)
     assert.equal(collegeSeoOpening(college(id)), null)
   }
 })
 
-test('adding Georgia State changes no nonselected presentation', () => {
+test('adding Swarthmore changes no nonselected presentation', () => {
   const nonselected = [
     college(100654),
     college(139939),
     college(139941),
     college(164747),
     college(164749),
+    college(216286),
+    college(216288),
     college(233921),
   ]
   const before = nonselected.map((entry) => ({
@@ -131,6 +136,28 @@ test('Georgia State presentation distinguishes current tuition, net price, resid
   assert.match(opening.answer, /choosing in-state in the calculator does not establish eligibility/)
 })
 
+test('Swarthmore presentation distinguishes current published tuition, net price, and personalized aid', () => {
+  const swarthmore = {
+    id: 216287,
+    name: 'Swarthmore College',
+    tuition_in: 65_494,
+    tuition_out: 65_494,
+    net_price: 23_149,
+  }
+  const metadata = collegeSeoMetadata(swarthmore)
+  const opening = collegeSeoOpening(swarthmore)
+  assert.equal(metadata.title, 'Swarthmore College Cost and Tuition | Fastrack')
+  assert.ok(metadata.title.length <= 60)
+  assert.ok(metadata.description.length <= 160)
+  assert.equal(metadata.canonicalPath, '/college/216287-swarthmore-college')
+  assert.equal(opening.heading, 'How much does Swarthmore College cost?')
+  assert.match(opening.answer, /published tuition of \$65,494 for in-state students and \$65,494 for out-of-state students/)
+  assert.match(opening.answer, /average net price of \$23,149 per year for federal-aid recipients after grant and scholarship aid/)
+  assert.match(opening.answer, /different measures/)
+  assert.match(opening.answer, /neither is your family’s personalized aid offer/)
+  assert.doesNotMatch(`${metadata.title} ${metadata.description} ${opening.answer}`, /acceptance|guarantee|guaranteed|will save|actual(?:ly)? pay/i)
+})
+
 test('missing fields are described as unavailable rather than invented', () => {
   const missing = collegeSeoOpening({ ...college(209551), tuition_in: null, tuition_out: null, net_price: null })
   assert.match(missing.answer, /Published tuition is not available/)
@@ -162,6 +189,14 @@ test('calculator CTA destination preserves prefill and only approved attribution
   assert.deepEqual(Object.fromEntries(georgiaState.searchParams), {
     state: 'GA', residency: 'inState', collegeId: '139940',
     utm_source: 'google', utm_medium: 'organic', utm_campaign: 'agent-20260811', gclid: 'g-3', fbclid: 'f-3',
+  })
+  const swarthmore = new URL(`https://www.fastrack.school${withAttributionQuery(
+    '/calculator?state=PA&residency=inState&collegeId=216287',
+    { utm_source: 'google', utm_medium: 'organic', utm_campaign: 'agent-20260811', gclid: 'g-4', fbclid: 'f-4', email: 'private@example.com' },
+  )}`)
+  assert.deepEqual(Object.fromEntries(swarthmore.searchParams), {
+    state: 'PA', residency: 'inState', collegeId: '216287',
+    utm_source: 'google', utm_medium: 'organic', utm_campaign: 'agent-20260811', gclid: 'g-4', fbclid: 'f-4',
   })
 })
 
