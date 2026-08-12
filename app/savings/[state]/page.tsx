@@ -8,6 +8,7 @@ import { getCollegesByState, getStateSavingsStats, getTopCollegesForState } from
 import { STATE_NAMES, codeFromSlug, collegeSlug, stateSlug } from '@/lib/states'
 import { withAttributionQuery } from '@/lib/attribution-url.mjs'
 import { stateBreadcrumbData } from '@/lib/structured-data.mjs'
+import { statePageMetadata } from '@/lib/state-page-metadata.mjs'
 
 // ISR: rendered on first request (the DB is only reachable in the deployed
 // environment), then cached for a day.
@@ -17,10 +18,7 @@ export async function generateMetadata({ params }: { params: { state: string } }
   const code = codeFromSlug(params.state)
   if (!code) return {}
   const name = STATE_NAMES[code]
-  return {
-    title: `Dual Credit in ${name}: A Modeled College-Cost Scenario | Fastrack`,
-    description: `Real net-price data for ${name} colleges and a modeled dual-credit cost scenario with transfer and degree-applicability limitations.`,
-  }
+  return statePageMetadata(name, stateSlug(code))
 }
 
 const fmt = (n: number | null) => (n == null ? '-' : `$${n.toLocaleString()}`)
