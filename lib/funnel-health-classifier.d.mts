@@ -8,7 +8,7 @@ export const FUNNEL_HEALTH_THRESHOLDS: Readonly<{
 }>
 export function classifyFunnelHealth(input: {
   controlsReady: boolean; smsEnabled: boolean; smsConfigurationValid: boolean
-  stripeSnapshotFresh: boolean; cronCompletedAt: string | null; cronFailed: boolean
+  stripeSnapshotFresh: boolean; whopReady: boolean; cronCompletedAt: string | null; cronFailed: boolean
   dueResultsOldestHours: number | null; dueNurtureOldestHours: number | null; expiredLeases: number
   projectionBacklog: number; unmatchedCallbacks24h: number
   persistenceUncertain24h: number; attempts24h: number; accepted24h: number

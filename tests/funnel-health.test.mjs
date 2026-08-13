@@ -17,7 +17,7 @@ test('funnel health classifications are deterministic and bounded', async () => 
   assert.match(source, /overall: maxLevel\(Object\.values\(components\)\)/)
   const now = new Date('2026-08-13T18:00:00.000Z')
   const ready = {
-    controlsReady: true, smsEnabled: false, smsConfigurationValid: true, stripeSnapshotFresh: true,
+    controlsReady: true, smsEnabled: false, smsConfigurationValid: true, stripeSnapshotFresh: true, whopReady: false,
     cronCompletedAt: '2026-08-13T15:00:00.000Z', cronFailed: false,
     dueResultsOldestHours: null, dueNurtureOldestHours: null, expiredLeases: 0, projectionBacklog: 0,
     unmatchedCallbacks24h: 0,
@@ -28,6 +28,7 @@ test('funnel health classifications are deterministic and bounded', async () => 
   assert.equal(classifyFunnelHealth(ready, now).overall, 'WARNING')
   assert.equal(classifyFunnelHealth(ready, now).components.controls, 'READY')
   assert.equal(classifyFunnelHealth(ready, now).components.whop_instrumentation, 'WARNING')
+  assert.equal(classifyFunnelHealth({ ...ready, whopReady: true }, now).components.whop_instrumentation, 'READY')
   assert.equal(classifyFunnelHealth({ ...ready, smsEnabled: true }, now).overall, 'WARNING')
   assert.equal(classifyFunnelHealth({ ...ready, persistenceUncertain24h: 1 }, now).overall, 'CRITICAL')
   assert.equal(classifyFunnelHealth({ ...ready, controlsReady: false }, now).components.controls, 'CRITICAL')
@@ -45,9 +46,10 @@ test('report is fixed aggregate-only and excludes identity columns', async () =>
   assert.match(route, /if \(!isAdmin\(\)\)/)
   assert.match(route, /Cache-Control': 'no-store/)
   assert.match(source, /assertFunnelHealthReport/)
+  assert.match(source, /WHOP_RUNTIME_PROOF_MODE !== '1'/)
   assert.doesNotMatch(source, /select[\s\S]{0,300}\b(email|phone|recipient|subject|provider_message_id|provider_event_id|tracking_id|claim_token|capture_id)\b/i)
   assert.match(source, /is_fixture = false/)
-  assert.match(source, /NOT_INSTRUMENTED/)
+  assert.match(source, /INSTRUMENTED/)
   assert.doesNotThrow(() => {
     const sourceText = JSON.stringify({ events_24h: [
       { event_type: 'rejected', reason_code: 'invalid_email', count: 1 },
@@ -68,7 +70,7 @@ test('panel is prominent, accessible, and renders every required risk domain', a
   ])
   assert.match(page, /<FunnelHealthPanel report=\{health\}/)
   assert.match(panel, /aria-labelledby="funnel-health-heading"/)
-  for (const label of ['Customer funnel health', 'Capture and controls', 'Cron, queues, and delivery', 'Payments', 'Whop: NOT INSTRUMENTED', 'Queue age detail']) {
+  for (const label of ['Customer funnel health', 'Capture and controls', 'Cron, queues, and delivery', 'Payments', 'Whop:', 'Queue age detail']) {
     assert.ok(panel.includes(label), label)
   }
 })

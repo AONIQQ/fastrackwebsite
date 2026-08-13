@@ -1,6 +1,7 @@
 import { neon } from '@neondatabase/serverless';
 import { CAPTURE_ABUSE_CLEANUP_BATCH_SIZE } from './capture-abuse-cleanup.mjs';
 import { boundedCaptureReportEvent } from './capture-reporting.mjs';
+import { PAYMENT_BY_PROVIDER_SOURCE_SQL, PAYMENT_TOTALS_SQL } from './payment-reporting.mjs';
 
 // HTTP driver rather than a TCP pool. In serverless functions a pool either leaks
 // connections across invocations or pays a handshake on every cold start; the HTTP
@@ -714,23 +715,8 @@ export async function funnelStats() {
     from leads where created_at >= '2026-08-06' and coalesce(is_fixture, false) = false
     group by 1 order by 1
   `) as { nurture_stage: number; leads: number }[];
-  const sales = (await sql`
-    select
-      count(*) filter (where paid_at is not null)::int as count,
-      coalesce(sum(
-        case when paid_at is not null and coalesce(dispute_state, '') not in ('open', 'lost')
-          then greatest(coalesce(amount_cents, 0) - coalesce(refunded_cents, 0), 0) else 0 end
-      ),0)::int as cents
-    from sales
-    where coalesce(sales.is_fixture, false) = false
-      and not exists (
-      select 1 from leads where leads.id = sales.lead_id and coalesce(leads.is_fixture, false)
-    )
-      and not exists (
-        select 1 from email_messages
-        where email_messages.id = sales.email_message_id and email_messages.is_fixture
-      )
-  `) as { count: number; cents: number }[];
+  const sales = (await sql.query(PAYMENT_TOTALS_SQL)) as { count: number; cents: number }[];
+  const salesBySource = (await sql.query(PAYMENT_BY_PROVIDER_SOURCE_SQL)) as { provider: 'stripe' | 'whop'; source: string; sales: number; net_cents: number }[];
   const emailPerf = (await sql`
     select step,
       count(distinct email_message_id) filter (where event_type = 'open')::int as opens,
@@ -740,5 +726,5 @@ export async function funnelStats() {
     where email_messages.is_fixture = false
     group by step order by step
   `) as { step: string; opens: number; clicks: number }[];
-  return { bySource, byStage, sales: sales[0], emailPerf };
+  return { bySource, byStage, sales: sales[0], salesBySource, emailPerf };
 }

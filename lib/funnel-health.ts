@@ -1,6 +1,7 @@
 import { sql } from './db'
 import { publicRolloutStatus } from './rollout-controls.mjs'
 import { classifyFunnelHealth, FUNNEL_HEALTH_THRESHOLDS } from './funnel-health-classifier.mjs'
+import { PROVIDER_PAYMENT_TOTALS_SQL } from './payment-reporting.mjs'
 
 export type { HealthLevel } from './funnel-health-classifier.mjs'
 
@@ -14,6 +15,14 @@ export const STRIPE_WEBHOOK_CONTRACT = Object.freeze({
     'charge.refunded',
     'charge.dispute.created',
     'charge.dispute.closed',
+  ]),
+})
+
+export const WHOP_WEBHOOK_CONTRACT = Object.freeze({
+  registration_status: 'PENDING_RUNTIME_PROOF' as const,
+  last_verified_at: null,
+  required_event_types: Object.freeze([
+    'payment.succeeded', 'payment.failed', 'refund.created', 'refund.updated', 'dispute.created', 'dispute.updated',
   ]),
 })
 
@@ -42,7 +51,7 @@ export function assertFunnelHealthReport<T>(report: T): T {
 
 export async function funnelHealthReport(now = new Date()) {
   const rollout = publicRolloutStatus()
-  const [queueRows, leaseRows, runRows, deliveryRows, captureRows, messageRows, salesRows] = await Promise.all([
+  const [queueRows, leaseRows, runRows, deliveryRows, captureRows, messageRows, salesRows, whopSalesRows, whopRows] = await Promise.all([
     sql`
       select kind, status, coalesce(rollout_dispatch_eligible, true) as dispatch_eligible,
         case
@@ -134,19 +143,14 @@ export async function funnelHealthReport(now = new Date()) {
           and coalesce(rollout_dispatch_eligible,true) and next_attempt_at <= now()) as oldest_due_at
       from email_messages where is_fixture = false group by kind order by kind
     `,
+    sql.query(PROVIDER_PAYMENT_TOTALS_SQL, ['stripe']),
+    sql.query(PROVIDER_PAYMENT_TOTALS_SQL, ['whop']),
     sql`
-      select
-        count(*) filter (where paid_at is not null)::int as paid_sales,
-        count(*) filter (where coalesce(refunded_cents, 0) > 0)::int as refunded_sales,
-        count(*) filter (where dispute_state = 'open')::int as open_disputes,
-        count(*) filter (where dispute_state = 'lost')::int as lost_disputes,
-        coalesce(sum(case when paid_at is not null then amount_cents else 0 end),0)::int as gross_cents,
-        coalesce(sum(refunded_cents),0)::int as refunded_cents,
-        coalesce(sum(case when paid_at is not null and coalesce(dispute_state,'') not in ('open','lost')
-          then greatest(coalesce(amount_cents,0)-coalesce(refunded_cents,0),0) else 0 end),0)::int as net_cents
-      from sales where coalesce(is_fixture, false) = false
-        and not exists (select 1 from leads where leads.id = sales.lead_id and coalesce(leads.is_fixture, false))
-        and not exists (select 1 from email_messages where email_messages.id = sales.email_message_id and email_messages.is_fixture)
+      select count(*)::int as stored,
+        count(*) filter (where outcome='unmatched')::int as unmatched,
+        count(*) filter (where received_at>=now()-interval '24 hours')::int as received_24h,
+        count(*) filter (where outcome='received')::int as projection_pending
+      from payment_provider_events where provider='whop' and is_fixture=false
     `,
   ])
 
@@ -165,6 +169,10 @@ export async function funnelHealthReport(now = new Date()) {
   const sales = (salesRows as Array<Record<string, number>>)[0] ?? {
     paid_sales: 0, refunded_sales: 0, open_disputes: 0, lost_disputes: 0, gross_cents: 0, refunded_cents: 0, net_cents: 0,
   }
+  const whopSales = (whopSalesRows as Array<Record<string, number>>)[0] ?? {
+    paid_sales: 0, refunded_sales: 0, open_disputes: 0, lost_disputes: 0, gross_cents: 0, refunded_cents: 0, net_cents: 0,
+  }
+  const whopLedger = (whopRows as Array<Record<string, number>>)[0] ?? { stored: 0, unmatched: 0, received_24h: 0, projection_pending: 0 }
   const message = Object.fromEntries(messages.map((row) => [row.kind, row])) as Partial<Record<'results' | 'nurture', typeof messages[number]>>
   const captureCount = (event: string) => capture.filter((row) => row.event_type === event).reduce((sum, row) => sum + row.count, 0)
   const latestRun = runSummary.latest
@@ -177,6 +185,9 @@ export async function funnelHealthReport(now = new Date()) {
     smsEnabled: process.env.CAPTURE_SMS_ENABLED === '1',
     smsConfigurationValid: ['0', '1'].includes(process.env.CAPTURE_SMS_ENABLED ?? ''),
     stripeSnapshotFresh: ageHours(STRIPE_WEBHOOK_CONTRACT.last_verified_at, now)! < 24 * 30,
+    whopReady: String(WHOP_WEBHOOK_CONTRACT.registration_status) === 'VERIFIED_SNAPSHOT'
+      && process.env.WHOP_RUNTIME_PROOF_MODE !== '1'
+      && Number(whopLedger.projection_pending) === 0 && Number(whopLedger.unmatched) === 0,
     cronCompletedAt: typeof latestSuccessfulRun?.completed_at === 'string' ? latestSuccessfulRun.completed_at : null,
     cronFailed: Boolean(latestRun && (latestRun.failure_category || Number(latestRun.failed) > 0)),
     dueResultsOldestHours: ageHours(message.results?.oldest_due_at ?? null, now),
@@ -224,6 +235,7 @@ export async function funnelHealthReport(now = new Date()) {
     },
     resend: delivery,
     stripe: { webhook: STRIPE_WEBHOOK_CONTRACT, ledger: sales },
-    whop: { status: 'NOT_INSTRUMENTED', level: 'WARNING', detail: 'Guide sales, refunds, and disputes are outside the canonical ledger.' },
+    whop: { webhook: { ...WHOP_WEBHOOK_CONTRACT, runtime_proof_mode: process.env.WHOP_RUNTIME_PROOF_MODE === '1' }, ledger: { ...whopLedger, ...whopSales },
+      status: classification.components.whop_instrumentation === 'READY' ? 'INSTRUMENTED' : 'WARNING' },
   })
 }

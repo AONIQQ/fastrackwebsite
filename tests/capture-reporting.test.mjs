@@ -153,13 +153,14 @@ test('fixture capture requires admin session plus bounded authorization and cann
 
 test('ordinary admin cohorts exclude durable fixture rows in SQL', async () => {
   const source = await read('../lib/db.ts')
+  const paymentReporting = await read('../lib/payment-reporting.mjs')
   assert.match(source, /bySource[\s\S]*coalesce\(is_fixture, false\) = false/)
   assert.match(source, /byStage[\s\S]*coalesce\(is_fixture, false\) = false/)
-  assert.match(source, /from sales[\s\S]*not exists \([\s\S]*coalesce\(leads\.is_fixture, false\)/)
-  assert.match(source, /from sales[\s\S]*email_messages\.id = sales\.email_message_id and email_messages\.is_fixture/)
+  assert.match(paymentReporting, /from sales left join leads[\s\S]*not coalesce\(leads\.is_fixture,false\)/)
+  assert.match(paymentReporting, /email_messages\.id=sales\.email_message_id and email_messages\.is_fixture/)
   assert.match(source, /email_messages\.is_fixture = false/)
   assert.match(source, /leadStats[\s\S]*from leads[\s\S]*where coalesce\(is_fixture, false\) = false/)
-  assert.match(source, /from sales[\s\S]*coalesce\(sales\.is_fixture, false\) = false/)
+  assert.match(paymentReporting, /coalesce\(sales\.is_fixture,false\)=false/)
 })
 
 test('fixture diagnostics remain explicitly labeled outside headline metrics', async () => {

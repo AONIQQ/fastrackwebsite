@@ -131,16 +131,16 @@ test('dispatch and opt-out integration fail safe around duplicates and scanners'
 })
 
 test('Stripe preserves trusted fixture provenance independently of customer attribution', async () => {
-  const [migration, stripeRoute, db] = await Promise.all([
+  const [migration, stripeRoute, paymentReporting] = await Promise.all([
     readFile(new URL('../db/migrations/0010_reporting_fixture_provenance.sql', import.meta.url), 'utf8'),
     readFile(new URL('../app/api/webhooks/stripe/route.ts', import.meta.url), 'utf8'),
-    readFile(new URL('../lib/db.ts', import.meta.url), 'utf8'),
+    readFile(new URL('../lib/payment-reporting.mjs', import.meta.url), 'utf8'),
   ])
   assert.match(migration, /sales[\s\S]*is_fixture boolean default false/)
   assert.match(stripeRoute, /candidate as \([\s\S]*message_row\.is_fixture/)
   assert.match(stripeRoute, /coalesce\(candidate\.is_fixture, false\)/)
   assert.match(stripeRoute, /is_fixture = coalesce\(sales\.is_fixture, false\) or coalesce\(excluded\.is_fixture, false\)/)
-  assert.match(db, /where coalesce\(sales\.is_fixture, false\) = false/)
+  assert.match(paymentReporting, /coalesce\(sales\.is_fixture,false\)=false/)
   assert.doesNotMatch(stripeRoute, /metadata[\s\S]{0,120}fixture/i)
   const reconciliation = stripeRoute.slice(
     stripeRoute.indexOf('async function reconcilePaymentIntent'),

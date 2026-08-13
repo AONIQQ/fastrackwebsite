@@ -14,6 +14,7 @@ export function FunnelHealthPanel({ report }: { report: FunnelHealthReport }) {
   const components = report.component_status as Record<string, HealthLevel>
   const controls = report.rollout.controls
   const stripe = report.stripe.ledger as Record<string, number>
+  const whop = report.whop.ledger as Record<string, number>
 
   return (
     <section aria-labelledby="funnel-health-heading" className={`border-4 rounded-lg p-4 md:p-6 mb-8 ${levelStyle[status]}`}>
@@ -71,9 +72,12 @@ export function FunnelHealthPanel({ report }: { report: FunnelHealthReport }) {
           <p className="text-sm mt-2">Paid sales: {value(stripe.paid_sales)}</p>
           <p className="text-sm">Gross: {money(stripe.gross_cents)} | refunds: {money(stripe.refunded_cents)} | net: <strong>{money(stripe.net_cents)}</strong></p>
           <p className="text-sm">Refunded sales: {value(stripe.refunded_sales)} | disputes: {value(stripe.open_disputes)} open, {value(stripe.lost_disputes)} lost</p>
-          <div className="mt-3 rounded border-2 border-amber-600 bg-amber-50 p-2 text-amber-950">
-            <p className="font-bold">Whop: NOT INSTRUMENTED</p>
-            <p className="text-xs">Guide sales, refunds, and disputes do not enter the canonical ledger.</p>
+          <div className={`mt-3 rounded border-2 p-2 ${report.whop.status === 'INSTRUMENTED' ? 'border-emerald-700 bg-emerald-50 text-emerald-950' : 'border-amber-600 bg-amber-50 text-amber-950'}`}>
+            <p className="font-bold">Whop: {report.whop.status}</p>
+            <p className="text-xs">Signed six-event contract. Runtime status: {report.whop.webhook.registration_status}.</p>
+            <p className="text-xs">Runtime proof mode: {report.whop.webhook.runtime_proof_mode ? 'ON (not customer-ready)' : 'off'}.</p>
+            <p className="text-xs">Events: {value(whop.stored)} stored, {value(whop.received_24h)} in 24h, {value(whop.projection_pending)} pending.</p>
+            <p className="text-xs">Paid sales: {value(whop.paid_sales)} | gross: {money(whop.gross_cents)} | refunds: {money(whop.refunded_cents)} | net: {money(whop.net_cents)}</p>
           </div>
         </div>
       </div>
