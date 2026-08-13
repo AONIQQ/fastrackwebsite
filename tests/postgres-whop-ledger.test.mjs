@@ -47,38 +47,44 @@ test('exact production Whop SQL runs on PostgreSQL 17 with duplicate and reverse
 
     // Official-shaped updated events can share object-created time; the signed
     // envelope lifecycle time and update-event tie priority must win.
-    run(eventSql("'msg_refund_new','refund.updated','rf_one','pay_fixture',4700,'succeeded','2027-01-15 08:00Z','2027-01-15 08:03Z','received',false"))
+    run(eventSql("'msg_refund_new','refund_updated','rf_one','pay_fixture',4700,'succeeded','2027-01-15 08:00Z','2027-01-15 08:03Z','received',false"))
     run(reconcileSql('pay_fixture'))
-    run(eventSql("'msg_refund_old','refund.created','rf_one','pay_fixture',1000,'pending','2027-01-15 08:00Z','2027-01-15 08:02Z','received',false"))
-    run(eventSql("'msg_dispute_new','dispute.updated','dspt_one','pay_fixture',4700,'won','2027-01-15 08:00Z','2027-01-15 08:04Z','received',false"))
-    run(eventSql("'msg_dispute_old','dispute.created','dspt_one','pay_fixture',4700,'open','2027-01-15 08:00Z','2027-01-15 08:03Z','received',false"))
+    run(eventSql("'msg_refund_old','refund_created','rf_one','pay_fixture',1000,'pending','2027-01-15 08:00Z','2027-01-15 08:02Z','received',false"))
+    run(eventSql("'msg_dispute_new','dispute_updated','dspt_one','pay_fixture',4700,'won','2027-01-15 08:00Z','2027-01-15 08:04Z','received',false"))
+    run(eventSql("'msg_dispute_old','dispute_created','dspt_one','pay_fixture',4700,'open','2027-01-15 08:00Z','2027-01-15 08:03Z','received',false"))
     run(reconcileSql('pay_fixture'))
     assert.equal(run("select count(*)||'|'||count(*) filter(where outcome='received') from payment_provider_events"), '4|4')
 
+    // Non-contract aliases and SQL wildcard near-matches must never project
+    // revenue state, even if a future/manual row bypasses the normalizer.
+    run(eventSql("'msg_legacy_dot','refund.created','rf_legacy','pay_fixture',4700,'succeeded','2027-01-15 08:00Z','2027-01-15 08:04Z','received',false"))
+    run(eventSql("'msg_near_match','disputeXcreated','dspt_near','pay_fixture',4700,'lost','2027-01-15 08:00Z','2027-01-15 08:04Z','received',false"))
+
     // Reverse order: payment arrives after refund/dispute. Exact production SQL
     // creates one sale, then applies all prior lifecycle events.
-    run(paymentSql("'msg_payment','payment.succeeded','pay_fixture','pay_fixture',4700,'2027-01-15 08:00Z','2027-01-15 08:05Z',false,null,null,null,'buyer@example.test',null,'ch_fixture','prod_fixture',null,null,null,'2027-01-15 08:01Z'"))
+    run(paymentSql("'msg_payment','payment_succeeded','pay_fixture','pay_fixture',4700,'2027-01-15 08:00Z','2027-01-15 08:05Z',false,null,null,null,'buyer@example.test',null,'ch_fixture','prod_fixture',null,null,null,'2027-01-15 08:01Z'"))
     run(reconcileSql('pay_fixture'))
     assert.equal(run("select payment_state||'|'||refunded_cents||'|'||dispute_state||'|'||disputed_cents||'|'||attribution_method||'|'||to_char(paid_at at time zone 'UTC','HH24:MI') from sales"), 'refunded|4700|won|4700|none|08:01')
-    assert.equal(run("select count(*)||'|'||count(*) filter(where outcome='applied') from payment_provider_events"), '5|5')
+    assert.equal(run("select count(*)||'|'||count(*) filter(where outcome='applied') from payment_provider_events"), '7|5')
+    assert.equal(run("select count(*) from payment_provider_events where event_id in('msg_legacy_dot','msg_near_match') and outcome='received'"), '2')
 
     // New delivery ID for the same payment and duplicate delivery ID cannot
     // duplicate or regress the refunded sale.
-    const duplicatePayment = "'msg_payment_2','payment.succeeded','pay_fixture','pay_fixture',4700,'2027-01-15 08:00Z','2027-01-15 08:06Z',false,null,null,null,'buyer@example.test',null,'ch_fixture','prod_fixture',null,null,null,'2027-01-15 08:01Z'"
+    const duplicatePayment = "'msg_payment_2','payment_succeeded','pay_fixture','pay_fixture',4700,'2027-01-15 08:00Z','2027-01-15 08:06Z',false,null,null,null,'buyer@example.test',null,'ch_fixture','prod_fixture',null,null,null,'2027-01-15 08:01Z'"
     run(paymentSql(duplicatePayment)); run(paymentSql(duplicatePayment)); run(reconcileSql('pay_fixture'))
     assert.equal(run("select count(*)||'|'||payment_state||'|'||refunded_cents from sales group by payment_state,refunded_cents"), '1|refunded|4700')
     assert.equal(run("select count(*) from payment_provider_events where event_id='msg_payment_2'"), '1')
 
     // Same lifecycle timestamp uses updated over created, never lexicographic
     // event-ID accident.
-    run(eventSql("'msg_same_z','refund.created','rf_same','pay_fixture',2000,'pending','2027-01-15 08:00Z','2027-01-15 08:07Z','received',false"))
-    run(eventSql("'msg_same_a','refund.updated','rf_same','pay_fixture',2000,'succeeded','2027-01-15 08:00Z','2027-01-15 08:07Z','received',false"))
+    run(eventSql("'msg_same_z','refund_created','rf_same','pay_fixture',2000,'pending','2027-01-15 08:00Z','2027-01-15 08:07Z','received',false"))
+    run(eventSql("'msg_same_a','refund_updated','rf_same','pay_fixture',2000,'succeeded','2027-01-15 08:00Z','2027-01-15 08:07Z','received',false"))
     run(reconcileSql('pay_fixture'))
     assert.equal(run("select refunded_cents from sales"), '6700')
 
     // Multiple dispute objects are reduced conservatively. A newer won object
     // must not hide a distinct older open/lost object or its disputed amount.
-    run(eventSql("'msg_dispute_two','dispute.created','dspt_two','pay_fixture',1000,'open','2027-01-15 08:00Z','2027-01-15 08:08Z','received',false"))
+    run(eventSql("'msg_dispute_two','dispute_created','dspt_two','pay_fixture',1000,'open','2027-01-15 08:00Z','2027-01-15 08:08Z','received',false"))
     run(reconcileSql('pay_fixture'))
     assert.equal(run("select dispute_state||'|'||disputed_cents from sales"), 'open|5700')
 

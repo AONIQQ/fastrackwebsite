@@ -83,3 +83,14 @@ test('Stripe coverage is an explicit fixed server-side snapshot, never a page-lo
   }
   assert.doesNotMatch(source, /fetch\(|new Stripe|stripe\./)
 })
+
+test('Whop health contract reports the exact live V1 underscore events', async () => {
+  const source = await read('../lib/funnel-health.ts')
+  const contract = source.slice(source.indexOf('export const WHOP_WEBHOOK_CONTRACT'), source.indexOf('type QueueRow'))
+  for (const event of ['payment_succeeded', 'payment_failed', 'refund_created', 'refund_updated', 'dispute_created', 'dispute_updated']) {
+    assert.ok(contract.includes(event), event)
+  }
+  for (const legacy of ['payment.succeeded', 'payment.failed', 'refund.created', 'refund.updated', 'dispute.created', 'dispute.updated']) {
+    assert.equal(contract.includes(legacy), false, legacy)
+  }
+})

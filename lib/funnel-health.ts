@@ -22,7 +22,7 @@ export const WHOP_WEBHOOK_CONTRACT = Object.freeze({
   registration_status: 'PENDING_RUNTIME_PROOF' as const,
   last_verified_at: null,
   required_event_types: Object.freeze([
-    'payment.succeeded', 'payment.failed', 'refund.created', 'refund.updated', 'dispute.created', 'dispute.updated',
+    'payment_succeeded', 'payment_failed', 'refund_created', 'refund_updated', 'dispute_created', 'dispute_updated',
   ]),
 })
 
