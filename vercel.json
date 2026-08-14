@@ -6,6 +6,10 @@
       "schedule": "0 15 * * *"
     },
     {
+      "path": "/api/cron/funnel-health-alert",
+      "schedule": "17 * * * *"
+    },
+    {
       "path": "/api/cron/growth-batch",
       "schedule": "0 13 * * 1"
     },
