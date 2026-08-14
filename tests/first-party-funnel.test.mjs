@@ -14,6 +14,25 @@ import { emitFirstPartyFunnelEvent } from '../lib/first-party-funnel-client.mjs'
 
 const uuid = '123e4567-e89b-42d3-a456-426614174000'
 const secret = 'a'.repeat(32)
+const loggedPartnerUrls = [
+  'https://www.fastrack.school/calculator?utm_source=email&utm_medium=partner&utm_campaign=agent-20260808&utm_content=homeschool-connections',
+  'https://www.fastrack.school/calculator?utm_source=email&utm_medium=partner&utm_campaign=agent-20260808&utm_content=hs4cc',
+  'https://www.fastrack.school/calculator?utm_source=email&utm_medium=partner&utm_campaign=agent-20260808&utm_content=homeschool-com',
+  'https://www.fastrack.school/calculator?utm_source=email&utm_medium=partner&utm_campaign=agent-20260808&utm_content=taming-high-cost',
+  'https://www.fastrack.school/calculator?utm_source=email&utm_medium=partner&utm_campaign=agent-20260808&utm_content=homewise',
+  'https://www.fastrack.school/calculator?utm_source=email&utm_medium=partner&utm_campaign=agent-20260808&utm_content=7sisters',
+  'https://www.fastrack.school/calculator?utm_source=email&utm_medium=partner&utm_campaign=agent-20260808&utm_content=starts-at-eight',
+  'https://www.fastrack.school/calculator?utm_source=email&utm_medium=partner&utm_campaign=agent-20260808&utm_content=not-that-hard-homeschool',
+  'https://www.fastrack.school/calculator?utm_source=email&utm_medium=partner&utm_campaign=agent-20260808&utm_content=old-schoolhouse',
+  'https://www.fastrack.school/calculator?utm_source=email&utm_medium=partner&utm_campaign=agent-20260808&utm_content=homeschooling-today',
+  'https://www.fastrack.school/calculator?utm_source=email&utm_medium=partner&utm_campaign=agent-20260814&utm_content=humility-doxology',
+  'https://www.fastrack.school/calculator?utm_source=email&utm_medium=partner&utm_campaign=agent-20260814&utm_content=college-prep-podcast',
+  'https://www.fastrack.school/calculator?utm_source=email&utm_medium=partner&utm_campaign=agent-20260814&utm_content=college-parent-central',
+  'https://www.fastrack.school/calculator?utm_source=email&utm_medium=partner&utm_campaign=agent-20260814&utm_content=how-to-pay-college',
+  'https://www.fastrack.school/calculator?utm_source=email&utm_medium=partner&utm_campaign=agent-20260814&utm_content=college-ready-podcast',
+  'https://www.fastrack.school/calculator?utm_source=email&utm_medium=partner&utm_campaign=agent-20260814&utm_content=t226-grown-flown-form',
+  'https://www.fastrack.school/calculator?utm_source=email&utm_medium=partner&utm_campaign=agent-20260814&utm_content=t226-road2college-form',
+]
 
 function storage() {
   const values = new Map()
@@ -32,7 +51,14 @@ test('contract accepts only exact events, UUIDv4, and bounded approved attributi
   assert.equal(normalizeFirstPartyAttribution({ source: 'reddit', medium: 'organic', campaign: 'anything' }), null)
   assert.equal(normalizeFirstPartyAttribution({ source: 'unknown', medium: 'organic', campaign: 'agent-20260814' }), null)
   assert.equal(normalizeFirstPartyAttribution({ source: 'reddit', medium: 'unknown', campaign: 'agent-20260814' }), null)
-  assert.equal(normalizeFirstPartyAttribution({ source: 'reddit', medium: 'organic', campaign: 'agent-20260814', content: 'x'.repeat(49) }), null)
+  assert.deepEqual(normalizeFirstPartyAttribution({ source: 'reddit', medium: 'organic', campaign: 'agent-20260814', content: 'x'.repeat(49) }), { source: 'reddit', medium: 'organic', campaign: 'agent-20260814', content: null })
+  assert.equal(normalizeFirstPartyAttribution({ source: 'reddit', medium: 'organic', campaign: 'agent-20260814', content: { arbitrary: true } }), null)
+  for (const attribution of [
+    { source: {}, medium: 'organic', campaign: 'agent-20260814' },
+    { source: ['reddit'], medium: 'organic', campaign: 'agent-20260814' },
+    { source: 'reddit', medium: [], campaign: 'agent-20260814' },
+    { source: 'reddit', medium: 'organic', campaign: 20260814 },
+  ]) assert.equal(normalizeFirstPartyAttribution(attribution), null)
   assert.equal(normalizeFirstPartyAttribution({ source: 'direct', medium: 'organic', campaign: 'direct' }), null)
   assert.deepEqual(normalizeFirstPartyAttribution({}), { source: 'direct', medium: 'direct', campaign: 'direct', content: null })
   assert.equal(parseFirstPartyFunnelEventBody({ event: 'Calculator Intent', session: uuid, attribution: { source: 'reddit', medium: 'organic', campaign: 'qa-t230-live' } })?.trafficClass, 'qa')
@@ -47,10 +73,31 @@ test('session digest is deterministic, scoped, and never contains raw UUID', () 
   assert.throws(() => firstPartySessionDigest(uuid, 'short'))
 })
 
-test('search parser rejects unapproved attribution rather than storing it', () => {
+test('search parser preserves valid attribution while discarding unapproved content', () => {
   assert.deepEqual(firstPartyAttributionFromSearch('?utm_source=email&utm_medium=partner&utm_campaign=agent-20260814&utm_content=partner-form'), { source: 'email', medium: 'partner', campaign: 'agent-20260814', content: 'partner-form' })
   assert.equal(firstPartyAttributionFromSearch('?utm_source=attacker&utm_medium=organic&utm_campaign=agent-20260814'), null)
-  assert.equal(firstPartyAttributionFromSearch('?utm_source=email&utm_medium=partner&utm_campaign=agent-20260814&utm_content=person-5551234567'), null)
+  assert.equal(firstPartyAttributionFromSearch('?utm_source=email&utm_source=reddit&utm_medium=partner&utm_campaign=agent-20260814'), null)
+  assert.equal(firstPartyAttributionFromSearch('?utm_source=email&utm_medium=partner&utm_campaign=agent-20260814&utm_content=partner-form&utm_content=customer-id-1'), null)
+  for (const content of ['andrew@example.com', 'person-5551234567', 'customer-id-123456789', 'Jane Smith']) {
+    assert.deepEqual(firstPartyAttributionFromSearch(`?utm_source=email&utm_medium=partner&utm_campaign=agent-20260814&utm_content=${encodeURIComponent(content)}`), { source: 'email', medium: 'partner', campaign: 'agent-20260814', content: null })
+    assert.deepEqual(parseFirstPartyFunnelEventBody({
+      event: 'Calculator Intent', session: uuid,
+      attribution: { source: 'email', medium: 'partner', campaign: 'agent-20260814', content },
+    })?.attribution, { source: 'email', medium: 'partner', campaign: 'agent-20260814', content: null })
+  }
+})
+
+test('every logged Aug 8 and Aug 14 partner URL remains measurable without persisting organization content', () => {
+  assert.equal(loggedPartnerUrls.length, 17)
+  for (const link of loggedPartnerUrls) {
+    const url = new URL(link)
+    assert.deepEqual(firstPartyAttributionFromSearch(url.search), {
+      source: 'email',
+      medium: 'partner',
+      campaign: url.searchParams.get('utm_campaign'),
+      content: null,
+    }, link)
+  }
 })
 
 test('server token binds session and QA mode with exact expiry and fetch metadata', () => {
@@ -106,6 +153,32 @@ test('client sends same-origin fixed payload once after success and retries afte
   assert.equal(attempts, 2)
 })
 
+test('client emits logged partner attribution with unknown content removed and fixture QA requested', async () => {
+  const partnerUuid = '223e4567-e89b-42d3-a456-426614174000'
+  const calls = []
+  const fetcher = async (...args) => {
+    calls.push(args)
+    return args[0].endsWith('funnel-session') ? { ok: true, json: async () => ({ token: 'partner-token' }) } : { ok: true }
+  }
+  const url = new URL(`${loggedPartnerUrls.at(-1)}&fixture=1`)
+  emitFirstPartyFunnelEvent({
+    hostname: url.hostname,
+    search: url.search,
+    event: 'Calculator Intent',
+    storage: storage(),
+    fetcher,
+    browserCrypto: { randomUUID: () => partnerUuid },
+  })
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.equal(calls.length, 2)
+  assert.deepEqual(JSON.parse(calls[0][1].body), { session: partnerUuid, qa: true })
+  assert.deepEqual(JSON.parse(calls[1][1].body), {
+    event: 'Calculator Intent',
+    session: partnerUuid,
+    attribution: { source: 'email', medium: 'partner', campaign: 'agent-20260814', content: null },
+  })
+})
+
 test('client is canonical-only and fail-open under storage, UUID, and network failures', async () => {
   let calls = 0
   const throwingStorage = { getItem() { throw new Error('denied') }, setItem() { throw new Error('denied') } }
@@ -159,6 +232,7 @@ test('route, migration, report, and calculator preserve privacy and durable ACK 
   assert.match(panel, /QA is labeled and excluded from business conclusions/)
   assert.match(client, /\/api\/analytics\/funnel-session/)
   assert.match(client, /\/api\/analytics\/funnel-event/)
+  assert.match(route, /verified\.qa \? 'qa' : parsed\.trafficClass/)
   assert.match(page, /onAcknowledged:[\s\S]*trackCalculatorEvent\('Lead Captured'/)
   assert.doesNotMatch(page, /emitFirstPartyFunnelEvent\([\s\S]{0,100}(email|phone|college|captureId)/)
 })
