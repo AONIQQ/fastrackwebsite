@@ -13,6 +13,7 @@ function client() {
   if (!_sql) _sql = neon(process.env.DATABASE_URL || process.env.POSTGRES_URL!);
   return _sql;
 }
+export function transactionClient() { return client(); }
 export const sql: ReturnType<typeof neon> = new Proxy(function () {} as never, {
   apply: (_t, _this, args) => (client() as unknown as (...a: unknown[]) => unknown)(...args),
   get: (_t, prop) => (client() as never)[prop],

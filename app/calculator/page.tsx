@@ -22,6 +22,7 @@ import {
   removeSessionStorageValue,
   setSessionStorageValue,
 } from '@/lib/calculator-analytics.mjs'
+import { emitFirstPartyFunnelEvent } from '@/lib/first-party-funnel-client.mjs'
 
 type CalculatorAnalyticsEvent =
   | 'Calculator Intent'
@@ -118,6 +119,7 @@ export default function Calculator() {
   const trackCalculatorEvent = useCallback((event: CalculatorAnalyticsEvent, onceKey?: string) => {
     if (typeof window === 'undefined') return
     const hostname = window.location.hostname
+    const storage = getAnalyticsSessionStorage(window)
     emitCalculatorAnalyticsEvent({
       hostname,
       event,
@@ -126,8 +128,20 @@ export default function Calculator() {
         { key: 'clarity', emit: getClarityEventEmitter(window, hostname) },
       ],
       onceKey,
-      storage: getAnalyticsSessionStorage(window),
+      storage,
     })
+    try {
+      emitFirstPartyFunnelEvent({
+        hostname,
+        search: window.location.search,
+        event,
+        storage,
+        fetcher: (...args: Parameters<typeof fetch>) => window.fetch(...args),
+        browserCrypto: window.crypto,
+      })
+    } catch {
+      // First-party measurement must never affect calculator behavior.
+    }
   }, [])
 
   useEffect(() => {

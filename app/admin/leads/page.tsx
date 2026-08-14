@@ -2,6 +2,8 @@ import { funnelStats, listLeads, leadStats } from '@/lib/db'
 import { isAdmin } from '@/lib/admin'
 import { funnelHealthReport } from '@/lib/funnel-health'
 import { FunnelHealthPanel } from './FunnelHealthPanel'
+import { firstPartyFunnelReport } from '@/lib/first-party-funnel'
+import { FunnelMeasurementPanel } from './FunnelMeasurementPanel'
 
 export const dynamic = 'force-dynamic'
 
@@ -43,8 +45,8 @@ export default async function LeadsPage({
 }) {
   if (!isAdmin()) return <LoginForm error={searchParams.error === '1'} />
 
-  const [leads, stats, funnel, health] = await Promise.all([
-    listLeads(1000), leadStats(), funnelStats(), funnelHealthReport(),
+  const [leads, stats, funnel, health, measurement] = await Promise.all([
+    listLeads(1000), leadStats(), funnelStats(), funnelHealthReport(), firstPartyFunnelReport(),
   ])
 
   const tiles = [
@@ -67,7 +69,8 @@ export default async function LeadsPage({
           </a>
         </div>
 
-        <FunnelHealthPanel report={health} />
+      <FunnelHealthPanel report={health} />
+      <FunnelMeasurementPanel rows={measurement.rows} />
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           {tiles.map((t) => (

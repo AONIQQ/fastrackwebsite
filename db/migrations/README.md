@@ -114,3 +114,13 @@ a bounded idempotent catch-up over already persisted signed events, independent 
 provider redelivery. The authenticated `/api/admin/rollout-status` endpoint exposes
 only control classifications and aggregate queue, lease, shadow, and projection
 counts.
+
+`0015_first_party_funnel_events.sql` adds a privacy-minimized calculator stage
+ledger. It stores only a server-HMAC session digest, one of five fixed stage
+names, bounded allowlisted UTM dimensions, a business/QA classification, a
+server timestamp, and short-lived HMAC-network/global hourly ingest counters
+capped at 10 and 500 new sessions respectively. No raw network address is
+stored. Attribution is frozen on the first accepted event. An advisory lock and unique
+session/event key makes retries idempotent. It never
+stores a raw session UUID, identity, network/browser metadata, URL, referrer,
+college, error detail, lead/capture/customer identifier, or arbitrary property.

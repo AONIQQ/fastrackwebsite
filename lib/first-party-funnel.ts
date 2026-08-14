@@ -1,0 +1,113 @@
+import { sql, transactionClient } from './db'
+
+export type FirstPartyFunnelRow = {
+  window: '7d' | '30d'
+  traffic_class: 'business' | 'qa'
+  source: string
+  medium: string
+  campaign: string
+  intent: number
+  modal_opened: number
+  submission_attempted: number
+  lead_captured: number
+  capture_failed: number
+  modal_per_intent: number | null
+  attempt_per_modal: number | null
+  captured_per_intent: number | null
+  captured_per_attempt: number | null
+}
+
+export async function recordFirstPartyFunnelEvent(input: {
+  sessionDigest: string
+  networkDigest: string
+  event: string
+  source: string
+  medium: string
+  campaign: string
+  content: string | null
+  trafficClass: 'business' | 'qa'
+}) {
+  const database = transactionClient()
+  if (typeof database.transaction !== 'function') throw new Error('funnel transaction unavailable')
+  const result = await database.transaction((txn) => [
+    txn`select pg_advisory_xact_lock(hashtext('fastrack:first-party-funnel-admission'))`,
+    txn`
+      with known_session as (
+        select 1 from calculator_funnel_sessions where session_digest = ${input.sessionDigest}
+      ), stale_cleanup as (
+        delete from calculator_funnel_ingest_windows where ctid in (
+          select ctid from calculator_funnel_ingest_windows
+          where expires_at < now() and not exists (select 1 from known_session)
+          order by expires_at limit 200
+        ) returning 1
+      ), capacity_ok as (
+        select 1
+        where not exists (select 1 from known_session)
+          and coalesce((select session_count from calculator_funnel_ingest_windows
+            where scope='global' and key_digest=repeat('0',64) and window_start=date_trunc('hour',now())),0) < 500
+          and coalesce((select session_count from calculator_funnel_ingest_windows
+            where scope='network' and key_digest=${input.networkDigest} and window_start=date_trunc('hour',now())),0) < 10
+      ), global_capacity as (
+        insert into calculator_funnel_ingest_windows(scope,key_digest,window_start,session_count,expires_at)
+        select 'global', repeat('0',64), date_trunc('hour',now()), 1, date_trunc('hour',now()) + interval '2 days'
+        where exists (select 1 from capacity_ok)
+        on conflict(scope,key_digest,window_start) do update
+          set session_count=calculator_funnel_ingest_windows.session_count+1
+          where calculator_funnel_ingest_windows.session_count < 500
+        returning 1
+      ), network_capacity as (
+        insert into calculator_funnel_ingest_windows(scope,key_digest,window_start,session_count,expires_at)
+        select 'network', ${input.networkDigest}, date_trunc('hour',now()), 1, date_trunc('hour',now()) + interval '2 days'
+        where exists (select 1 from capacity_ok) and exists (select 1 from global_capacity)
+        on conflict(scope,key_digest,window_start) do update
+          set session_count=calculator_funnel_ingest_windows.session_count+1
+          where calculator_funnel_ingest_windows.session_count < 10
+        returning 1
+      ), session_write as (
+        insert into calculator_funnel_sessions(session_digest,utm_source,utm_medium,utm_campaign,utm_content,traffic_class)
+        select ${input.sessionDigest},${input.source},${input.medium},${input.campaign},${input.content},${input.trafficClass}
+        where not exists (select 1 from known_session)
+          and exists (select 1 from global_capacity) and exists (select 1 from network_capacity)
+        returning 1
+      ), accepted_session as (
+        select 1 from known_session union all select 1 from session_write limit 1
+      ), event_write as (
+        insert into calculator_funnel_events(session_digest,event_name)
+        select ${input.sessionDigest},${input.event} where exists (select 1 from accepted_session)
+        on conflict(session_digest,event_name) do nothing returning 1
+      )
+      select exists(select 1 from accepted_session) as accepted,
+        exists(select 1 from event_write) as recorded
+    `,
+  ], { isolationLevel: 'ReadCommitted' })
+  const rows = result[1] as { accepted: boolean; recorded: boolean }[]
+  return rows[0] ?? { accepted: false, recorded: false }
+}
+
+export async function firstPartyFunnelReport(): Promise<{ generated_at: string; rows: FirstPartyFunnelRow[] }> {
+  const rows = await sql`
+    with windows(label, since) as (
+      values ('7d'::text, now() - interval '7 days'), ('30d'::text, now() - interval '30 days')
+    ), counts as (
+      select w.label as window, s.traffic_class, s.utm_source as source,
+        s.utm_medium as medium, s.utm_campaign as campaign,
+        count(*) filter (where e.event_name = 'Calculator Intent')::int as intent,
+        count(*) filter (where e.event_name = 'Calculator Modal Opened')::int as modal_opened,
+        count(*) filter (where e.event_name = 'Capture Submission Attempted')::int as submission_attempted,
+        count(*) filter (where e.event_name = 'Lead Captured')::int as lead_captured,
+        count(*) filter (where e.event_name = 'Capture Failed')::int as capture_failed
+      from windows w join calculator_funnel_events e on e.occurred_at >= w.since
+      join calculator_funnel_sessions s on s.session_digest = e.session_digest
+      group by w.label, s.traffic_class, s.utm_source, s.utm_medium, s.utm_campaign
+    )
+    select window, traffic_class, source, medium, campaign, intent, modal_opened,
+      submission_attempted, lead_captured, capture_failed,
+      round(modal_opened::numeric / nullif(intent, 0), 4)::float8 as modal_per_intent,
+      round(submission_attempted::numeric / nullif(modal_opened, 0), 4)::float8 as attempt_per_modal,
+      round(lead_captured::numeric / nullif(intent, 0), 4)::float8 as captured_per_intent,
+      round(lead_captured::numeric / nullif(submission_attempted, 0), 4)::float8 as captured_per_attempt
+    from counts
+    order by case window when '7d' then 1 else 2 end, traffic_class, intent desc, source, campaign
+  ` as FirstPartyFunnelRow[]
+  return { generated_at: new Date().toISOString(), rows }
+}
