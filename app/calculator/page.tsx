@@ -13,6 +13,18 @@ import Script from 'next/script'
 import { CollegeCombobox, type CollegeOption } from './CollegeCombobox'
 import { acknowledgeResultDisplay, completeCapture } from '@/lib/capture-client.mjs'
 import { withAttributionQuery } from '@/lib/attribution-url.mjs'
+import {
+  emitCalculatorAnalyticsEvent,
+  getAnalyticsSessionStorage,
+  isCanonicalProductionHost,
+} from '@/lib/calculator-analytics.mjs'
+
+type CalculatorAnalyticsEvent =
+  | 'Calculator Intent'
+  | 'Calculator Modal Opened'
+  | 'Capture Submission Attempted'
+  | 'Lead Captured'
+  | 'Capture Failed'
 
 const STATE_NAMES: Record<string, string> = {
   AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California',
@@ -85,6 +97,7 @@ export default function Calculator() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [creditMapHref, setCreditMapHref] = useState('/credit-map')
   const [displayAcknowledgement, setDisplayAcknowledgement] = useState<string | null>(null)
+  const [isProductionAnalyticsHost, setIsProductionAnalyticsHost] = useState(false)
   const fixtureCaptureRef = useRef(false)
 
   const attributionRef = useRef<{ referrer: string; utm: Record<string, string> }>({ referrer: '', utm: {} })
@@ -98,7 +111,19 @@ export default function Calculator() {
   const modalReturnFocusRef = useRef<HTMLButtonElement | null>(null)
   const restoreModalFocusRef = useRef(false)
 
+  const trackCalculatorEvent = useCallback((event: CalculatorAnalyticsEvent, onceKey?: string) => {
+    if (typeof window === 'undefined') return
+    emitCalculatorAnalyticsEvent({
+      hostname: window.location.hostname,
+      event,
+      emit: track,
+      onceKey,
+      storage: getAnalyticsSessionStorage(window),
+    })
+  }, [])
+
   useEffect(() => {
+    setIsProductionAnalyticsHost(isCanonicalProductionHost(window.location.hostname))
     const params = new URLSearchParams(window.location.search)
     fixtureCaptureRef.current = params.get('fixture') === '1'
     const utm: Record<string, string> = {}
@@ -143,11 +168,12 @@ export default function Calculator() {
     if (result) resultHeadingRef.current?.focus()
   }, [result])
 
-  const openEmailModal = (action: HTMLButtonElement | null) => {
+  const openEmailModal = useCallback((action: HTMLButtonElement | null) => {
     modalReturnFocusRef.current = action
     restoreModalFocusRef.current = false
+    trackCalculatorEvent('Calculator Modal Opened', 'fastrack:analytics:calculator-modal-opened')
     setIsEmailModalOpen(true)
-  }
+  }, [trackCalculatorEvent])
 
   const handleEmailModalOpenChange = (open: boolean) => {
     if (!open) restoreModalFocusRef.current = true
@@ -223,10 +249,11 @@ export default function Calculator() {
     if (!college || !residency) return
     if (sessionStorage.getItem('session-capture-ack')) { fetchRoi(college, residency); return }
     if (userIntentRef.current) openEmailModal(modalReturnFocusRef.current)
-  }, [college, residency, fetchRoi])
+  }, [college, residency, fetchRoi, openEmailModal])
 
   const requestResults = () => {
     userIntentRef.current = true
+    trackCalculatorEvent('Calculator Intent', 'fastrack:analytics:calculator-intent')
     if (!college || !residency) return
     if (sessionStorage.getItem('session-capture-ack')) { fetchRoi(college, residency); return }
     openEmailModal(requestResultsActionRef.current)
@@ -235,6 +262,7 @@ export default function Calculator() {
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!college || !residency) return
+    trackCalculatorEvent('Capture Submission Attempted')
     setIsSubmitting(true)
     setCaptureError(null)
     const fingerprint = JSON.stringify({ email: email.trim().toLowerCase(), phone: phoneNumber.trim(), smsConsent, state, residency, collegeId: college.id, referrer: attributionRef.current.referrer, utm: attributionRef.current.utm })
@@ -262,7 +290,7 @@ export default function Calculator() {
         onAcknowledged: ({ roi }: { roi: RoiResult }) => {
           sessionStorage.setItem('session-capture-ack', '1')
           sessionStorage.removeItem('session-email')
-          track('Lead Captured')
+          trackCalculatorEvent('Lead Captured', 'fastrack:analytics:lead-captured')
           setResult(roi)
           setDisplayAcknowledgement(captureId)
           setIsEmailModalOpen(false)
@@ -270,6 +298,7 @@ export default function Calculator() {
         },
       })
     } catch {
+      trackCalculatorEvent('Capture Failed')
       setResult(null)
       setCaptureError('We could not save your request. Your information is still here. Please try again.')
     } finally {
@@ -341,7 +370,7 @@ export default function Calculator() {
         <section className="rounded-xl border border-slate-200 bg-white p-5 md:p-6 shadow-sm">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Field id="state-label" label="State">
-              <Select name="state" required value={state || undefined} onValueChange={(v) => { userIntentRef.current = true; setState(v) }}>
+              <Select name="state" required value={state || undefined} onValueChange={(v) => { userIntentRef.current = true; trackCalculatorEvent('Calculator Intent', 'fastrack:analytics:calculator-intent'); setState(v) }}>
                 <SelectTrigger aria-labelledby="state-label" aria-required="true" className="h-12 w-full rounded-lg border-slate-300 bg-white text-base text-[#080b53] focus:ring-2 focus:ring-[#605dba]/30">
                   <SelectValue placeholder="Select" />
                 </SelectTrigger>
@@ -354,7 +383,7 @@ export default function Calculator() {
             </Field>
 
             <Field id="residency-label" label="Residency">
-              <Select name="residency" required value={residency || undefined} onValueChange={(v) => { userIntentRef.current = true; modalReturnFocusRef.current = residencyActionRef.current; setResidency(v as 'inState' | 'outOfState') }}>
+              <Select name="residency" required value={residency || undefined} onValueChange={(v) => { userIntentRef.current = true; trackCalculatorEvent('Calculator Intent', 'fastrack:analytics:calculator-intent'); modalReturnFocusRef.current = residencyActionRef.current; setResidency(v as 'inState' | 'outOfState') }}>
                 <SelectTrigger ref={residencyActionRef} aria-labelledby="residency-label" aria-required="true" className="h-12 w-full rounded-lg border-slate-300 bg-white text-base text-[#080b53] focus:ring-2 focus:ring-[#605dba]/30">
                   <SelectValue placeholder="Select" />
                 </SelectTrigger>
@@ -369,7 +398,7 @@ export default function Calculator() {
               <CollegeCombobox
                 options={colleges}
                 value={college}
-                onChange={(c) => { userIntentRef.current = true; modalReturnFocusRef.current = collegeActionRef.current; setCollege(c) }}
+                onChange={(c) => { userIntentRef.current = true; trackCalculatorEvent('Calculator Intent', 'fastrack:analytics:calculator-intent'); modalReturnFocusRef.current = collegeActionRef.current; setCollege(c) }}
                 disabled={!state}
                 loading={isCollegesLoading}
                 placeholder={state ? 'Select' : 'Pick a state first'}
@@ -616,24 +645,28 @@ export default function Calculator() {
         `}
       </Script>
       <Script src="https://cdn.neverbounce.com/widget/dist/NeverBounce.js" strategy="afterInteractive" />
-      <Script id="microsoft-clarity" strategy="afterInteractive">
-        {`
-          (function(c,l,a,r,i,t,y){
-            c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-            t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-            y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-          })(window, document, "clarity", "script", "m7qufzputy");
-        `}
-      </Script>
-      <Script src="https://www.googletagmanager.com/gtag/js?id=AW-11375039901" strategy="afterInteractive" />
-      <Script id="google-analytics" strategy="afterInteractive">
-        {`
-          window.dataLayer = window.dataLayer || [];
-          function gtag(){dataLayer.push(arguments);}
-          gtag('js', new Date());
-          gtag('config', 'AW-11375039901');
-        `}
-      </Script>
+      {isProductionAnalyticsHost && (
+        <>
+          <Script id="microsoft-clarity" strategy="afterInteractive">
+            {`
+              (function(c,l,a,r,i,t,y){
+                c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+                t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+                y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+              })(window, document, "clarity", "script", "m7qufzputy");
+            `}
+          </Script>
+          <Script src="https://www.googletagmanager.com/gtag/js?id=AW-11375039901" strategy="afterInteractive" />
+          <Script id="google-analytics" strategy="afterInteractive">
+            {`
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('js', new Date());
+              gtag('config', 'AW-11375039901');
+            `}
+          </Script>
+        </>
+      )}
     </div>
   )
 }
