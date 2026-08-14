@@ -117,12 +117,13 @@ export default function Calculator() {
 
   const trackCalculatorEvent = useCallback((event: CalculatorAnalyticsEvent, onceKey?: string) => {
     if (typeof window === 'undefined') return
+    const hostname = window.location.hostname
     emitCalculatorAnalyticsEvent({
-      hostname: window.location.hostname,
+      hostname,
       event,
       emitters: [
         { key: 'vercel', emit: track },
-        { key: 'clarity', emit: getClarityEventEmitter(window) },
+        { key: 'clarity', emit: getClarityEventEmitter(window, hostname) },
       ],
       onceKey,
       storage: getAnalyticsSessionStorage(window),

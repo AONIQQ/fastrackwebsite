@@ -68,11 +68,79 @@ test('one canonical event is sent name-only to Vercel and the documented Clarity
     event: 'Capture Submission Attempted',
     emitters: [
       { key: 'vercel', emit: (...args) => vercelCalls.push(args) },
-      { key: 'clarity', emit: getClarityEventEmitter(clarityWindow) },
+      { key: 'clarity', emit: getClarityEventEmitter(clarityWindow, 'www.fastrack.school') },
     ],
   }), true)
   assert.deepEqual(vercelCalls, [['Capture Submission Attempted']])
   assert.deepEqual(clarityCalls, [['event', 'Capture Submission Attempted']])
+})
+
+test('an early canonical event initializes the standard Clarity preloader queue', () => {
+  const browserWindow = {}
+  const emit = getClarityEventEmitter(browserWindow, 'fastrack.school')
+
+  assert.equal(typeof emit, 'function')
+  emit('Calculator Intent')
+  assert.equal(typeof browserWindow.clarity, 'function')
+  assert.equal(browserWindow.clarity.q.length, 1)
+  assert.deepEqual(Array.from(browserWindow.clarity.q[0]), ['event', 'Calculator Intent'])
+})
+
+test('the official loader keeps and can consume the preloader-compatible queue', () => {
+  const browserWindow = {}
+  getClarityEventEmitter(browserWindow, 'www.fastrack.school')('Calculator Modal Opened')
+  const preloader = browserWindow.clarity
+
+  // Equivalent to the official snippet's c[a] = c[a] || function (...) branch.
+  browserWindow.clarity = browserWindow.clarity || function () {}
+  assert.equal(browserWindow.clarity, preloader)
+  const consumed = browserWindow.clarity.q.map((args) => Array.from(args))
+  assert.deepEqual(consumed, [['event', 'Calculator Modal Opened']])
+})
+
+test('Clarity initialization fails open for hostile globals and never mutates noncanonical hosts', () => {
+  const setterError = Object.create(null, {
+    clarity: {
+      configurable: true,
+      get: () => undefined,
+      set: () => { throw new Error('assignment blocked') },
+    },
+  })
+  assert.equal(getClarityEventEmitter(setterError, 'fastrack.school'), undefined)
+
+  const hostileValue = { clarity: { q: [] } }
+  assert.equal(getClarityEventEmitter(hostileValue, 'fastrack.school'), undefined)
+  assert.deepEqual(hostileValue.clarity, { q: [] })
+
+  const noncanonical = {}
+  assert.equal(getClarityEventEmitter(noncanonical, 'preview.fastrack.school'), undefined)
+  assert.equal(Object.hasOwn(noncanonical, 'clarity'), false)
+})
+
+test('a queued Clarity event is deduplicated independently from Vercel', () => {
+  const browserWindow = {}
+  const values = new Map()
+  const storage = {
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, value),
+  }
+  const input = {
+    hostname: 'fastrack.school',
+    event: 'Calculator Intent',
+    onceKey: 'intent',
+    storage,
+    emitters: [
+      { key: 'vercel', emit: () => {} },
+      { key: 'clarity', emit: getClarityEventEmitter(browserWindow, 'fastrack.school') },
+    ],
+  }
+
+  assert.equal(emitCalculatorAnalyticsEvent(input), true)
+  assert.equal(emitCalculatorAnalyticsEvent(input), false)
+  assert.equal(browserWindow.clarity.q.length, 1)
+  assert.deepEqual(Array.from(browserWindow.clarity.q[0]), ['event', 'Calculator Intent'])
+  assert.equal(values.get('intent'), '1')
+  assert.equal(values.get('intent:clarity'), '1')
 })
 
 test('each analytics surface is isolated when the other throws or is unavailable', () => {
@@ -84,7 +152,7 @@ test('each analytics surface is isolated when the other throws or is unavailable
     event: 'Capture Failed',
     emitters: [
       { key: 'vercel', emit: () => { throw new Error('Vercel unavailable') } },
-      { key: 'clarity', emit: getClarityEventEmitter({ clarity: (...args) => clarityCalls.push(args) }) },
+      { key: 'clarity', emit: getClarityEventEmitter({ clarity: (...args) => clarityCalls.push(args) }, 'fastrack.school') },
     ],
   }), true)
   assert.deepEqual(clarityCalls, [['event', 'Capture Failed']])
@@ -96,7 +164,7 @@ test('each analytics surface is isolated when the other throws or is unavailable
       { key: 'vercel', emit: (...args) => vercelCalls.push(args) },
       { key: 'clarity', emit: getClarityEventEmitter(Object.create(null, {
         clarity: { get: () => { throw new Error('Clarity unavailable') } },
-      })) },
+      }), 'fastrack.school') },
     ],
   }), true)
   assert.deepEqual(vercelCalls, [['Calculator Intent']])
@@ -121,7 +189,7 @@ test('dedupe is independent per surface so a transient failure retries only that
         if (!vercelAvailable) throw new Error('Vercel unavailable')
         vercelCalls.push(args)
       } },
-      { key: 'clarity', emit: getClarityEventEmitter({ clarity: (...args) => clarityCalls.push(args) }) },
+      { key: 'clarity', emit: getClarityEventEmitter({ clarity: (...args) => clarityCalls.push(args) }, 'fastrack.school') },
     ],
   }
 
@@ -196,7 +264,7 @@ test('calculator gates Clarity, Google scripts, and every custom event on exact 
   const page = await read('../app/calculator/page.tsx')
   assert.match(page, /setIsProductionAnalyticsHost\(isCanonicalProductionHost\(window\.location\.hostname\)\)/)
   assert.match(page, /\{isProductionAnalyticsHost && \(\s*<>[\s\S]*id="microsoft-clarity"[\s\S]*googletagmanager\.com[\s\S]*id="google-analytics"/)
-  assert.match(page, /emitters: \[\s*\{ key: 'vercel', emit: track \},\s*\{ key: 'clarity', emit: getClarityEventEmitter\(window\) \},/)
+  assert.match(page, /emitters: \[\s*\{ key: 'vercel', emit: track \},\s*\{ key: 'clarity', emit: getClarityEventEmitter\(window, hostname\) \},/)
   const analyticsHelper = await read('../lib/calculator-analytics.mjs')
   assert.doesNotMatch(analyticsHelper, /email|phone|college|state|referrer|url|query|captureId|rawError|identity/i)
   assert.match(analyticsHelper, /emit\(event\)/)
