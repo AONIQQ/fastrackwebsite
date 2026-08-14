@@ -6,6 +6,7 @@ import path from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { splitStatements } from '../scripts/lib/migrations.mjs'
+import { FIRST_PARTY_FUNNEL_REPORT_SQL } from '../lib/first-party-funnel-report.mjs'
 
 const project = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const pg17 = '/opt/homebrew/opt/postgresql@17/bin'
@@ -92,4 +93,15 @@ test('PostgreSQL 17 freezes attribution, deduplicates concurrent stages, bounds 
   assert.equal(psql(`select session_count from calculator_funnel_ingest_windows where scope='global'`), '499')
 
   assert.equal(psql(`select s.traffic_class||'|'||s.utm_source||'|'||count(*) filter(where e.event_name='Calculator Intent')||'|'||count(*) filter(where e.event_name='Lead Captured') from calculator_funnel_events e join calculator_funnel_sessions s using(session_digest) group by s.traffic_class,s.utm_source order by s.traffic_class`), 'business|reddit|2|1\nqa|direct|1|0')
+
+  const report = spawnSync(binaries[2], ['-X', '-v', 'ON_ERROR_STOP=1', '-P', 'footer=off', '-F', '|', '-A', '-c', FIRST_PARTY_FUNNEL_REPORT_SQL], { env, encoding: 'utf8' })
+  assert.equal(report.status, 0, report.stderr)
+  const reportLines = report.stdout.trimEnd().split('\n')
+  assert.equal(reportLines[0], 'window|traffic_class|source|medium|campaign|intent|modal_opened|submission_attempted|lead_captured|capture_failed|modal_per_intent|attempt_per_modal|captured_per_intent|captured_per_attempt')
+  assert.deepEqual(reportLines.slice(1), [
+    '7d|business|reddit|organic|agent-20260814|2|1|1|1|0|0.5|1|0.5|1',
+    '7d|qa|direct|direct|direct|1|1|0|0|0|1|0|0|',
+    '30d|business|reddit|organic|agent-20260814|2|1|1|1|0|0.5|1|0.5|1',
+    '30d|qa|direct|direct|direct|1|1|0|0|0|1|0|0|',
+  ])
 })
