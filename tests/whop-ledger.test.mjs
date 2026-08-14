@@ -26,6 +26,8 @@ test('Whop V1 contract is the exact six live underscore events', () => {
   ])
   assert.equal(normalizeWhopEvent({ id: 'msg_fixture123', api_version: 'v1', type: 'payment_succeeded',
     timestamp: '2026-08-13T20:00:01.000Z', company_id: 'biz_fixture123', data: payment }), null)
+  assert.equal(normalizeWhopEvent({ id: 'msg_fixture123', api_version: 'v1', type: 'toString',
+    timestamp: '2026-08-13T20:00:01.000Z', company_id: 'biz_fixture123', data: payment }), null)
 })
 
 test('Whop refund and dispute events attach to their payment', () => {
