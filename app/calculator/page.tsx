@@ -16,7 +16,11 @@ import { withAttributionQuery } from '@/lib/attribution-url.mjs'
 import {
   emitCalculatorAnalyticsEvent,
   getAnalyticsSessionStorage,
+  getClarityEventEmitter,
+  getSessionStorageValue,
   isCanonicalProductionHost,
+  removeSessionStorageValue,
+  setSessionStorageValue,
 } from '@/lib/calculator-analytics.mjs'
 
 type CalculatorAnalyticsEvent =
@@ -116,7 +120,10 @@ export default function Calculator() {
     emitCalculatorAnalyticsEvent({
       hostname: window.location.hostname,
       event,
-      emit: track,
+      emitters: [
+        { key: 'vercel', emit: track },
+        { key: 'clarity', emit: getClarityEventEmitter(window) },
+      ],
       onceKey,
       storage: getAnalyticsSessionStorage(window),
     })
@@ -247,7 +254,7 @@ export default function Calculator() {
   // out-of-state figures whenever residency was still unset.
   useEffect(() => {
     if (!college || !residency) return
-    if (sessionStorage.getItem('session-capture-ack')) { fetchRoi(college, residency); return }
+    if (getSessionStorageValue(getAnalyticsSessionStorage(window), 'session-capture-ack')) { fetchRoi(college, residency); return }
     if (userIntentRef.current) openEmailModal(modalReturnFocusRef.current)
   }, [college, residency, fetchRoi, openEmailModal])
 
@@ -255,7 +262,7 @@ export default function Calculator() {
     userIntentRef.current = true
     trackCalculatorEvent('Calculator Intent', 'fastrack:analytics:calculator-intent')
     if (!college || !residency) return
-    if (sessionStorage.getItem('session-capture-ack')) { fetchRoi(college, residency); return }
+    if (getSessionStorageValue(getAnalyticsSessionStorage(window), 'session-capture-ack')) { fetchRoi(college, residency); return }
     openEmailModal(requestResultsActionRef.current)
   }
 
@@ -288,8 +295,9 @@ export default function Calculator() {
           utm: attributionRef.current.utm, website,
         },
         onAcknowledged: ({ roi }: { roi: RoiResult }) => {
-          sessionStorage.setItem('session-capture-ack', '1')
-          sessionStorage.removeItem('session-email')
+          const storage = getAnalyticsSessionStorage(window)
+          setSessionStorageValue(storage, 'session-capture-ack', '1')
+          removeSessionStorageValue(storage, 'session-email')
           trackCalculatorEvent('Lead Captured', 'fastrack:analytics:lead-captured')
           setResult(roi)
           setDisplayAcknowledgement(captureId)
