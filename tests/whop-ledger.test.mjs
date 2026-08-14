@@ -40,21 +40,19 @@ test('Whop refund and dispute events attach to their payment', () => {
 
 test('Standard Webhooks signature is raw-body and timestamp-bound', () => {
   const body = JSON.stringify({ ok: true }); const id = 'msg_fixture123'; const timestamp = '1786651200'
-  const key = Buffer.alloc(32, 0x5a); const secret = `ws_${key.toString('hex')}`
+  const secret = `ws_${Buffer.alloc(32, 0x5a).toString('hex')}`; const key = Buffer.from(secret, 'utf8')
   const signature = createHmac('sha256', key).update(`${id}.${timestamp}.${body}`).digest('base64')
   const headers = new Headers({ 'webhook-id': id, 'webhook-timestamp': timestamp, 'webhook-signature': `v1,${signature}` })
   assert.equal(verifyWhopSignature(body, headers, secret, Number(timestamp)), true)
   assert.equal(verifyWhopSignature(`${body} `, headers, secret, Number(timestamp)), false)
   assert.equal(verifyWhopSignature(body, headers, secret, Number(timestamp) + 301), false)
-  const prefixed = `ws_${key.toString('hex')}`
-  const prefixedSignature = signature
   assert.equal(verifyWhopSignature(body, new Headers({ 'webhook-id': id, 'webhook-timestamp': timestamp,
-    'webhook-signature': `v1,${prefixedSignature}` }), prefixed, Number(timestamp)), true)
+    'webhook-signature': `v1,${signature}` }), secret, Number(timestamp)), true)
   assert.equal(verifyWhopSignature(body, headers, 'unprefixed-secret', Number(timestamp)), false)
   assert.equal(verifyWhopSignature(body, headers, 'ws_%%%%', Number(timestamp)), false)
   assert.equal(verifyWhopSignature(body, headers, `ws_${Buffer.alloc(31).toString('hex')}`, Number(timestamp)), false)
   assert.equal(verifyWhopSignature(body, headers, `ws_${Buffer.alloc(33).toString('hex')}`, Number(timestamp)), false)
-  assert.equal(verifyWhopSignature(body, headers, `whsec_${key.toString('base64')}`, Number(timestamp)), false)
+  assert.equal(verifyWhopSignature(body, headers, `whsec_${Buffer.alloc(32, 0x5a).toString('base64')}`, Number(timestamp)), false)
 })
 
 test('webhook route and migration are fail-closed and provider-neutral', async () => {

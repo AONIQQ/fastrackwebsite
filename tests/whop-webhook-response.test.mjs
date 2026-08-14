@@ -3,8 +3,8 @@ import { createHmac } from 'node:crypto'
 import test from 'node:test'
 import { createWhopPost } from '../lib/whop-webhook.mjs'
 
-const key = Buffer.alloc(32, 0x42)
-const secret = `ws_${key.toString('hex')}`
+const secret = `ws_${Buffer.alloc(32, 0x42).toString('hex')}`
+const key = Buffer.from(secret, 'utf8')
 const now = 1_800_000_000
 const scope = { companyId: 'biz_expected', productId: 'prod_expected', planId: 'plan_expected' }
 const payment = (overrides = {}) => ({ id: 'pay_route123', total: 47, currency: 'usd',
