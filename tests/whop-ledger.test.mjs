@@ -10,7 +10,7 @@ const payment = { id: 'pay_fixture123', total: 47, currency: 'usd', checkout_con
   created_at: '2026-08-13T20:00:00.000Z' }
 
 test('Whop normalizer retains only bounded ledger fields', () => {
-  const event = normalizeWhopEvent({ id: 'msg_fixture123', api_version: 'v1', type: 'payment_succeeded',
+  const event = normalizeWhopEvent({ id: 'msg_fixture123', api_version: 'v1', type: 'payment.succeeded',
     timestamp: '2026-08-13T20:00:01.000Z', company_id: 'biz_fixture123', data: payment })
   assert.deepEqual(event, { eventId: 'msg_fixture123', eventType: 'payment_succeeded', objectId: 'pay_fixture123', paymentId: 'pay_fixture123',
     companyId: 'biz_fixture123', checkoutId: 'ch_fixture123', productId: 'prod_fixture123', planId: 'plan_fixture123', amountCents: 4700,
@@ -24,12 +24,12 @@ test('Whop V1 contract is the exact six live underscore events', () => {
   assert.deepEqual(WHOP_WEBHOOK_EVENTS, [
     'payment_succeeded', 'payment_failed', 'refund_created', 'refund_updated', 'dispute_created', 'dispute_updated',
   ])
-  assert.equal(normalizeWhopEvent({ id: 'msg_fixture123', api_version: 'v1', type: 'payment.succeeded',
+  assert.equal(normalizeWhopEvent({ id: 'msg_fixture123', api_version: 'v1', type: 'payment_succeeded',
     timestamp: '2026-08-13T20:00:01.000Z', company_id: 'biz_fixture123', data: payment }), null)
 })
 
 test('Whop refund and dispute events attach to their payment', () => {
-  const refund = normalizeWhopEvent({ id: 'msg_refund123', api_version: 'v1', type: 'refund_updated',
+  const refund = normalizeWhopEvent({ id: 'msg_refund123', api_version: 'v1', type: 'refund.updated',
     timestamp: '2026-08-13T20:00:02.000Z', company_id: 'biz_fixture123',
     data: { id: 'rf_fixture123', amount: 12.5, status: 'succeeded', updated_at: '2026-08-13T20:00:02.000Z',
       payment: { id: payment.id, total: payment.total, currency: payment.currency } } })

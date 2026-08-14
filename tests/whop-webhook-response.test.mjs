@@ -10,7 +10,7 @@ const scope = { companyId: 'biz_expected', productId: 'prod_expected', planId: '
 const payment = (overrides = {}) => ({ id: 'pay_route123', total: 47, currency: 'usd',
   product: { id: scope.productId }, plan: { id: scope.planId }, created_at: '2027-01-15T08:00:00.000Z',
   paid_at: '2027-01-15T08:01:00.000Z', user: { email: 'route@example.test' }, ...overrides })
-const event = (overrides = {}) => ({ id: 'msg_route123', api_version: 'v1', type: 'payment_succeeded',
+const event = (overrides = {}) => ({ id: 'msg_route123', api_version: 'v1', type: 'payment.succeeded',
   timestamp: '2027-01-15T08:00:00.000Z', company_id: scope.companyId, data: payment(), ...overrides })
 const signed = (value, options = {}) => {
   const body = Buffer.isBuffer(value) ? value : typeof value === 'string' ? value : JSON.stringify(value)
@@ -60,22 +60,22 @@ test('actual Whop POST response accepts exact $47 USD scope idempotently and pre
   assert.equal(writes.get('msg_route123').normalized.paymentAmountCents, 4700)
   assert.equal(writes.get('msg_route123').normalized.paidAt, '2027-01-15T08:01:00.000Z')
 
-  const refundUpdated = event({ id: 'msg_refund_up', type: 'refund_updated', timestamp: '2027-01-15T08:03:00.000Z',
+  const refundUpdated = event({ id: 'msg_refund_up', type: 'refund.updated', timestamp: '2027-01-15T08:03:00.000Z',
     data: { id: 'rf_route123', amount: 47, currency: 'usd', status: 'succeeded', created_at: '2027-01-15T08:00:00.000Z', payment: payment() } })
-  const refundCreated = event({ id: 'msg_refund_cr', type: 'refund_created', timestamp: '2027-01-15T08:02:00.000Z',
+  const refundCreated = event({ id: 'msg_refund_cr', type: 'refund.created', timestamp: '2027-01-15T08:02:00.000Z',
     data: { id: 'rf_route123', amount: 47, currency: 'usd', status: 'pending', created_at: '2027-01-15T08:00:00.000Z', payment: payment() } })
   assert.equal((await post(signed(refundUpdated))).status, 200)
   assert.equal((await post(signed(refundCreated))).status, 200)
   assert.equal(writes.get('msg_refund_up').normalized.lifecycleAt, '2027-01-15T08:03:00.000Z')
   assert.equal(writes.get('msg_refund_cr').normalized.lifecycleAt, '2027-01-15T08:02:00.000Z')
 
-  const productAbsent = event({ id: 'msg_dispute_no_product', type: 'dispute_created', timestamp: '2027-01-15T08:04:00.000Z',
+  const productAbsent = event({ id: 'msg_dispute_no_product', type: 'dispute.created', timestamp: '2027-01-15T08:04:00.000Z',
     data: { id: 'dspt_route123', amount: 47, currency: 'usd', status: 'warning_needs_response', created_at: '2027-01-15T08:04:00.000Z',
       payment: { id: 'pay_route123', total: 47, currency: 'usd', created_at: '2027-01-15T08:00:00.000Z' } } })
   assert.equal((await post(signed(productAbsent))).status, 200)
   assert.equal(writes.has('msg_dispute_no_product'), true)
 
-  const productMismatch = event({ id: 'msg_dispute_wrong_product', type: 'dispute_created', timestamp: '2027-01-15T08:05:00.000Z',
+  const productMismatch = event({ id: 'msg_dispute_wrong_product', type: 'dispute.created', timestamp: '2027-01-15T08:05:00.000Z',
     data: { id: 'dspt_route999', amount: 47, currency: 'usd', status: 'warning_needs_response', product: { id: 'prod_other' },
       created_at: '2027-01-15T08:05:00.000Z', payment: { id: 'pay_route123', total: 47, currency: 'usd' } } })
   assert.deepEqual(await body(await post(signed(productMismatch))), { received: true, ignored: true })
