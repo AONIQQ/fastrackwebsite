@@ -60,7 +60,7 @@ test('calculator declares one clean canonical while preserving functional query-
 })
 
 test('homepage describes only the approved Credit Map offer', async () => {
-  const source = await read('../app/page.tsx')
+  const source = await read('../app/(home)/page.tsx')
   assert.match(source, /For 11th and 12th graders/)
   assert.match(source, /\$497/)
   assert.match(source, /within 7 business days/)
