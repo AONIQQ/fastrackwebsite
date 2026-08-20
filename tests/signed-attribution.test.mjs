@@ -75,7 +75,7 @@ test('tracking URLs contain no recipient identity or nested destination URL', ()
   const links = messageTrackingLinks(trackingId, 'n3', Math.floor(Date.now() / 1000), {
     ATTRIBUTION_SIGNING_SECRET: secret,
   })
-  for (const url of [links.pixel, links.click('home'), links.click('checkout'), links.click('credit_map')]) {
+  for (const url of [links.pixel, links.click('home'), links.click('guide'), links.click('checkout'), links.click('credit_map')]) {
     assert.equal(url.includes(parent), false)
     assert.equal(url.includes(Buffer.from(parent).toString('base64url')), false)
     assert.equal(new URL(url).searchParams.has('e'), false)
@@ -85,6 +85,7 @@ test('tracking URLs contain no recipient identity or nested destination URL', ()
 })
 
 test('click destinations are allowlisted and checkout URLs never prefill recipient email', () => {
+  assert.equal(destinationForUrl('https://www.fastrack.school/guide?utm_source=email'), 'guide')
   assert.equal(destinationForUrl('https://www.fastrack.school/credit-map?utm_source=email'), 'credit_map')
   assert.equal(destinationForUrl('https://buy.stripe.com/example?anything=1'), 'checkout')
   assert.equal(destinationForUrl('https://attacker.example/'), null)
@@ -92,6 +93,12 @@ test('click destinations are allowlisted and checkout URLs never prefill recipie
   assert.equal(checkout.hostname, 'buy.stripe.com')
   assert.equal(checkout.searchParams.has('prefilled_email'), false)
   assert.equal(isCheckoutTokenShape(checkout.searchParams.get('client_reference_id')), true)
+  const guide = new URL(resolvedDestination('guide', 'n2', trackingId, Math.floor(Date.now() / 1000) + 600, secret))
+  assert.equal(guide.pathname, '/guide')
+  assert.equal(guide.searchParams.get('utm_source'), 'email')
+  assert.equal(guide.searchParams.get('utm_medium'), 'nurture')
+  assert.equal(guide.searchParams.get('utm_campaign'), 'n2')
+  assert.equal(guide.searchParams.has('prefilled_email'), false)
 })
 
 test('migration and routes persist only verified logical-message engagement', async () => {

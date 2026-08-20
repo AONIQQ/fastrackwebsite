@@ -62,6 +62,12 @@ test('contract accepts only exact events, UUIDv4, and bounded approved attributi
   assert.equal(normalizeFirstPartyAttribution({ source: 'direct', medium: 'organic', campaign: 'direct' }), null)
   assert.deepEqual(normalizeFirstPartyAttribution({}), { source: 'direct', medium: 'direct', campaign: 'direct', content: null })
   assert.equal(parseFirstPartyFunnelEventBody({ event: 'Calculator Intent', session: uuid, attribution: { source: 'reddit', medium: 'organic', campaign: 'qa-t230-live' } })?.trafficClass, 'qa')
+  for (const source of ['instagram', 'tiktok', 'youtube']) {
+    assert.deepEqual(normalizeFirstPartyAttribution({ source, medium: 'organic', campaign: 'creator-20260820', content: 'calculator' }), {
+      source, medium: 'organic', campaign: 'creator-20260820', content: 'calculator',
+    })
+  }
+  assert.equal(normalizeFirstPartyAttribution({ source: 'instagram', medium: 'organic', campaign: 'creator-alexis', content: 'calculator' }), null)
 })
 
 test('session digest is deterministic, scoped, and never contains raw UUID', () => {
@@ -136,8 +142,10 @@ test('client sends same-origin fixed payload once after success and retries afte
   await new Promise((resolve) => setImmediate(resolve))
   assert.equal(calls.length, 2)
   assert.equal(calls[0][0], '/api/analytics/funnel-session')
+  assert.equal(calls[0][1].keepalive, true)
   assert.deepEqual(JSON.parse(calls[0][1].body), { session: uuid, qa: false })
   assert.equal(calls[1][0], '/api/analytics/funnel-event')
+  assert.equal(calls[1][1].keepalive, true)
   assert.deepEqual(JSON.parse(calls[1][1].body), { event: 'Calculator Intent', session: uuid, attribution: { source: 'reddit', medium: 'organic', campaign: 'agent-20260814', content: null } })
   assert.equal(calls[1][1].headers['x-fastrack-funnel-token'], 'signed-token')
 

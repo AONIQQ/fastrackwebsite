@@ -21,7 +21,7 @@ async function applicationSources(directory = new URL('../app/', import.meta.url
   return sources
 }
 
-test('nurture keeps its schedule and useful copy without promoting the guide', async () => {
+test('nurture keeps its schedule and uses the approved $47 to $497 offer ladder', async () => {
   const source = await read('../lib/nurture.ts')
 
   for (const [stage, afterDays] of [[1, 2], [2, 5], [3, 8], [4, 12]]) {
@@ -30,13 +30,17 @@ test('nurture keeps its schedule and useful copy without promoting the guide', a
   assert.match(source, /Courses that transfer but do not count/)
   assert.match(source, /The wrong version of the right course/)
   assert.match(source, /Planning against the wrong requirements/)
+  assert.match(source, /guide\?\$\{U\('n2'\)\}/)
+  assert.match(source, /Review the Fastrack Guide \(\$47\)/)
+  assert.match(source, /educational material, not a personalized course map or a promise/i)
+  assert.match(source, /Get Your Credit Map \(\$497\)/)
   assert.match(source, /credit-map\?\$\{U\('n4'\)\}/)
   assert.doesNotMatch(source, /lead_ref|prefilled_email/)
   assert.match(source, /check every course against the target college’s transfer rules before enrolling/)
-  assert.doesNotMatch(source, /\/guide|Fastrack Guide|free guide|weekend|Get the Fastrack Guide|\$47/)
+  assert.doesNotMatch(source, /free guide|weekend|instant download|guarantee(?:d)? transfer/i)
 })
 
-test('the guide is direct-only but remains a source route and sitemap entry', async () => {
+test('the guide remains a truthful source route and no unrelated app route promotes it', async () => {
   const [guide, sitemap, ...sources] = await Promise.all([
     read('../app/guide/page.tsx'),
     read('../app/sitemap.ts'),
