@@ -26,7 +26,7 @@ const topics = [
   },
 ]
 
-const buttonClasses = 'inline-flex items-center justify-center rounded-lg bg-[#080b53] px-6 py-3 text-base font-semibold text-white shadow-lg transition hover:bg-[#0f1670] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#080b53]'
+const buttonClasses = 'inline-flex items-center justify-center rounded-lg px-6 py-3 text-base font-semibold shadow-lg transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white'
 
 export default function Guide() {
   return (

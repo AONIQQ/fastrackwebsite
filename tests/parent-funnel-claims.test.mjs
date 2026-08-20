@@ -118,6 +118,9 @@ test('college and state routes qualify costs and keep calculator prefill queries
 test('guide retains its price but makes no time, savings, applicability, or fulfillment promise', async () => {
   const source = await read('../app/guide/page.tsx')
   assert.match(source, /Fastrack Guide \(\$47\)/)
+  assert.match(source, /Continue to the Fastrack Guide checkout \(\$47\)/)
+  assert.match(source, /className=\{`\$\{buttonClasses\} mt-8 bg-white text-\[#080b53\] hover:bg-blue-50`\}/)
+  assert.doesNotMatch(source, /const buttonClasses = ['"][^'"]*\btext-white\b/)
   assert.match(source, /Policies and course applicability vary by state, school, major, and catalog year/)
   assert.doesNotMatch(source, /Graduate College in 2 Years|Save Up to 50%|tens of thousands|Works in any U\.S\. state|straight-A|shave off a year|Instant Download|lifetime access|updates included|7 days|on track/i)
 })
