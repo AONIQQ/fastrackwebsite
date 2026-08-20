@@ -20,6 +20,7 @@ import {
 } from '@/lib/capture-abuse.mjs'
 import { captureRolloutPlan, effectiveRolloutControls, rolloutControls } from '@/lib/rollout-controls.mjs'
 import { captureFailureHttpResponse, captureFailureResponse } from '@/lib/capture-failure-diagnostics.mjs'
+import { scheduleCaptureDelivery } from '@/lib/capture-delivery-scheduling.mjs'
 import { fixedCaptureErrorResponse, inputCaptureErrorResponse } from '@/lib/capture-route-errors.mjs'
 import type { CaptureFailurePhase } from '@/lib/capture-failure-diagnostics.mjs'
 
@@ -179,7 +180,15 @@ export async function POST(request: Request) {
         const outcomes = await Promise.allSettled(work)
         for (const outcome of outcomes) if (outcome.status === 'rejected') console.error('[lead delivery failure]')
       }
-      waitUntil(deliver().catch(() => console.error('[lead delivery failure]')))
+      // The lead and logical results message are already durable here. A
+      // synchronous platform scheduling failure must not turn that committed
+      // capture into a customer-visible 500; the nurture cron can recover the
+      // queued message independently.
+      scheduleCaptureDelivery(
+        waitUntil,
+        deliver(),
+        () => console.error('[lead delivery scheduling failure]'),
+      )
     }
 
     return NextResponse.json({ ok: true, id: lead.id, capture_id: input.captureId, roi: lead.snapshot })
