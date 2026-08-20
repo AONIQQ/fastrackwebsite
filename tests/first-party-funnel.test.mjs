@@ -67,6 +67,9 @@ test('contract accepts only exact events, UUIDv4, and bounded approved attributi
       source, medium: 'organic', campaign: 'creator-20260820', content: 'calculator',
     })
   }
+  assert.deepEqual(normalizeFirstPartyAttribution({ source: 'referral', medium: 'referral', campaign: 'agent-20260820', content: 'calculator' }), {
+    source: 'referral', medium: 'referral', campaign: 'agent-20260820', content: 'calculator',
+  })
   assert.equal(normalizeFirstPartyAttribution({ source: 'instagram', medium: 'organic', campaign: 'creator-alexis', content: 'calculator' }), null)
 })
 
@@ -84,6 +87,9 @@ test('search parser preserves valid attribution while discarding unapproved cont
   assert.equal(firstPartyAttributionFromSearch('?utm_source=attacker&utm_medium=organic&utm_campaign=agent-20260814'), null)
   assert.equal(firstPartyAttributionFromSearch('?utm_source=email&utm_source=reddit&utm_medium=partner&utm_campaign=agent-20260814'), null)
   assert.equal(firstPartyAttributionFromSearch('?utm_source=email&utm_medium=partner&utm_campaign=agent-20260814&utm_content=partner-form&utm_content=customer-id-1'), null)
+  assert.deepEqual(firstPartyAttributionFromSearch('?utm_source=referral&utm_medium=referral&utm_campaign=agent-20260820&utm_content=calculator'), {
+    source: 'referral', medium: 'referral', campaign: 'agent-20260820', content: 'calculator',
+  })
   for (const content of ['andrew@example.com', 'person-5551234567', 'customer-id-123456789', 'Jane Smith']) {
     assert.deepEqual(firstPartyAttributionFromSearch(`?utm_source=email&utm_medium=partner&utm_campaign=agent-20260814&utm_content=${encodeURIComponent(content)}`), { source: 'email', medium: 'partner', campaign: 'agent-20260814', content: null })
     assert.deepEqual(parseFirstPartyFunnelEventBody({

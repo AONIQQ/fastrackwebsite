@@ -46,6 +46,12 @@ test('only the exact creator attribution constraint widening may replace its che
   ))
   assert.throws(() => parseMigration('0016_creator_attribution_sources.sql', 'alter table leads drop constraint if exists leads_email_key;'), /not additive/)
   assert.throws(() => parseMigration('0017_other.sql', 'alter table calculator_funnel_sessions drop constraint if exists calculator_funnel_sessions_source_check;'), /not additive/)
+  assert.doesNotThrow(() => parseMigration(
+    '0017_referral_attribution_source.sql',
+    "alter table calculator_funnel_sessions drop constraint if exists calculator_funnel_sessions_source_check;\n-- migrate:split\nalter table calculator_funnel_sessions add constraint calculator_funnel_sessions_source_check check (utm_source in ('direct','referral'));\n",
+  ))
+  assert.throws(() => parseMigration('0017_referral_attribution_source.sql', 'alter table leads drop constraint if exists leads_email_key;'), /not additive/)
+  assert.throws(() => parseMigration('0017_referral_attribution_source.sql', 'alter table calculator_funnel_sessions drop constraint if exists calculator_funnel_sessions_campaign_check;'), /not additive/)
 })
 
 test('required additive nullable columns, constraints, and indexes remain allowed', () => {

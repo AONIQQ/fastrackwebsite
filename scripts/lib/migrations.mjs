@@ -41,11 +41,16 @@ export function assertAdditiveSql(contents, filename = 'migration') {
       .replace(/\/\*[\s\S]*?\*\//g, ' ')
       .replace(/'(?:''|[^'])*'/g, "''")
 
-    const exactCreatorConstraintWidening = filename === '0016_creator_attribution_sources.sql'
-      && /^alter\s+table\s+calculator_funnel_sessions\s+drop\s+constraint\s+if\s+exists\s+calculator_funnel_sessions_(?:source|campaign)_check\s*;?$/i.test(safetySql.trim())
+    const exactAttributionConstraintWidening = (
+      filename === '0016_creator_attribution_sources.sql'
+        && /^alter\s+table\s+calculator_funnel_sessions\s+drop\s+constraint\s+if\s+exists\s+calculator_funnel_sessions_(?:source|campaign)_check\s*;?$/i.test(safetySql.trim())
+    ) || (
+      filename === '0017_referral_attribution_source.sql'
+        && /^alter\s+table\s+calculator_funnel_sessions\s+drop\s+constraint\s+if\s+exists\s+calculator_funnel_sessions_source_check\s*;?$/i.test(safetySql.trim())
+    )
 
     for (const rule of FORBIDDEN_SQL) {
-      if (exactCreatorConstraintWidening && (rule.reason === 'DROP operations are not additive' || rule.reason === 'ALTER TABLE DROP is destructive')) continue
+      if (exactAttributionConstraintWidening && (rule.reason === 'DROP operations are not additive' || rule.reason === 'ALTER TABLE DROP is destructive')) continue
       if (rule.pattern.test(safetySql)) throw new Error(`${filename}: ${rule.reason}`)
     }
   }
