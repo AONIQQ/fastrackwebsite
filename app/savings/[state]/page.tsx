@@ -152,8 +152,8 @@ export default async function StateSavingsPage({ params, searchParams }: { param
             <h2 className="text-center text-3xl font-semibold">The catch nobody tells {name} families</h2>
             <p className="mx-auto mt-4 max-w-3xl text-center text-gray-700">
               Dual enrollment is bigger than ever, over 2.8 million high school students took college courses in
-              2023-24. But roughly 1 in 7 dual-enrollment courses is denied when the student transfers, most often
-              because the course doesn&rsquo;t fit the degree they end up pursuing.
+              2023-24. But a course can be denied at transfer or accepted only as an elective when it does not fit the
+              receiving college&rsquo;s degree requirements.
             </p>
             <p className="mx-auto mt-4 max-w-3xl text-center text-gray-700">
               Published rules can help a family evaluate courses before enrolling, but they do not guarantee acceptance

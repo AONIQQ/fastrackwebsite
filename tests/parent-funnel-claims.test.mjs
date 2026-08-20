@@ -126,13 +126,21 @@ test('guide retains its price but makes no time, savings, applicability, or fulf
 })
 
 test('state and nurture copy do not overstate course-specific denial rates', async () => {
-  const [state, nurture] = await Promise.all([
+  const [creditMap, college, state, nurture] = await Promise.all([
+    read('../app/credit-map/page.tsx'),
+    read('../app/college/[slug]/page.tsx'),
     read('../app/savings/[state]/page.tsx'),
     read('../lib/nurture.ts'),
   ])
 
-  for (const source of [state, nurture]) {
+  for (const source of [creditMap, college, state, nurture]) {
+    assert.doesNotMatch(source, /1 in 7|one in seven/i)
     assert.doesNotMatch(source, /College Algebra[\s\S]{0,160}more than half/i)
     assert.doesNotMatch(source, /intro economics[\s\S]{0,160}more than half/i)
   }
+
+  assert.match(creditMap, /denied at transfer or accepted only as an elective/i)
+  assert.match(college, /denied when it does not fit the receiving college&?rsquo;s degree requirements/i)
+  assert.match(state, /denied at transfer or accepted only as an elective/i)
+  assert.match(nurture, /verify not only whether each course transfers, but whether it applies to the intended degree/i)
 })

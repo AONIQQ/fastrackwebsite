@@ -77,8 +77,8 @@ export default function CreditMap() {
                 A sourced, done-for-you dual credit plan with open questions clearly flagged
               </h1>
               <p className="mt-6 text-lg text-blue-100">
-                Roughly 1 in 7 dual-enrollment courses gets denied at transfer, usually because it doesn&rsquo;t fit the
-                student&rsquo;s degree. We build your student&rsquo;s complete course-by-course plan against the real
+                A dual-enrollment course can be denied at transfer or accepted only as an elective when it does not fit
+                the student&rsquo;s degree. We build your student&rsquo;s complete course-by-course plan against the real
                 catalogs, transfer agreements, and degree requirements. We identify what the sources support and what
                 the family still needs to confirm with the receiving college before enrollment.
               </p>

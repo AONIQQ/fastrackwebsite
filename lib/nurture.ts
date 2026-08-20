@@ -39,7 +39,7 @@ export const NURTURE_STEPS: { stage: number; afterDays: number; subject: string;
     afterDays: 5,
     subject: 'A practical guide for checking credits before enrollment',
     html: wrap(
-      p('One number worth knowing before your student enrolls in anything: roughly 1 in 7 dual-enrollment courses is denied at transfer. Not because the course was bad, but because it did not fit the degree the student ended up pursuing.') +
+      p('Before your student enrolls, verify not only whether each course transfers, but whether it applies to the intended degree. A course can be accepted only as an elective or denied when it does not fit the receiving college’s degree requirements.') +
         p('The $47 Fastrack Guide gives families a structured starting framework for researching transfer policies, possible course options, schedules, funding, and the questions to confirm with each institution. It is educational material, not a personalized course map or a promise that a course will transfer or save money.') +
         btn(`${SITE}/guide?${U('n2')}`, 'Review the Fastrack Guide ($47)'),
     ),

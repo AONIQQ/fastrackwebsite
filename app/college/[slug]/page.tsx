@@ -131,7 +131,7 @@ export default async function CollegePage({ params, searchParams }: { params: { 
             <p className="mx-auto mt-4 max-w-3xl text-gray-700">
               Students in most states can earn college credit during high school through dual enrollment, AP, and CLEP,
               sometimes at a lower price than university enrollment. A course can transfer but still satisfy only an
-              elective, and roughly 1 in 7 dual-enrollment courses is denied at transfer, usually for degree fit.
+              elective, or be denied when it does not fit the receiving college&rsquo;s degree requirements.
             </p>
             <p className="mx-auto mt-4 max-w-3xl text-gray-700">
               The calculator is a modeled scenario, not a promised result. Residency, course sequencing, catalog timing,
