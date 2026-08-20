@@ -124,3 +124,6 @@ stored. Attribution is frozen on the first accepted event. An advisory lock and 
 session/event key makes retries idempotent. It never
 stores a raw session UUID, identity, network/browser metadata, URL, referrer,
 college, error detail, lead/capture/customer identifier, or arbitrary property.
+`0016_creator_attribution_sources.sql` keeps the database source constraint in
+sync with the bounded calculator attribution contract by adding TikTok and
+Instagram while continuing to reject arbitrary sources.

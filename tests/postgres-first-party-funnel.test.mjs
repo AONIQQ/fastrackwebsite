@@ -33,8 +33,10 @@ test('PostgreSQL 17 freezes attribution, deduplicates concurrent stages, bounds 
   execFileSync(binaries[0], ['-D', data, '--auth=trust', '--no-locale', '--encoding=UTF8', '-U', 'postgres'], { stdio: 'ignore' })
   execFileSync(binaries[1], ['-D', data, '-o', `-k ${socket} -p ${port} -h ''`, '-w', 'start'], { stdio: 'ignore' })
   t.after(() => { spawnSync(binaries[1], ['-D', data, '-m', 'immediate', '-w', 'stop'], { stdio: 'ignore' }); rmSync(root, { recursive: true, force: true }); rmSync(socket, { recursive: true, force: true }) })
-  const migration = readFileSync(path.join(project, 'db/migrations/0015_first_party_funnel_events.sql'), 'utf8')
-  for (const statement of splitStatements(migration)) psql(statement)
+  for (const filename of ['0015_first_party_funnel_events.sql', '0016_creator_attribution_sources.sql']) {
+    const migration = readFileSync(path.join(project, 'db/migrations', filename), 'utf8')
+    for (const statement of splitStatements(migration)) psql(statement)
+  }
 
   const digest = 'a'.repeat(64)
   const network = 'e'.repeat(64)
@@ -77,6 +79,9 @@ test('PostgreSQL 17 freezes attribution, deduplicates concurrent stages, bounds 
   assert.equal(psql(`select traffic_class||'|'||count(*) from calculator_funnel_sessions group by traffic_class order by traffic_class`), 'business|1\nqa|1')
   assert.throws(() => psql(`insert into calculator_funnel_sessions(session_digest,utm_source,utm_medium,utm_campaign,utm_content,traffic_class) values('${'c'.repeat(64)}','email','partner','agent-20260814','person-5551234567','business')`))
   assert.throws(() => psql(`insert into calculator_funnel_sessions(session_digest,utm_source,utm_medium,utm_campaign,traffic_class) values('${'d'.repeat(64)}','reddit','organic','qa-hostile','business')`))
+  psql(`insert into calculator_funnel_sessions(session_digest,utm_source,utm_medium,utm_campaign,utm_content,traffic_class) values('${'9'.repeat(64)}','tiktok','organic','creator-20260820','calculator','qa'),('${'8'.repeat(64)}','instagram','organic','creator-20260820','calculator','qa')`)
+  assert.equal(psql(`select string_agg(utm_source,',' order by utm_source) from calculator_funnel_sessions where utm_campaign='creator-20260820'`), 'instagram,tiktok')
+  assert.throws(() => psql(`insert into calculator_funnel_sessions(session_digest,utm_source,utm_medium,utm_campaign,traffic_class) values('${'7'.repeat(64)}','snapchat','organic','creator-20260820','qa')`))
 
   psql(`delete from calculator_funnel_ingest_windows; insert into calculator_funnel_ingest_windows(scope,key_digest,window_start,session_count,expires_at) values('global',repeat('0',64),date_trunc('hour',now()),498,date_trunc('hour',now())+interval '2 days'),('network','${network}',date_trunc('hour',now()),9,date_trunc('hour',now())+interval '2 days')`)
   const results = await Promise.all([

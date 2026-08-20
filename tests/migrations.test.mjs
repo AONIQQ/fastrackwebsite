@@ -39,6 +39,15 @@ test('backward-incompatible ALTER operations are rejected', () => {
   assert.throws(() => assertAdditiveSql('alter table leads add column capture_id text not null;'), /must remain nullable/)
 })
 
+test('only the exact creator attribution constraint widening may replace its check constraints', () => {
+  assert.doesNotThrow(() => parseMigration(
+    '0016_creator_attribution_sources.sql',
+    'alter table calculator_funnel_sessions drop constraint if exists calculator_funnel_sessions_source_check;\n-- migrate:split\nalter table calculator_funnel_sessions add constraint calculator_funnel_sessions_source_check check (utm_source in (\'direct\',\'tiktok\'));\n',
+  ))
+  assert.throws(() => parseMigration('0016_creator_attribution_sources.sql', 'alter table leads drop constraint if exists leads_email_key;'), /not additive/)
+  assert.throws(() => parseMigration('0017_other.sql', 'alter table calculator_funnel_sessions drop constraint if exists calculator_funnel_sessions_source_check;'), /not additive/)
+})
+
 test('required additive nullable columns, constraints, and indexes remain allowed', () => {
   assert.doesNotThrow(() => assertAdditiveSql('alter table leads add column if not exists capture_id text;'))
   assert.doesNotThrow(() => assertAdditiveSql('alter table leads add constraint leads_capture_id_key unique (capture_id);'))
