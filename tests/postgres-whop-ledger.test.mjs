@@ -91,7 +91,10 @@ test('exact production Whop SQL runs on PostgreSQL 17 with duplicate and reverse
     // Exact production aggregate SQL counts each provider sale once, reports
     // source separately, nets reversals, and excludes every fixture path.
     run(`insert into leads(id,email,is_fixture,created_at,utm_source,utm) values
-        (1,'genuine@example.test',false,now(),'google','{}'),(2,'fixture@example.test',true,now(),'reddit','{}');
+        (1,'genuine@example.test',false,now(),'google','{}'),
+        (2,'fixture@example.test',true,now(),'reddit','{}'),
+        (3,'creator-one@example.test',false,now(),'tiktok','{}'),
+        (4,'creator-two@example.test',false,now(),'instagram','{}');
       insert into email_messages(id,lead_id,kind,is_fixture) values(1,1,'results',true);
       insert into sales(provider,provider_payment_id,amount_cents,paid_at,refunded_cents,dispute_state,is_fixture,lead_id,raw)
         values('stripe','pi_real',49700,now(),9700,null,false,1,'{}'),
@@ -100,10 +103,13 @@ test('exact production Whop SQL runs on PostgreSQL 17 with duplicate and reverse
       insert into sales(provider,provider_payment_id,amount_cents,paid_at,refunded_cents,dispute_state,is_fixture,email_message_id,raw)
         values('stripe','pi_fixture_message',49700,now(),0,null,false,1,'{}');
       insert into sales(provider,provider_payment_id,amount_cents,paid_at,refunded_cents,dispute_state,is_fixture,utm_source,raw)
-        values('whop','pay_clean',4700,now(),0,null,false,'email','{}');`)
-    assert.equal(run(PAYMENT_TOTALS_SQL), '3|44700')
-    assert.equal(run(PAYMENT_BY_PROVIDER_SOURCE_SQL), 'stripe|google|1|40000\nwhop|email|1|4700\nwhop|direct|1|0')
-    assert.equal(run(`prepare provider_totals(text) as ${PROVIDER_PAYMENT_TOTALS_SQL}; execute provider_totals('whop');`), '2|1|1|0|9400|6700|4700')
+        values('whop','pay_clean',4700,now(),0,null,false,'email','{}');
+      insert into sales(provider,provider_payment_id,amount_cents,paid_at,refunded_cents,dispute_state,is_fixture,lead_id,raw)
+        values('stripe','pi_tiktok',49700,now(),0,null,false,3,'{}'),
+          ('whop','pay_instagram',4700,now(),0,null,false,4,'{}');`)
+    assert.equal(run(PAYMENT_TOTALS_SQL), '5|99100')
+    assert.equal(run(PAYMENT_BY_PROVIDER_SOURCE_SQL), 'stripe|tiktok|1|49700\nstripe|google|1|40000\nwhop|email|1|4700\nwhop|instagram|1|4700\nwhop|direct|1|0')
+    assert.equal(run(`prepare provider_totals(text) as ${PROVIDER_PAYMENT_TOTALS_SQL}; execute provider_totals('whop');`), '3|1|1|0|14100|6700|9400')
     run("insert into sales(provider,provider_payment_id) values('whop','pay_fixture')", false)
     run("insert into sales(provider,provider_payment_id) values('other','pay_other')", false)
   } finally {

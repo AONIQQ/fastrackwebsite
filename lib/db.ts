@@ -571,7 +571,7 @@ export async function captureOperationsReport(days = 30) {
       select classification,
         case
           when classification = 'test' then 'fixture'
-          when raw_source in ('direct', 'referral', 'google', 'reddit', 'facebook', 'forum', 'email', 'youtube')
+          when raw_source in ('direct', 'referral', 'google', 'bing', 'reddit', 'facebook', 'instagram', 'tiktok', 'forum', 'email', 'youtube')
             then raw_source
           else 'other'
         end as source
@@ -701,7 +701,7 @@ export async function funnelStats() {
       select case
         when lower(coalesce(utm_source, utm->>'utm_source',
           case when normalized_referrer is not null then 'referral' else 'direct' end))
-          in ('direct', 'referral', 'google', 'reddit', 'facebook', 'forum', 'email', 'youtube')
+          in ('direct', 'referral', 'google', 'bing', 'reddit', 'facebook', 'instagram', 'tiktok', 'forum', 'email', 'youtube')
         then lower(coalesce(utm_source, utm->>'utm_source',
           case when normalized_referrer is not null then 'referral' else 'direct' end))
         else 'other' end as source
