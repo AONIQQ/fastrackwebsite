@@ -33,7 +33,7 @@ test('PostgreSQL 17 freezes attribution, deduplicates concurrent stages, bounds 
   execFileSync(binaries[0], ['-D', data, '--auth=trust', '--no-locale', '--encoding=UTF8', '-U', 'postgres'], { stdio: 'ignore' })
   execFileSync(binaries[1], ['-D', data, '-o', `-k ${socket} -p ${port} -h ''`, '-w', 'start'], { stdio: 'ignore' })
   t.after(() => { spawnSync(binaries[1], ['-D', data, '-m', 'immediate', '-w', 'stop'], { stdio: 'ignore' }); rmSync(root, { recursive: true, force: true }); rmSync(socket, { recursive: true, force: true }) })
-  for (const filename of ['0015_first_party_funnel_events.sql', '0016_creator_attribution_sources.sql', '0017_referral_attribution_source.sql']) {
+  for (const filename of ['0015_first_party_funnel_events.sql', '0016_creator_attribution_sources.sql', '0017_referral_attribution_source.sql', '0018_podcast_attribution_source.sql']) {
     const migration = readFileSync(path.join(project, 'db/migrations', filename), 'utf8')
     for (const statement of splitStatements(migration)) psql(statement)
   }
@@ -84,6 +84,8 @@ test('PostgreSQL 17 freezes attribution, deduplicates concurrent stages, bounds 
   assert.throws(() => psql(`insert into calculator_funnel_sessions(session_digest,utm_source,utm_medium,utm_campaign,traffic_class) values('${'7'.repeat(64)}','snapchat','organic','creator-20260820','qa')`))
   psql(`insert into calculator_funnel_sessions(session_digest,utm_source,utm_medium,utm_campaign,utm_content,traffic_class) values('${'6'.repeat(64)}','referral','referral','agent-20260820','calculator','business'); insert into calculator_funnel_events(session_digest,event_name) values('${'6'.repeat(64)}','Calculator Intent')`)
   assert.equal(psql(`select utm_source||'|'||utm_medium||'|'||utm_campaign||'|'||utm_content from calculator_funnel_sessions where session_digest='${'6'.repeat(64)}'`), 'referral|referral|agent-20260820|calculator')
+  psql(`insert into calculator_funnel_sessions(session_digest,utm_source,utm_medium,utm_campaign,utm_content,traffic_class) values('${'5'.repeat(64)}','podcast','partner','agent-20260820','calculator','business'); insert into calculator_funnel_events(session_digest,event_name) values('${'5'.repeat(64)}','Calculator Intent')`)
+  assert.equal(psql(`select utm_source||'|'||utm_medium||'|'||utm_campaign||'|'||utm_content from calculator_funnel_sessions where session_digest='${'5'.repeat(64)}'`), 'podcast|partner|agent-20260820|calculator')
 
   psql(`delete from calculator_funnel_ingest_windows; insert into calculator_funnel_ingest_windows(scope,key_digest,window_start,session_count,expires_at) values('global',repeat('0',64),date_trunc('hour',now()),498,date_trunc('hour',now())+interval '2 days'),('network','${network}',date_trunc('hour',now()),9,date_trunc('hour',now())+interval '2 days')`)
   const results = await Promise.all([
@@ -99,7 +101,7 @@ test('PostgreSQL 17 freezes attribution, deduplicates concurrent stages, bounds 
   }
   assert.equal(psql(`select session_count from calculator_funnel_ingest_windows where scope='global'`), '499')
 
-  assert.equal(psql(`select s.traffic_class||'|'||s.utm_source||'|'||count(*) filter(where e.event_name='Calculator Intent')||'|'||count(*) filter(where e.event_name='Lead Captured') from calculator_funnel_events e join calculator_funnel_sessions s using(session_digest) group by s.traffic_class,s.utm_source order by s.traffic_class,s.utm_source`), 'business|reddit|2|1\nbusiness|referral|1|0\nqa|direct|1|0')
+  assert.equal(psql(`select s.traffic_class||'|'||s.utm_source||'|'||count(*) filter(where e.event_name='Calculator Intent')||'|'||count(*) filter(where e.event_name='Lead Captured') from calculator_funnel_events e join calculator_funnel_sessions s using(session_digest) group by s.traffic_class,s.utm_source order by s.traffic_class,s.utm_source`), 'business|podcast|1|0\nbusiness|reddit|2|1\nbusiness|referral|1|0\nqa|direct|1|0')
 
   const report = spawnSync(binaries[2], ['-X', '-v', 'ON_ERROR_STOP=1', '-P', 'footer=off', '-F', '|', '-A', '-c', FIRST_PARTY_FUNNEL_REPORT_SQL], { env, encoding: 'utf8' })
   assert.equal(report.status, 0, report.stderr)
@@ -107,9 +109,11 @@ test('PostgreSQL 17 freezes attribution, deduplicates concurrent stages, bounds 
   assert.equal(reportLines[0], 'window|traffic_class|source|medium|campaign|intent|modal_opened|submission_attempted|lead_captured|capture_failed|modal_per_intent|attempt_per_modal|captured_per_intent|captured_per_attempt')
   assert.deepEqual(reportLines.slice(1), [
     '7d|business|reddit|organic|agent-20260814|2|1|1|1|0|0.5|1|0.5|1',
+    '7d|business|podcast|partner|agent-20260820|1|0|0|0|0|0||0|',
     '7d|business|referral|referral|agent-20260820|1|0|0|0|0|0||0|',
     '7d|qa|direct|direct|direct|1|1|0|0|0|1|0|0|',
     '30d|business|reddit|organic|agent-20260814|2|1|1|1|0|0.5|1|0.5|1',
+    '30d|business|podcast|partner|agent-20260820|1|0|0|0|0|0||0|',
     '30d|business|referral|referral|agent-20260820|1|0|0|0|0|0||0|',
     '30d|qa|direct|direct|direct|1|1|0|0|0|1|0|0|',
   ])

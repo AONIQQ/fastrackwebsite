@@ -94,7 +94,8 @@ test('exact production Whop SQL runs on PostgreSQL 17 with duplicate and reverse
         (1,'genuine@example.test',false,now(),'google','{}'),
         (2,'fixture@example.test',true,now(),'reddit','{}'),
         (3,'creator-one@example.test',false,now(),'tiktok','{}'),
-        (4,'creator-two@example.test',false,now(),'instagram','{}');
+        (4,'creator-two@example.test',false,now(),'instagram','{}'),
+        (5,'podcast-listener@example.test',false,now(),'podcast','{}');
       insert into email_messages(id,lead_id,kind,is_fixture) values(1,1,'results',true);
       insert into sales(provider,provider_payment_id,amount_cents,paid_at,refunded_cents,dispute_state,is_fixture,lead_id,raw)
         values('stripe','pi_real',49700,now(),9700,null,false,1,'{}'),
@@ -106,10 +107,11 @@ test('exact production Whop SQL runs on PostgreSQL 17 with duplicate and reverse
         values('whop','pay_clean',4700,now(),0,null,false,'email','{}');
       insert into sales(provider,provider_payment_id,amount_cents,paid_at,refunded_cents,dispute_state,is_fixture,lead_id,raw)
         values('stripe','pi_tiktok',49700,now(),0,null,false,3,'{}'),
-          ('whop','pay_instagram',4700,now(),0,null,false,4,'{}');`)
-    assert.equal(run(PAYMENT_TOTALS_SQL), '5|99100')
-    assert.equal(run(PAYMENT_BY_PROVIDER_SOURCE_SQL), 'stripe|tiktok|1|49700\nstripe|google|1|40000\nwhop|email|1|4700\nwhop|instagram|1|4700\nwhop|direct|1|0')
-    assert.equal(run(`prepare provider_totals(text) as ${PROVIDER_PAYMENT_TOTALS_SQL}; execute provider_totals('whop');`), '3|1|1|0|14100|6700|9400')
+          ('whop','pay_instagram',4700,now(),0,null,false,4,'{}'),
+          ('whop','pay_podcast',4700,now(),0,null,false,5,'{}');`)
+    assert.equal(run(PAYMENT_TOTALS_SQL), '6|103800')
+    assert.equal(run(PAYMENT_BY_PROVIDER_SOURCE_SQL), 'stripe|tiktok|1|49700\nstripe|google|1|40000\nwhop|email|1|4700\nwhop|instagram|1|4700\nwhop|podcast|1|4700\nwhop|direct|1|0')
+    assert.equal(run(`prepare provider_totals(text) as ${PROVIDER_PAYMENT_TOTALS_SQL}; execute provider_totals('whop');`), '4|1|1|0|18800|6700|14100')
     run("insert into sales(provider,provider_payment_id) values('whop','pay_fixture')", false)
     run("insert into sales(provider,provider_payment_id) values('other','pay_other')", false)
   } finally {

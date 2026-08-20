@@ -39,7 +39,7 @@ test('backward-incompatible ALTER operations are rejected', () => {
   assert.throws(() => assertAdditiveSql('alter table leads add column capture_id text not null;'), /must remain nullable/)
 })
 
-test('only the exact creator attribution constraint widening may replace its check constraints', () => {
+test('only the exact reviewed attribution widenings may replace their check constraints', () => {
   assert.doesNotThrow(() => parseMigration(
     '0016_creator_attribution_sources.sql',
     'alter table calculator_funnel_sessions drop constraint if exists calculator_funnel_sessions_source_check;\n-- migrate:split\nalter table calculator_funnel_sessions add constraint calculator_funnel_sessions_source_check check (utm_source in (\'direct\',\'tiktok\'));\n',
@@ -52,6 +52,12 @@ test('only the exact creator attribution constraint widening may replace its che
   ))
   assert.throws(() => parseMigration('0017_referral_attribution_source.sql', 'alter table leads drop constraint if exists leads_email_key;'), /not additive/)
   assert.throws(() => parseMigration('0017_referral_attribution_source.sql', 'alter table calculator_funnel_sessions drop constraint if exists calculator_funnel_sessions_campaign_check;'), /not additive/)
+  assert.doesNotThrow(() => parseMigration(
+    '0018_podcast_attribution_source.sql',
+    "alter table calculator_funnel_sessions drop constraint if exists calculator_funnel_sessions_source_check;\n-- migrate:split\nalter table calculator_funnel_sessions add constraint calculator_funnel_sessions_source_check check (utm_source in ('direct','podcast'));\n",
+  ))
+  assert.throws(() => parseMigration('0018_podcast_attribution_source.sql', 'alter table leads drop constraint if exists leads_email_key;'), /not additive/)
+  assert.throws(() => parseMigration('0018_podcast_attribution_source.sql', 'alter table calculator_funnel_sessions drop constraint if exists calculator_funnel_sessions_campaign_check;'), /not additive/)
 })
 
 test('required additive nullable columns, constraints, and indexes remain allowed', () => {

@@ -40,7 +40,7 @@ test('public source reporting has fixed cardinality and never reflects arbitrary
   const attackerValues = Array.from({ length: 500 }, (_, index) => `person_${index}_5551212`)
   assert.deepEqual(new Set(attackerValues.map((value) => publicCaptureSource(value))), new Set(['other']))
   assert.equal(publicCaptureSource('ReDdIt'), 'reddit')
-  for (const source of ['bing', 'instagram', 'tiktok']) {
+  for (const source of ['bing', 'instagram', 'tiktok', 'podcast']) {
     assert.equal(publicCaptureSource(source.toUpperCase()), source)
   }
   assert.equal(publicCaptureSource('anything', { fixture: true }), 'fixture')
@@ -120,7 +120,7 @@ test('aggregate admin report separates durable lead classes from browser events'
   assert.match(source, /coalesce\(is_fixture, false\)[\s\S]*then 'test'/)
   assert.match(source, /left join capture_risk_decisions accepted_risk[\s\S]*accepted_risk\.id = leads\.capture_risk_decision_id[\s\S]*accepted_risk\.capture_id = leads\.capture_id[\s\S]*accepted_risk\.request_hash = leads\.capture_request_hash[\s\S]*accepted_risk\.decision = 'accepted'[\s\S]*accepted_risk\.accepted_at = leads\.capture_risk_accepted_at[\s\S]*accepted_risk\.policy_version = leads\.capture_risk_policy_version/)
   assert.match(source, /when accepted_risk\.id is not null then 'genuine'/)
-  assert.match(source, /raw_source in \('direct', 'referral', 'google', 'bing', 'reddit', 'facebook', 'instagram', 'tiktok', 'forum', 'email', 'youtube'\)/)
+  assert.match(source, /raw_source in \('direct', 'referral', 'google', 'bing', 'reddit', 'facebook', 'instagram', 'tiktok', 'forum', 'email', 'youtube', 'podcast'\)/)
   assert.match(source, /else 'other'/)
   assert.doesNotMatch(source, /then lower\(raw_source\)/)
   assert.match(source, /return \{ window_days: safeDays, durable_leads: leads, capture_events: events \}/)
