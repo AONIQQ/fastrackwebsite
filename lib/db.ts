@@ -717,7 +717,7 @@ export async function funnelStats() {
     group by 1 order by 1
   `) as { nurture_stage: number; leads: number }[];
   const sales = (await sql.query(PAYMENT_TOTALS_SQL)) as { count: number; cents: number }[];
-  const salesBySource = (await sql.query(PAYMENT_BY_PROVIDER_SOURCE_SQL)) as { provider: 'stripe' | 'whop'; source: string; sales: number; net_cents: number }[];
+  const salesBySource = (await sql.query(PAYMENT_BY_PROVIDER_SOURCE_SQL)) as { provider: 'stripe' | 'whop'; source: string; medium: string; campaign: string; content: string | null; sales: number; net_cents: number }[];
   const emailPerf = (await sql`
     select step,
       count(distinct email_message_id) filter (where event_type = 'open')::int as opens,

@@ -73,6 +73,15 @@ test('contract accepts only exact events, UUIDv4, and bounded approved attributi
   assert.deepEqual(normalizeFirstPartyAttribution({ source: 'podcast', medium: 'partner', campaign: 'agent-20260820', content: 'calculator' }), {
     source: 'podcast', medium: 'partner', campaign: 'agent-20260820', content: 'calculator',
   })
+  assert.deepEqual(normalizeFirstPartyAttribution({ source: 'podcast', medium: 'partner', campaign: 'agent-20260820', content: 'partner-p0001' }), {
+    source: 'podcast', medium: 'partner', campaign: 'agent-20260820', content: 'partner-p0001',
+  })
+  for (const attribution of [
+    { source: 'podcast', medium: 'partner', campaign: 'agent-20260820', content: 'partner-p001' },
+    { source: 'podcast', medium: 'partner', campaign: 'agent-20260820', content: 'partner-p10000' },
+    { source: 'podcast', medium: 'organic', campaign: 'agent-20260820', content: 'partner-p0001' },
+    { source: 'direct', medium: 'direct', campaign: 'direct', content: 'partner-p0001' },
+  ]) assert.equal(normalizeFirstPartyAttribution(attribution)?.content, null)
   assert.equal(normalizeFirstPartyAttribution({ source: 'instagram', medium: 'organic', campaign: 'creator-alexis', content: 'calculator' }), null)
 })
 
@@ -95,6 +104,9 @@ test('search parser preserves valid attribution while discarding unapproved cont
   })
   assert.deepEqual(firstPartyAttributionFromSearch('?utm_source=podcast&utm_medium=partner&utm_campaign=agent-20260820&utm_content=calculator'), {
     source: 'podcast', medium: 'partner', campaign: 'agent-20260820', content: 'calculator',
+  })
+  assert.deepEqual(firstPartyAttributionFromSearch('?utm_source=podcast&utm_medium=partner&utm_campaign=agent-20260820&utm_content=partner-p0037'), {
+    source: 'podcast', medium: 'partner', campaign: 'agent-20260820', content: 'partner-p0037',
   })
   for (const content of ['andrew@example.com', 'person-5551234567', 'customer-id-123456789', 'Jane Smith']) {
     assert.deepEqual(firstPartyAttributionFromSearch(`?utm_source=email&utm_medium=partner&utm_campaign=agent-20260814&utm_content=${encodeURIComponent(content)}`), { source: 'email', medium: 'partner', campaign: 'agent-20260814', content: null })
@@ -244,6 +256,7 @@ test('route, migration, report, and calculator preserve privacy and durable ACK 
   assert.match(server, /pg_advisory_xact_lock/)
   assert.match(server, /database\.transaction\(\(txn\) => \[[\s\S]*fastrack:first-party-funnel-admission[\s\S]*with known_session[\s\S]*capacity_ok[\s\S]*isolationLevel: 'ReadCommitted'/)
   assert.doesNotMatch(`${panel}\n${adminRoute}`, /network_digest|key_digest|networkDigest/)
+  assert.match(panel, /row\.content \?\? '-'/)
   assert.match(migration, /utm_content is null or utm_content in/)
   assert.match(migration, /traffic_class in \('business','qa'\)/)
   assert.match(server, /captured_per_intent/)

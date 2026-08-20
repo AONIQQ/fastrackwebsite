@@ -92,8 +92,8 @@ export default async function LeadsPage({
             <p className="text-3xl font-bold">{funnel.sales.count}</p>
             <p className="text-sm text-gray-600">${(funnel.sales.cents / 100).toLocaleString()} collected</p>
             {funnel.salesBySource.map((row) => (
-              <p key={`${row.provider}:${row.source}`} className="text-xs text-gray-600">
-                {row.provider} / {row.source}: {row.sales} sale{row.sales === 1 ? '' : 's'}, ${(row.net_cents / 100).toLocaleString()} net
+              <p key={`${row.provider}:${row.source}:${row.medium}:${row.campaign}:${row.content ?? 'none'}`} className="text-xs text-gray-600">
+                {row.provider} / {row.source} / {row.medium} / {row.campaign} / {row.content ?? '-'}: {row.sales} sale{row.sales === 1 ? '' : 's'}, ${(row.net_cents / 100).toLocaleString()} net
               </p>
             ))}
           </div>

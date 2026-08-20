@@ -7,6 +7,7 @@ export type FirstPartyFunnelRow = {
   source: string
   medium: string
   campaign: string
+  content: string | null
   intent: number
   modal_opened: number
   submission_attempted: number

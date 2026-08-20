@@ -29,7 +29,7 @@ test('exact production Whop SQL runs on PostgreSQL 17 with duplicate and reverse
   try {
     execFileSync(binaries[0], ['-D', data, '--auth=trust', '--no-locale', '--encoding=UTF8'], { stdio: 'ignore' })
     execFileSync(binaries[1], ['-D', data, '-o', `-k ${socket} -p ${port} -h ''`, '-w', 'start'], { stdio: 'ignore' })
-    run(`create table leads(id bigserial primary key,email text not null,is_fixture boolean default false,created_at timestamptz default now(),utm_source text,utm jsonb,normalized_referrer text);
+    run(`create table leads(id bigserial primary key,email text not null,is_fixture boolean default false,created_at timestamptz default now(),utm_source text,utm_medium text,utm_campaign text,utm_content text,utm jsonb,normalized_referrer text);
       create table email_messages(id bigserial primary key,lead_id bigint references leads(id),kind text,nurture_stage integer,is_fixture boolean default false);
       create table email_message_identities(email_message_id bigint primary key references email_messages(id),tracking_id uuid unique not null);
       create table sales(
@@ -91,11 +91,11 @@ test('exact production Whop SQL runs on PostgreSQL 17 with duplicate and reverse
     // Exact production aggregate SQL counts each provider sale once, reports
     // source separately, nets reversals, and excludes every fixture path.
     run(`insert into leads(id,email,is_fixture,created_at,utm_source,utm) values
-        (1,'genuine@example.test',false,now(),'google','{}'),
+        (1,'genuine@example.test',false,now(),'google','{"utm_medium":"cpc","utm_campaign":"validation","utm_content":"calculator"}'),
         (2,'fixture@example.test',true,now(),'reddit','{}'),
-        (3,'creator-one@example.test',false,now(),'tiktok','{}'),
-        (4,'creator-two@example.test',false,now(),'instagram','{}'),
-        (5,'podcast-listener@example.test',false,now(),'podcast','{}');
+        (3,'creator-one@example.test',false,now(),'tiktok','{"utm_medium":"organic","utm_campaign":"creator-20260820","utm_content":"calculator"}'),
+        (4,'creator-two@example.test',false,now(),'instagram','{"utm_medium":"organic","utm_campaign":"creator-20260820","utm_content":"calculator"}'),
+        (5,'podcast-listener@example.test',false,now(),'podcast','{"utm_medium":"partner","utm_campaign":"agent-20260820","utm_content":"partner-p0001"}');
       insert into email_messages(id,lead_id,kind,is_fixture) values(1,1,'results',true);
       insert into sales(provider,provider_payment_id,amount_cents,paid_at,refunded_cents,dispute_state,is_fixture,lead_id,raw)
         values('stripe','pi_real',49700,now(),9700,null,false,1,'{}'),
@@ -110,7 +110,7 @@ test('exact production Whop SQL runs on PostgreSQL 17 with duplicate and reverse
           ('whop','pay_instagram',4700,now(),0,null,false,4,'{}'),
           ('whop','pay_podcast',4700,now(),0,null,false,5,'{}');`)
     assert.equal(run(PAYMENT_TOTALS_SQL), '6|103800')
-    assert.equal(run(PAYMENT_BY_PROVIDER_SOURCE_SQL), 'stripe|tiktok|1|49700\nstripe|google|1|40000\nwhop|email|1|4700\nwhop|instagram|1|4700\nwhop|podcast|1|4700\nwhop|direct|1|0')
+    assert.equal(run(PAYMENT_BY_PROVIDER_SOURCE_SQL), 'stripe|tiktok|organic|creator-20260820|calculator|1|49700\nstripe|google|cpc|validation|calculator|1|40000\nwhop|email|direct|direct||1|4700\nwhop|instagram|organic|creator-20260820|calculator|1|4700\nwhop|podcast|partner|agent-20260820|partner-p0001|1|4700\nwhop|direct|direct|direct||1|0')
     assert.equal(run(`prepare provider_totals(text) as ${PROVIDER_PAYMENT_TOTALS_SQL}; execute provider_totals('whop');`), '4|1|1|0|18800|6700|14100')
     run("insert into sales(provider,provider_payment_id) values('whop','pay_fixture')", false)
     run("insert into sales(provider,provider_payment_id) values('other','pay_other')", false)
