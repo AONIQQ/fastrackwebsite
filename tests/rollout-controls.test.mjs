@@ -84,6 +84,12 @@ test('cron authorization preserves exact nonempty bearer-secret semantics', () =
   assert.equal(isAuthorizedCronRequest('cron-secret', 'Bearer cron-secret'), true)
 })
 
+test('nurture cron runs across daytime Eastern hours instead of delaying due work until the next day', async () => {
+  const vercel = JSON.parse(await readFile(new URL('../vercel.json', import.meta.url), 'utf8'))
+  const schedules = vercel.crons.filter((cron) => cron.path === '/api/cron/nurture')
+  assert.deepEqual(schedules, [{ path: '/api/cron/nurture', schedule: '0 13-22/3 * * *' }])
+})
+
 test('invalid and idle cron preflights invoke no database, queue, projection, claim, or dispatch dependency', async () => {
   const explicitOff = Object.fromEntries(Object.values(ROLLOUT_CONTROL_NAMES).map((name) => [name, '0']))
   const makeDependencies = () => {
