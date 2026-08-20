@@ -102,8 +102,9 @@ test('click destinations are allowlisted and checkout URLs never prefill recipie
 })
 
 test('migration and routes persist only verified logical-message engagement', async () => {
-  const [migration, click, open, ledger, nurture, mail, stripe, creditMap, db] = await Promise.all([
+  const [migration, guideDestinationMigration, click, open, ledger, nurture, mail, stripe, creditMap, db] = await Promise.all([
     read('../db/migrations/0005_signed_attribution.sql'),
+    read('../db/migrations/0020_guide_engagement_destination.sql'),
     read('../app/api/t/c/route.ts'),
     read('../app/api/t/o/route.ts'),
     read('../lib/message-ledger.ts'),
@@ -117,6 +118,7 @@ test('migration and routes persist only verified logical-message engagement', as
   assert.match(migration, /tracking_id uuid not null unique/)
   assert.match(migration, /email_message_id bigint not null references email_messages\(id\)/)
   assert.doesNotMatch(migration.slice(migration.indexOf('create table if not exists email_engagement_events')), /\bemail\b|\burl\b/)
+  assert.match(guideDestinationMigration, /destination_key in \('home', 'calculator', 'guide', 'credit_map', 'checkout'\)/)
   assert.match(ledger, /insert into email_message_identities \(email_message_id, tracking_id\)/)
   assert.match(click, /verifyEngagementToken[\s\S]*insert into email_engagement_events/)
   assert.match(open, /verifyEngagementToken[\s\S]*insert into email_engagement_events/)

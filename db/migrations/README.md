@@ -127,3 +127,10 @@ college, error detail, lead/capture/customer identifier, or arbitrary property.
 `0016_creator_attribution_sources.sql` keeps the database source constraint in
 sync with the bounded calculator attribution contract by adding TikTok and
 Instagram while continuing to reject arbitrary sources.
+
+`0020_guide_engagement_destination.sql` widens only the existing engagement
+destination constraint to include the already source-allowlisted `guide`
+destination. The click route already redirects guide clicks safely on a ledger
+write failure; this migration restores the missing aggregate engagement record
+without changing the destination, email content, checkout, recipient, or
+message lifecycle.

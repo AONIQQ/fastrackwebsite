@@ -64,6 +64,9 @@ test('only the exact reviewed attribution widenings may replace their check cons
   ))
   assert.throws(() => parseMigration('0019_partner_placement_content.sql', 'alter table leads drop constraint if exists leads_email_key;'), /not additive/)
   assert.throws(() => parseMigration('0019_partner_placement_content.sql', 'alter table calculator_funnel_sessions drop constraint if exists calculator_funnel_sessions_source_check;'), /not additive/)
+  assert.doesNotThrow(() => parseMigration('0020_guide_engagement_destination.sql', 'alter table email_engagement_events drop constraint if exists email_engagement_destination_check;'))
+  assert.throws(() => parseMigration('0020_guide_engagement_destination.sql', 'alter table email_engagement_events drop constraint if exists email_engagement_step_check;'), /not additive/)
+  assert.throws(() => parseMigration('0020_guide_engagement_destination.sql', 'alter table leads drop constraint if exists leads_email_key;'), /not additive/)
 })
 
 test('required additive nullable columns, constraints, and indexes remain allowed', () => {
