@@ -39,6 +39,8 @@ test('nurture keeps its schedule and uses the approved $47 to $497 offer ladder'
   assert.match(source, /credit-map\?\$\{U\('n4'\)\}/)
   assert.doesNotMatch(source, /lead_ref|prefilled_email/)
   assert.match(source, /check every course against the target college’s transfer rules before enrolling/)
+  assert.match(source, /Fastrack EDU LLC &middot;/)
+  assert.doesNotMatch(source, /Fastrack LLC &middot;/)
   assert.doesNotMatch(source, /free guide|weekend|instant download|guarantee(?:d)? transfer/i)
 })
 
