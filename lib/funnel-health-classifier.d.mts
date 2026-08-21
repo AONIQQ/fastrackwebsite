@@ -2,14 +2,16 @@ export type HealthLevel = 'READY' | 'WARNING' | 'CRITICAL'
 export const FUNNEL_HEALTH_THRESHOLDS: Readonly<{
   cronWarningHours: number; cronCriticalHours: number
   resultsDueWarningMinutes: number; resultsDueCriticalMinutes: number
-  nurtureDueWarningHours: number; projectionBacklogCritical: number
+  nurtureDueWarningHours: number; nurtureEnqueueWarningHours: number; nurtureEnqueueCriticalHours: number
+  projectionBacklogCritical: number
   persistenceUncertainCritical: number; captureRejectionMinimumAttempts: number
   captureRejectionWarningRatio: number
 }>
 export function classifyFunnelHealth(input: {
   controlsReady: boolean; smsEnabled: boolean; smsConfigurationValid: boolean
   stripeSnapshotFresh: boolean; whopReady: boolean; cronCompletedAt: string | null; cronFailed: boolean
-  dueResultsOldestHours: number | null; dueNurtureOldestHours: number | null; expiredLeases: number
+  dueResultsOldestHours: number | null; dueNurtureOldestHours: number | null
+  missingNurtureRows: number; missingNurtureOldestHours: number | null; expiredLeases: number
   projectionBacklog: number; unmatchedCallbacks24h: number
   persistenceUncertain24h: number; attempts24h: number; accepted24h: number
   deduplicated24h: number; rejected24h: number

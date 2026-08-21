@@ -11,6 +11,8 @@ test('funnel health classifications are deterministic and bounded', async () => 
   assert.match(source, /cronCriticalHours: 36/)
   assert.match(source, /resultsDueWarningMinutes: 15/)
   assert.match(source, /resultsDueCriticalMinutes: 120/)
+  assert.match(source, /nurtureEnqueueWarningHours: 18/)
+  assert.match(source, /nurtureEnqueueCriticalHours: 24/)
   assert.match(source, /persistenceUncertainCritical: 1/)
   assert.match(source, /captureRejectionMinimumAttempts: 5/)
   assert.match(source, /captureRejectionWarningRatio: 0\.5/)
@@ -19,7 +21,8 @@ test('funnel health classifications are deterministic and bounded', async () => 
   const ready = {
     controlsReady: true, smsEnabled: false, smsConfigurationValid: true, stripeSnapshotFresh: true, whopReady: false,
     cronCompletedAt: '2026-08-13T15:00:00.000Z', cronFailed: false,
-    dueResultsOldestHours: null, dueNurtureOldestHours: null, expiredLeases: 0, projectionBacklog: 0,
+    dueResultsOldestHours: null, dueNurtureOldestHours: null, missingNurtureRows: 0,
+    missingNurtureOldestHours: null, expiredLeases: 0, projectionBacklog: 0,
     unmatchedCallbacks24h: 0,
     persistenceUncertain24h: 0, attempts24h: 0, accepted24h: 0, deduplicated24h: 0, rejected24h: 0,
     resultsTerminalFailures: 0, nurtureTerminalFailures: 0, retryableMessages: 0,
@@ -34,6 +37,9 @@ test('funnel health classifications are deterministic and bounded', async () => 
   assert.equal(classifyFunnelHealth({ ...ready, controlsReady: false }, now).components.controls, 'CRITICAL')
   assert.equal(classifyFunnelHealth({ ...ready, dueResultsOldestHours: 0.25 }, now).components.queues, 'WARNING')
   assert.equal(classifyFunnelHealth({ ...ready, dueResultsOldestHours: 2 }, now).components.queues, 'CRITICAL')
+  assert.equal(classifyFunnelHealth({ ...ready, missingNurtureRows: 1, missingNurtureOldestHours: 17.99 }, now).components.nurture_enqueue, 'READY')
+  assert.equal(classifyFunnelHealth({ ...ready, missingNurtureRows: 1, missingNurtureOldestHours: 18 }, now).components.nurture_enqueue, 'WARNING')
+  assert.equal(classifyFunnelHealth({ ...ready, missingNurtureRows: 1, missingNurtureOldestHours: 24 }, now).components.nurture_enqueue, 'CRITICAL')
   assert.equal(classifyFunnelHealth({ ...ready, resultsTerminalFailures: 1 }, now).components.message_failures, 'CRITICAL')
   assert.equal(classifyFunnelHealth({ ...ready, nurtureTerminalFailures: 1 }, now).components.message_failures, 'WARNING')
   assert.equal(classifyFunnelHealth({ ...ready, retryableMessages: 1 }, now).components.message_failures, 'WARNING')
@@ -62,6 +68,8 @@ test('report is fixed aggregate-only and excludes identity columns', async () =>
   assert.match(source, /cronCompletedAt: typeof latestSuccessfulRun\?\.completed_at/)
   assert.match(source, /cronFailed: Boolean\(latestRun && \(latestRun\.failure_category/)
   assert.match(source, /from nurture_runs where failure_category is not null or failed > 0/)
+  assert.match(source, /result_ready\.ready_at/)
+  assert.match(source, /n\.nurture_stage = l\.nurture_stage \+ 1/)
   assert.doesNotMatch(source, /from nurture_runs where completed_at is null or failure_category/)
   const nurtureSchedule = vercel.crons.find((entry) => entry.path === '/api/cron/nurture')?.schedule
   assert.equal(nurtureSchedule, '0 13-22/3 * * *')
@@ -74,7 +82,7 @@ test('panel is prominent, accessible, and renders every required risk domain', a
   ])
   assert.match(page, /<FunnelHealthPanel report=\{health\}/)
   assert.match(panel, /aria-labelledby="funnel-health-heading"/)
-  for (const label of ['Customer funnel health', 'Capture and controls', 'Cron, queues, and delivery', 'Payments', 'Whop:', 'Queue age detail']) {
+  for (const label of ['Customer funnel health', 'Capture and controls', 'Cron, queues, and delivery', 'Eligible without nurture row', 'Payments', 'Whop:', 'Queue age detail']) {
     assert.ok(panel.includes(label), label)
   }
 })

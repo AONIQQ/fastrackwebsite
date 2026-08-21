@@ -53,7 +53,7 @@ export function FunnelHealthPanel({ report }: { report: FunnelHealthReport }) {
 
         <div className="rounded border-2 border-current bg-white/70 p-4">
           <h3 className="font-bold mb-2">Cron, queues, and delivery</h3>
-          <p className="text-sm">Nurture schedule: daily 15:00 UTC</p>
+          <p className="text-sm">Nurture schedule: <strong>{report.nurture_cron.schedule_utc}</strong> (four daytime ET runs)</p>
           <p className="text-sm">Latest attempt: <strong>{report.nurture_cron.latest?.started_at ? new Date(String(report.nurture_cron.latest.started_at)).toLocaleString() : 'never'}</strong></p>
           <p className="text-sm">Freshness: {report.nurture_cron.freshness_hours == null ? 'unknown' : `${Number(report.nurture_cron.freshness_hours).toFixed(1)}h`}</p>
           <p className="text-sm">Newest success: {report.nurture_cron.latest_successful?.completed_at ? new Date(String(report.nurture_cron.latest_successful.completed_at)).toLocaleString() : 'none'}</p>
@@ -61,6 +61,7 @@ export function FunnelHealthPanel({ report }: { report: FunnelHealthReport }) {
           <p className="text-sm">Leases: {value(report.leases.active)} active, <strong>{value(report.leases.expired)} expired</strong></p>
           <p className="text-sm">Results: {value(report.messages.results.due)} due, {value(report.messages.results.retryable)} retryable, {value(report.messages.results.terminal_failed)} terminal failures</p>
           <p className="text-sm">Nurture: {value(report.messages.nurture.due)} due, {value(report.messages.nurture.retryable)} retryable, {value(report.messages.nurture.terminal_failed)} terminal failures</p>
+          <p className="text-sm">Eligible without nurture row: <strong>{value(report.nurture_eligibility.missing_due)}</strong>{report.nurture_eligibility.oldest_due_at ? `, oldest eligible ${new Date(report.nurture_eligibility.oldest_due_at).toLocaleString('en-US', { timeZone: 'America/New_York' })} ET` : ''}</p>
           <p className="text-sm">Resend: {value(report.resend.stored)} stored, {value(report.resend.unmatched)} unmatched ({value(report.resend.unmatched_24h)} in 24h), <strong>{value(report.resend.projection_pending)} projection backlog</strong></p>
           <p className="text-sm">7d provider: {value(report.resend.failed_7d)} failed, {value(report.resend.bounced_7d)} bounced, {value(report.resend.complained_7d)} complained</p>
         </div>

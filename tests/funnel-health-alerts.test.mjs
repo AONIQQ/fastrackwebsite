@@ -15,13 +15,14 @@ const read = (path) => readFile(new URL(path, import.meta.url), 'utf8')
 const healthy = () => ({
   generated_at: '2026-08-14T18:00:00.000Z',
   status: 'WARNING',
-  component_status: { cron: 'READY', stripe_registration: 'READY', whop_instrumentation: 'WARNING', resend_callbacks: 'WARNING' },
+  component_status: { cron: 'READY', nurture_enqueue: 'READY', stripe_registration: 'READY', whop_instrumentation: 'WARNING', resend_callbacks: 'WARNING' },
   rollout: {
     controls: Object.fromEntries(Array.from({ length: 10 }, (_, index) => [`control${index}`, { configuration: 'valid', effective: true }])),
     dependency_status: 'valid', dependency_warnings: [],
   },
   capture: { persistence_uncertain_24h: 0 },
   nurture_cron: { freshness_hours: 3, latest: { failed: 0, failure_category: null } },
+  nurture_eligibility: { missing_due: 0, oldest_due_at: null },
   messages: {
     results: { due: 0, oldest_due_at: null, retryable: 0, terminal_failed: 0 },
     nurture: { due: 0, oldest_due_at: null, retryable: 0, terminal_failed: 0 },
@@ -35,6 +36,19 @@ test('known noncustomer warnings do not trigger owner alerts', () => {
   const issues = actionableFunnelIssues(healthy())
   assert.deepEqual(issues, [])
   assert.equal(issueFingerprint(issues), null)
+
+  const withinExpectedScheduleGap = healthy()
+  withinExpectedScheduleGap.nurture_eligibility = { missing_due: 1, oldest_due_at: '2026-08-14T01:00:01.000Z' }
+  assert.deepEqual(actionableFunnelIssues(withinExpectedScheduleGap), [])
+})
+
+test('missing nurture enqueue work alerts only after the bounded schedule gap', () => {
+  const report = healthy()
+  report.component_status.nurture_enqueue = 'WARNING'
+  report.nurture_eligibility = { missing_due: 1, oldest_due_at: '2026-08-14T00:00:00.000Z' }
+  assert.deepEqual(actionableFunnelIssues(report).map(({ code, level, count }) => ({ code, level, count })), [
+    { code: 'NURTURE_ENQUEUE_MISSING', level: 'WARNING', count: 1 },
+  ])
 })
 
 test('actionable vocabulary covers every customer-path failure without raw detail', () => {
@@ -47,6 +61,8 @@ test('actionable vocabulary covers every customer-path failure without raw detai
   report.rollout.dependency_warnings = ['raw_dependency_name_must_not_escape']
   report.capture.persistence_uncertain_24h = 2
   report.nurture_cron.latest = { failed: 3, failure_category: 'raw_provider_error_must_not_escape' }
+  report.component_status.nurture_enqueue = 'CRITICAL'
+  report.nurture_eligibility = { missing_due: 2, oldest_due_at: '2026-08-13T17:00:00.000Z' }
   report.messages.results = { due: 2, oldest_due_at: '2026-08-14T15:00:00.000Z', retryable: 2, terminal_failed: 1 }
   report.messages.nurture = { due: 1, oldest_due_at: '2026-08-13T15:00:00.000Z', retryable: 1, terminal_failed: 1 }
   report.leases.expired = 1
@@ -55,7 +71,7 @@ test('actionable vocabulary covers every customer-path failure without raw detai
   const codes = new Set(issues.map(({ code }) => code))
   for (const code of [
     'CONTROLS_INVALID', 'CONTROLS_INEFFECTIVE', 'DEPENDENCIES_INVALID', 'CAPTURE_PERSISTENCE_UNCERTAIN',
-    'NURTURE_CRON_FAILED', 'RESULTS_WORK_OLD', 'NURTURE_WORK_OLD', 'MESSAGE_LEASE_EXPIRED',
+    'NURTURE_CRON_FAILED', 'NURTURE_ENQUEUE_MISSING', 'RESULTS_WORK_OLD', 'NURTURE_WORK_OLD', 'MESSAGE_LEASE_EXPIRED',
     'RESEND_PROJECTION_BACKLOG', 'MESSAGE_RETRYABLE', 'RESULTS_MESSAGE_TERMINAL',
     'NURTURE_MESSAGE_TERMINAL', 'ORDINARY_PROVIDER_FAILURE', 'ORDINARY_PROVIDER_COMPLAINT',
     'STRIPE_REGISTRATION_STALE',

@@ -51,7 +51,7 @@ export function assertFunnelHealthReport<T>(report: T): T {
 
 export async function funnelHealthReport(now = new Date()) {
   const rollout = publicRolloutStatus()
-  const [queueRows, leaseRows, runRows, deliveryRows, captureRows, messageRows, salesRows, whopSalesRows, whopRows] = await Promise.all([
+  const [queueRows, leaseRows, runRows, deliveryRows, captureRows, messageRows, nurtureEligibilityRows, salesRows, whopSalesRows, whopRows] = await Promise.all([
     sql`
       select kind, status, coalesce(rollout_dispatch_eligible, true) as dispatch_eligible,
         case
@@ -143,6 +143,30 @@ export async function funnelHealthReport(now = new Date()) {
           and coalesce(rollout_dispatch_eligible,true) and next_attempt_at <= now()) as oldest_due_at
       from email_messages where is_fixture = false group by kind order by kind
     `,
+    sql`
+      with eligible as (
+        select greatest(
+          l.created_at + (case l.nurture_stage + 1 when 1 then 2 when 2 then 5 when 3 then 8 when 4 then 12 end) * interval '1 day',
+          result_ready.ready_at
+        ) as eligible_at
+        from leads l
+        join lateral (
+          select min(coalesce(r.accepted_at, r.terminal_at, r.updated_at, r.created_at)) as ready_at
+          from email_messages r
+          where r.lead_id = l.id and r.kind = 'results' and r.status in ('accepted', 'terminal')
+        ) result_ready on result_ready.ready_at is not null
+        where l.created_at >= '2026-08-06'
+          and coalesce(l.is_fixture, false) = false
+          and l.nurture_stage < 4 and l.unsubscribed_at is null
+          and not exists (
+            select 1 from email_messages n
+            where n.lead_id = l.id and n.kind = 'nurture' and n.nurture_stage = l.nurture_stage + 1
+          )
+      )
+      select count(*) filter (where eligible_at <= now())::int as missing_due,
+        min(eligible_at) filter (where eligible_at <= now()) as oldest_due_at
+      from eligible
+    `,
     sql.query(PROVIDER_PAYMENT_TOTALS_SQL, ['stripe']),
     sql.query(PROVIDER_PAYMENT_TOTALS_SQL, ['whop']),
     sql`
@@ -166,6 +190,8 @@ export async function funnelHealthReport(now = new Date()) {
   }
   const capture = captureRows as { event_type: string; reason_code: string; count: number }[]
   const messages = messageRows as { kind: 'results' | 'nurture'; retryable: number; terminal_failed: number; due: number; oldest_due_at: string | null }[]
+  const nurtureEligibility = (nurtureEligibilityRows as Array<{ missing_due: number; oldest_due_at: string | null }>)[0]
+    ?? { missing_due: 0, oldest_due_at: null }
   const sales = (salesRows as Array<Record<string, number>>)[0] ?? {
     paid_sales: 0, refunded_sales: 0, open_disputes: 0, lost_disputes: 0, gross_cents: 0, refunded_cents: 0, net_cents: 0,
   }
@@ -192,6 +218,8 @@ export async function funnelHealthReport(now = new Date()) {
     cronFailed: Boolean(latestRun && (latestRun.failure_category || Number(latestRun.failed) > 0)),
     dueResultsOldestHours: ageHours(message.results?.oldest_due_at ?? null, now),
     dueNurtureOldestHours: ageHours(message.nurture?.oldest_due_at ?? null, now),
+    missingNurtureRows: nurtureEligibility.missing_due,
+    missingNurtureOldestHours: ageHours(nurtureEligibility.oldest_due_at, now),
     expiredLeases: leases.expired,
     projectionBacklog: delivery.projection_pending,
     unmatchedCallbacks24h: delivery.unmatched_24h,
@@ -227,6 +255,7 @@ export async function funnelHealthReport(now = new Date()) {
       schedule_utc: '0 13-22/3 * * *', freshness_hours: classification.cron_age_hours,
       latest: latestRun, latest_successful: runSummary.latest_successful, latest_failed: runSummary.latest_failed,
     },
+    nurture_eligibility: nurtureEligibility,
     queues,
     leases,
     messages: {
