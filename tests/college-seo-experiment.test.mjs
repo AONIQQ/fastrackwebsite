@@ -16,6 +16,7 @@ const selected = [
   [139940, 'Georgia State University', '/college/139940-georgia-state-university'],
   [216287, 'Swarthmore College', '/college/216287-swarthmore-college'],
   [233921, 'Virginia Tech', '/college/233921-virginia-polytechnic-institute-and-state-university'],
+  [232186, 'George Mason University', '/college/232186-george-mason-university'],
 ]
 
 const college = (id) => ({
@@ -32,18 +33,20 @@ const college = (id) => ({
             ? 'Swarthmore College'
             : id === 233921
               ? 'Virginia Polytechnic Institute and State University'
+              : id === 232186
+                ? 'George Mason University'
               : 'University of Alabama at Birmingham',
   tuition_in: 12_345,
   tuition_out: 45_678,
   net_price: 23_456,
 })
 
-test('the experiment is an exact seven-ID allowlist with clean self-canonicals', () => {
+test('the experiment is an exact eight-ID allowlist with clean self-canonicals', () => {
   for (const [id, searchName, canonicalPath] of selected) {
     const experiment = collegeSeoExperiment(id)
     assert.equal(experiment.searchName, searchName)
     assert.equal(experiment.canonicalPath, canonicalPath)
-    if (id !== 139940 && id !== 233921) assert.equal(experiment.residencyNote, undefined)
+    if (id !== 139940 && id !== 233921 && id !== 232186) assert.equal(experiment.residencyNote, undefined)
     const metadata = collegeSeoMetadata(college(id))
     assert.equal(metadata.canonicalPath, canonicalPath)
     assert.match(metadata.title, new RegExp(`^${searchName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} Cost and Tuition`))
@@ -52,7 +55,7 @@ test('the experiment is an exact seven-ID allowlist with clean self-canonicals',
     assert.equal(new URL(metadata.canonicalPath, 'https://www.fastrack.school').search, '')
   }
 
-  for (const id of [1, 100654, 139939, 139941, 164747, 164749, 209550, 209552, 216286, 216288, 218671, 218673, 233920, 233922]) {
+  for (const id of [1, 100654, 139939, 139941, 164747, 164749, 209550, 209552, 216286, 216288, 218671, 218673, 232185, 232187, 233920, 233922]) {
     assert.equal(collegeSeoExperiment(id), null)
     assert.equal(collegeSeoMetadata(college(id)), null)
     assert.equal(collegeSeoOpening(college(id)), null)
@@ -68,6 +71,8 @@ test('the exact allowlist changes no nonselected presentation', () => {
     college(164749),
     college(216286),
     college(216288),
+    college(232185),
+    college(232187),
     college(233920),
     college(233922),
   ]
@@ -179,6 +184,28 @@ test('Virginia Tech presentation uses its official public name and current suppl
   assert.equal(opening.heading, 'How much does Virginia Tech cost?')
   assert.match(opening.answer, /published tuition of \$15,948 for in-state students and \$37,764 for out-of-state students/)
   assert.match(opening.answer, /average net price of \$24,953 per year for federal-aid recipients after grant and scholarship aid/)
+  assert.match(opening.answer, /neither is your family’s personalized aid offer/)
+  assert.match(opening.answer, /Residency classification determines which published tuition applies/)
+  assert.match(opening.answer, /choosing in-state in the calculator does not establish eligibility/)
+})
+
+test('George Mason presentation answers its visible cost query with current supplied fields', () => {
+  const georgeMason = {
+    id: 232186,
+    name: 'George Mason University',
+    tuition_in: 14_220,
+    tuition_out: 38_688,
+    net_price: 17_915,
+  }
+  const metadata = collegeSeoMetadata(georgeMason)
+  const opening = collegeSeoOpening(georgeMason)
+  assert.equal(metadata.title, 'George Mason University Cost and Tuition | Fastrack')
+  assert.ok(metadata.title.length <= 60)
+  assert.ok(metadata.description.length <= 160)
+  assert.equal(metadata.canonicalPath, '/college/232186-george-mason-university')
+  assert.equal(opening.heading, 'How much does George Mason University cost?')
+  assert.match(opening.answer, /published tuition of \$14,220 for in-state students and \$38,688 for out-of-state students/)
+  assert.match(opening.answer, /average net price of \$17,915 per year for federal-aid recipients after grant and scholarship aid/)
   assert.match(opening.answer, /neither is your family’s personalized aid offer/)
   assert.match(opening.answer, /Residency classification determines which published tuition applies/)
   assert.match(opening.answer, /choosing in-state in the calculator does not establish eligibility/)
