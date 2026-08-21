@@ -26,12 +26,12 @@ export const NURTURE_STEPS: { stage: number; afterDays: number; subject: string;
   {
     stage: 1,
     afterDays: 2,
-    subject: 'The three ways families lose money on dual credit',
+    subject: 'Three checks before dual credit counts as savings',
     html: wrap(
-      p('Quick follow-up on your calculator results. Dual credit saves real money, but three mistakes quietly eat the savings:') +
-        p('<strong>1. Courses that transfer but do not count.</strong> The college accepts the credit, then files it as a free elective that satisfies nothing. The class was paid for twice.') +
-        p('<strong>2. The wrong version of the right course.</strong> Many colleges run separate tracks for majors and non-majors. Taking the non-major version of a course your student needs for their major means retaking it.') +
-        p('<strong>3. Planning against the wrong requirements.</strong> High school graduation requirements and college degree requirements are different lists. A schedule that only satisfies one wastes the other.'),
+      p('Quick follow-up on your calculator results. Dual credit can reduce college costs, but only when the credits fit the student’s plan and the family’s specific situation. Check these three things before enrolling:') +
+        p('<strong>1. Whether the course applies to the intended degree.</strong> A college may accept a course only as an elective, leaving a required course still to be completed.') +
+        p('<strong>2. Whether it is the right course or sequence.</strong> Some majors require a specific version or sequence. Confirm the exact course against the target program’s current requirements.') +
+        p('<strong>3. Whether it satisfies both plans.</strong> High school graduation requirements and college degree requirements are different lists. Confirm how the course applies to each one.'),
     ),
   },
   {

@@ -27,9 +27,12 @@ test('nurture keeps its schedule and uses the approved $47 to $497 offer ladder'
   for (const [stage, afterDays] of [[1, 2], [2, 5], [3, 8], [4, 12]]) {
     assert.match(source, new RegExp(`stage: ${stage},\\s+afterDays: ${afterDays},`))
   }
-  assert.match(source, /Courses that transfer but do not count/)
-  assert.match(source, /The wrong version of the right course/)
-  assert.match(source, /Planning against the wrong requirements/)
+  assert.match(source, /Three checks before dual credit counts as savings/)
+  assert.match(source, /Whether the course applies to the intended degree/)
+  assert.match(source, /Whether it is the right course or sequence/)
+  assert.match(source, /Whether it satisfies both plans/)
+  assert.match(source, /can reduce college costs, but only when/i)
+  assert.doesNotMatch(source, /Dual credit saves real money|The class was paid for twice|means retaking it/)
   assert.match(source, /guide\?\$\{U\('n2'\)\}/)
   assert.match(source, /Review the Fastrack Guide \(\$47\)/)
   assert.match(source, /educational material, not a personalized course map or a promise/i)
