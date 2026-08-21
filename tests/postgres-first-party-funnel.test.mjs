@@ -37,6 +37,13 @@ test('PostgreSQL 17 freezes attribution, deduplicates concurrent stages, bounds 
     const migration = readFileSync(path.join(project, 'db/migrations', filename), 'utf8')
     for (const statement of splitStatements(migration)) psql(statement)
   }
+  psql(`create table leads(
+    id bigint generated always as identity primary key,
+    created_at timestamptz not null default now(),
+    is_fixture boolean not null default false,
+    capture_risk_decision text,
+    utm_source text, utm_medium text, utm_campaign text, utm_content text, utm jsonb
+  )`)
 
   const digest = 'a'.repeat(64)
   const network = 'e'.repeat(64)
@@ -105,18 +112,30 @@ test('PostgreSQL 17 freezes attribution, deduplicates concurrent stages, bounds 
 
   assert.equal(psql(`select s.traffic_class||'|'||s.utm_source||'|'||count(*) filter(where e.event_name='Calculator Intent')||'|'||count(*) filter(where e.event_name='Lead Captured') from calculator_funnel_events e join calculator_funnel_sessions s using(session_digest) group by s.traffic_class,s.utm_source order by s.traffic_class,s.utm_source`), 'business|podcast|1|0\nbusiness|reddit|2|1\nbusiness|referral|1|0\nqa|direct|1|0')
 
+  psql(`insert into leads(is_fixture,capture_risk_decision,utm_source,utm_medium,utm_campaign,utm_content,utm) values
+    (false,'accepted',null,null,null,null,'{}'),
+    (false,'accepted','reddit','organic','agent-20260814',null,'{}'),
+    (false,'accepted','email','partner','agent-20260814','person-private-value','{}'),
+    (true,'accepted','direct','direct','direct',null,'{}'),
+    (false,null,'direct','direct','direct',null,'{}')`)
+
   const report = spawnSync(binaries[2], ['-X', '-v', 'ON_ERROR_STOP=1', '-P', 'footer=off', '-F', '|', '-A', '-c', FIRST_PARTY_FUNNEL_REPORT_SQL], { env, encoding: 'utf8' })
   assert.equal(report.status, 0, report.stderr)
   const reportLines = report.stdout.trimEnd().split('\n')
-  assert.equal(reportLines[0], 'window|traffic_class|source|medium|campaign|content|intent|modal_opened|submission_attempted|lead_captured|capture_failed|modal_per_intent|attempt_per_modal|captured_per_intent|captured_per_attempt')
+  assert.equal(reportLines[0], 'window|traffic_class|source|medium|campaign|content|intent|modal_opened|submission_attempted|lead_captured|capture_acknowledged|capture_failed|modal_per_intent|attempt_per_modal|captured_per_intent|captured_per_attempt')
   assert.deepEqual(reportLines.slice(1), [
-    '7d|business|reddit|organic|agent-20260814||2|1|1|1|0|0.5|1|0.5|1',
-    '7d|business|podcast|partner|agent-20260820|partner-p0001|1|0|0|0|0|0||0|',
-    '7d|business|referral|referral|agent-20260820|calculator|1|0|0|0|0|0||0|',
-    '7d|qa|direct|direct|direct|qa-t230|1|1|0|0|0|1|0|0|',
-    '30d|business|reddit|organic|agent-20260814||2|1|1|1|0|0.5|1|0.5|1',
-    '30d|business|podcast|partner|agent-20260820|partner-p0001|1|0|0|0|0|0||0|',
-    '30d|business|referral|referral|agent-20260820|calculator|1|0|0|0|0|0||0|',
-    '30d|qa|direct|direct|direct|qa-t230|1|1|0|0|0|1|0|0|',
+    '7d|business|reddit|organic|agent-20260814||2|1|1|1|1|0|0.5|1|0.5|1',
+    '7d|business|podcast|partner|agent-20260820|partner-p0001|1|0|0|0|0|0|0||0|',
+    '7d|business|referral|referral|agent-20260820|calculator|1|0|0|0|0|0|0||0|',
+    '7d|business|direct|direct|direct||0|0|0|1|0|0||||',
+    '7d|business|email|partner|agent-20260814||0|0|0|1|0|0||||',
+    '7d|qa|direct|direct|direct|qa-t230|1|1|0|0|0|0|1|0|0|',
+    '30d|business|reddit|organic|agent-20260814||2|1|1|1|1|0|0.5|1|0.5|1',
+    '30d|business|podcast|partner|agent-20260820|partner-p0001|1|0|0|0|0|0|0||0|',
+    '30d|business|referral|referral|agent-20260820|calculator|1|0|0|0|0|0|0||0|',
+    '30d|business|direct|direct|direct||0|0|0|1|0|0||||',
+    '30d|business|email|partner|agent-20260814||0|0|0|1|0|0||||',
+    '30d|qa|direct|direct|direct|qa-t230|1|1|0|0|0|0|1|0|0|',
   ])
+  assert.doesNotMatch(report.stdout, /person-private-value/)
 })

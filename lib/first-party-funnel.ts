@@ -12,6 +12,7 @@ export type FirstPartyFunnelRow = {
   modal_opened: number
   submission_attempted: number
   lead_captured: number
+  capture_acknowledged: number
   capture_failed: number
   modal_per_intent: number | null
   attempt_per_modal: number | null
