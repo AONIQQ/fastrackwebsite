@@ -49,7 +49,7 @@ export const NURTURE_STEPS: { stage: number; afterDays: number; subject: string;
     afterDays: 8,
     subject: 'A done-for-you plan for your student',
     html: wrap(
-      p('If you want the whole thing handled: the Fastrack Credit Map is a term-by-term course plan from where your student is now through college graduation. Real course codes, every course checked against the transfer rules of the target college, every verified line with a source you can click.') +
+      p('If you want a done-for-you starting plan, the Fastrack Credit Map is a proposed term-by-term course plan from where your student is now through college graduation. It uses real course codes, maps each proposed course to the requirements it may satisfy, sources every verified transfer line, and flags anything that still needs confirmation.') +
         p('It is $497, delivered within 7 business days, no calls required. 30-day refund, no questions asked. And if your student’s state and college combination is one we cannot fully verify, we tell you up front and refund you rather than guess.') +
         btn('__CHECKOUT__', 'Get Your Credit Map ($497)') +
         p('Not sure it fits? Reply with your student’s state and the college(s) they are considering, and I will tell you straight whether we can help.'),
@@ -60,10 +60,10 @@ export const NURTURE_STEPS: { stage: number; afterDays: number; subject: string;
     afterDays: 12,
     subject: 'Last note from me',
     html: wrap(
-      p('I will keep this short. Course registration windows are the deadline that matters: once your student picks next term’s classes, the planning either happened or it did not.') +
-        p('If you want the plan done for you, it is here:') +
+      p('I will keep this short. Before your student registers, it is worth checking how each proposed course fits the target college’s current transfer and degree requirements.') +
+        p('If you want a sourced starting plan with unresolved items clearly flagged, it is here:') +
         btn(`${SITE}/credit-map?${U('n4')}`, 'Get the Credit Map') +
-        p('Either way, check every course against the target college’s transfer rules before enrolling. It is the one step that protects all the others.'),
+        p('Either way, confirm each proposed course with the relevant institutions before enrolling. Final transfer and degree-applicability decisions rest with those institutions.'),
     ),
   },
 ]
