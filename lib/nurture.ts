@@ -5,7 +5,7 @@ import { CREDIT_MAP_CHECKOUT, destinationForUrl, messageTrackingLinks } from './
 const SITE = 'https://www.fastrack.school'
 const U = (step: string) => `utm_source=email&utm_medium=nurture&utm_campaign=${step}`
 
-const wrap = (body: string) => `<!doctype html><html><body style="margin:0;padding:0;background:#f4f4f8;">
+const wrap = (body: string, commercial = false) => `<!doctype html><html><body style="margin:0;padding:0;background:#f4f4f8;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:24px 0;"><tr><td align="center">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;font-family:Arial,Helvetica,sans-serif;">
 <tr><td style="background:#080b53;padding:20px 32px;"><img src="${SITE}/logo.png" width="110" alt="Fastrack" style="display:block;border:0;"></td></tr>
@@ -13,6 +13,7 @@ const wrap = (body: string) => `<!doctype html><html><body style="margin:0;paddi
 <p style="margin:24px 0 0;font-size:16px;line-height:1.6;color:#26263a;">Andrew<br>Fastrack</p></td></tr>
 <tr><td style="padding:20px 32px;border-top:1px solid #e6e6ef;"><p style="margin:0;font-size:12px;line-height:1.6;color:#8a8aa8;">
 Fastrack EDU LLC &middot; <a href="${SITE}" style="color:#8a8aa8;">fastrack.school</a><br>
+__POSTAL_ADDRESS__${commercial ? 'Advertisement from Fastrack EDU LLC.<br>' : ''}
 You are receiving this because you used the Fastrack college savings calculator.
 <a href="__UNSUB__" style="color:#8a8aa8;">Unsubscribe</a></p></td></tr>
 </table></td></tr></table><img src="__PIXEL__" width="1" height="1" alt="" style="display:block;"></body></html>`
@@ -42,6 +43,7 @@ export const NURTURE_STEPS: { stage: number; afterDays: number; subject: string;
       p('Before your student enrolls, verify not only whether each course transfers, but whether it applies to the intended degree. A course can be accepted only as an elective or denied when it does not fit the receiving college’s degree requirements.') +
         p('The $47 Fastrack Guide gives families a structured starting framework for researching transfer policies, possible course options, schedules, funding, and the questions to confirm with each institution. It is educational material, not a personalized course map or a promise that a course will transfer or save money.') +
         btn(`${SITE}/guide?${U('n2')}`, 'Review the Fastrack Guide ($47)'),
+      true,
     ),
   },
   {
@@ -53,6 +55,7 @@ export const NURTURE_STEPS: { stage: number; afterDays: number; subject: string;
         p('It is $497, delivered within 7 business days, no calls required. 30-day refund, no questions asked. And if your student’s state and college combination is one we cannot fully verify, we tell you up front and refund you rather than guess.') +
         btn('__CHECKOUT__', 'Get Your Credit Map ($497)') +
         p('Not sure it fits? Reply with your student’s state and the college(s) they are considering, and I will tell you straight whether we can help.'),
+      true,
     ),
   },
   {
@@ -64,6 +67,7 @@ export const NURTURE_STEPS: { stage: number; afterDays: number; subject: string;
         p('If you want a sourced starting plan with unresolved items clearly flagged, it is here:') +
         btn(`${SITE}/credit-map?${U('n4')}`, 'Get the Credit Map') +
         p('Either way, confirm each proposed course with the relevant institutions before enrolling. Final transfer and degree-applicability decisions rest with those institutions.'),
+      true,
     ),
   },
 ]
@@ -72,7 +76,20 @@ export function buildNurtureEmailArgs(to: string, step: (typeof NURTURE_STEPS)[n
   const token = createUnsubscribeToken(to, process.env.UNSUBSCRIBE_SECRET || process.env.CRON_SECRET)
   const stepTag = `n${step.stage}`
   const tracking = messageTrackingLinks(trackingId, stepTag, trackingIssuedAt)
-  let html = step.html.replaceAll('__CHECKOUT__', CREDIT_MAP_CHECKOUT)
+  const rawPostalAddress = process.env.BUSINESS_POSTAL_ADDRESS?.trim() || ''
+  if (step.stage >= 2 && (!rawPostalAddress || rawPostalAddress.length > 200 || /[<>\r\n]/.test(rawPostalAddress))) {
+    throw new Error('business_postal_address_invalid')
+  }
+  const postalAddress = rawPostalAddress
+    ? `${rawPostalAddress.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll("'", '&#39;')}<br>`
+    : ''
+  const complianceText = [
+    step.stage >= 2 ? 'Advertisement from Fastrack EDU LLC.' : '',
+    rawPostalAddress,
+  ].filter(Boolean).join('\n')
+  let html = step.html
+    .replaceAll('__CHECKOUT__', CREDIT_MAP_CHECKOUT)
+    .replaceAll('__POSTAL_ADDRESS__', postalAddress)
   html = html.replace(/href="(https:\/\/[^"]+)"/g, (match, dest) => {
     const destination = destinationForUrl(dest)
     return destination ? `href="${tracking.click(destination)}"` : match
@@ -83,7 +100,7 @@ export function buildNurtureEmailArgs(to: string, step: (typeof NURTURE_STEPS)[n
     to,
     subject: step.subject,
     html,
-    text: `View this email in an HTML capable client. Calculator: https://www.fastrack.school/calculator\n\nUnsubscribe: ${SITE}/api/u?t=${encodeURIComponent(token)}`,
+    text: `View this email in an HTML capable client. Calculator: https://www.fastrack.school/calculator\n\n${complianceText ? `${complianceText}\n\n` : ''}Unsubscribe: ${SITE}/api/u?t=${encodeURIComponent(token)}`,
     replyTo: 'info@fastrack.school',
     headers: unsubscribeHeaders(SITE, token),
     idempotencyKey: providerIdempotencyKey,

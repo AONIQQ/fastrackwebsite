@@ -39,6 +39,7 @@ const withEnv = async (fn) => {
   process.env.UNSUBSCRIBE_SECRET = secret
   process.env.EMAIL_FROM = 'info@example.invalid'
   process.env.RESEND_FROM = 'Fastrack <info@example.invalid>'
+  process.env.BUSINESS_POSTAL_ADDRESS = '123 Example Street, Example City, DE 00000'
   try { return await fn() } finally {
     for (const key of Object.keys(process.env)) if (!(key in before)) delete process.env[key]
     Object.assign(process.env, before)
@@ -88,6 +89,27 @@ test('results and nurture Resend requests are byte-stable across retry clocks', 
     assert.equal(resultFirst.payload.headers['List-Unsubscribe-Post'], 'List-Unsubscribe=One-Click')
     assert.match(resultFirst.payload.headers['List-Unsubscribe'], /^<https:\/\/www\.fastrack\.school\/api\/u\?t=/)
   } finally { Date.now = originalNow }
+}))
+
+test('commercial nurture fails closed without a valid postal address while stage one remains eligible', async () => withEnv(async () => {
+  delete process.env.BUSINESS_POSTAL_ADDRESS
+  const stageOne = nurture.buildNurtureEmailArgs(
+    resultInput.to, nurture.NURTURE_STEPS[0], trackingId, 'stable-provider-key-n1', issuedAt,
+  )
+  assert.doesNotMatch(stageOne.html, /__POSTAL_ADDRESS__|Advertisement from Fastrack EDU LLC/)
+  assert.doesNotMatch(stageOne.text, /Advertisement from Fastrack EDU LLC/)
+  assert.throws(() => nurture.buildNurtureEmailArgs(
+    resultInput.to, nurture.NURTURE_STEPS[1], trackingId, 'stable-provider-key-n2', issuedAt,
+  ), /business_postal_address_invalid/)
+
+  process.env.BUSINESS_POSTAL_ADDRESS = '123 Example & Main, Example City, DE 00000'
+  const commercial = nurture.buildNurtureEmailArgs(
+    resultInput.to, nurture.NURTURE_STEPS[1], trackingId, 'stable-provider-key-n2', issuedAt,
+  )
+  assert.match(commercial.html, /123 Example &amp; Main, Example City, DE 00000<br>/)
+  assert.match(commercial.html, /Advertisement from Fastrack EDU LLC\.<br>/)
+  assert.match(commercial.text, /Advertisement from Fastrack EDU LLC\.\n123 Example & Main, Example City, DE 00000/)
+  assert.doesNotMatch(commercial.html, /__POSTAL_ADDRESS__/)
 }))
 
 test('the diagnosed pre-fix clock shift changes every signed tracking field', async () => withEnv(async () => {
