@@ -3,6 +3,7 @@ import { createUnsubscribeToken, unsubscribeHeaders } from './unsubscribe.mjs'
 import { CREDIT_MAP_CHECKOUT, destinationForUrl, messageTrackingLinks } from './tracking-links.mjs'
 
 const SITE = 'https://www.fastrack.school'
+const DEFAULT_BUSINESS_POSTAL_ADDRESS = '1007 N Orange St, Wilmington, Delaware'
 const U = (step: string) => `utm_source=email&utm_medium=nurture&utm_campaign=${step}`
 
 const wrap = (body: string, commercial = false) => `<!doctype html><html><body style="margin:0;padding:0;background:#f4f4f8;">
@@ -76,8 +77,8 @@ export function buildNurtureEmailArgs(to: string, step: (typeof NURTURE_STEPS)[n
   const token = createUnsubscribeToken(to, process.env.UNSUBSCRIBE_SECRET || process.env.CRON_SECRET)
   const stepTag = `n${step.stage}`
   const tracking = messageTrackingLinks(trackingId, stepTag, trackingIssuedAt)
-  const rawPostalAddress = process.env.BUSINESS_POSTAL_ADDRESS?.trim() || ''
-  if (step.stage >= 2 && (!rawPostalAddress || rawPostalAddress.length > 200 || /[<>\r\n]/.test(rawPostalAddress))) {
+  const rawPostalAddress = process.env.BUSINESS_POSTAL_ADDRESS?.trim() || DEFAULT_BUSINESS_POSTAL_ADDRESS
+  if (step.stage >= 2 && (rawPostalAddress.length > 200 || /[<>\r\n]/.test(rawPostalAddress))) {
     throw new Error('business_postal_address_invalid')
   }
   const postalAddress = rawPostalAddress

@@ -91,13 +91,22 @@ test('results and nurture Resend requests are byte-stable across retry clocks', 
   } finally { Date.now = originalNow }
 }))
 
-test('commercial nurture fails closed without a valid postal address while stage one remains eligible', async () => withEnv(async () => {
+test('nurture uses the established public address by default and rejects an invalid commercial override', async () => withEnv(async () => {
   delete process.env.BUSINESS_POSTAL_ADDRESS
   const stageOne = nurture.buildNurtureEmailArgs(
     resultInput.to, nurture.NURTURE_STEPS[0], trackingId, 'stable-provider-key-n1', issuedAt,
   )
+  assert.match(stageOne.html, /1007 N Orange St, Wilmington, Delaware<br>/)
   assert.doesNotMatch(stageOne.html, /__POSTAL_ADDRESS__|Advertisement from Fastrack EDU LLC/)
   assert.doesNotMatch(stageOne.text, /Advertisement from Fastrack EDU LLC/)
+
+  const defaultCommercial = nurture.buildNurtureEmailArgs(
+    resultInput.to, nurture.NURTURE_STEPS[1], trackingId, 'stable-provider-key-n2', issuedAt,
+  )
+  assert.match(defaultCommercial.html, /1007 N Orange St, Wilmington, Delaware<br>/)
+  assert.match(defaultCommercial.text, /Advertisement from Fastrack EDU LLC\.\n1007 N Orange St, Wilmington, Delaware/)
+
+  process.env.BUSINESS_POSTAL_ADDRESS = '<invalid>'
   assert.throws(() => nurture.buildNurtureEmailArgs(
     resultInput.to, nurture.NURTURE_STEPS[1], trackingId, 'stable-provider-key-n2', issuedAt,
   ), /business_postal_address_invalid/)

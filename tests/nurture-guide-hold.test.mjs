@@ -48,6 +48,7 @@ test('nurture keeps its schedule and uses the approved $47 to $497 offer ladder'
   assert.doesNotMatch(source, /every course checked against|planning either happened or it did not|one step that protects all the others/i)
   assert.match(source, /Fastrack EDU LLC &middot;/)
   assert.match(source, /BUSINESS_POSTAL_ADDRESS/)
+  assert.match(source, /DEFAULT_BUSINESS_POSTAL_ADDRESS = '1007 N Orange St, Wilmington, Delaware'/)
   assert.match(source, /step\.stage >= 2/)
   assert.match(source, /Advertisement from Fastrack EDU LLC/)
   assert.match(source, /business_postal_address_invalid/)
