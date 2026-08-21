@@ -224,7 +224,7 @@ export async function funnelHealthReport(now = new Date()) {
     rollout,
     sms: { enabled: process.env.CAPTURE_SMS_ENABLED === '1', configuration: ['0', '1'].includes(process.env.CAPTURE_SMS_ENABLED ?? '') ? 'valid' : 'invalid' },
     nurture_cron: {
-      schedule_utc: '0 15 * * *', freshness_hours: classification.cron_age_hours,
+      schedule_utc: '0 13-22/3 * * *', freshness_hours: classification.cron_age_hours,
       latest: latestRun, latest_successful: runSummary.latest_successful, latest_failed: runSummary.latest_failed,
     },
     queues,
