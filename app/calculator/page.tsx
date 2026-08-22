@@ -370,23 +370,22 @@ export default function Calculator() {
       <main className="flex-1 mx-auto w-full max-w-2xl px-4 py-10 sm:px-6 sm:py-12 lg:max-w-4xl lg:py-16 2xl:max-w-5xl">
         <header className="mb-8 sm:mb-10">
           <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#605dba] sm:text-xs">
-            Free Tool &middot; College ROI Calculator
+            Free Tool &middot; College Cost Calculator
           </p>
           <h1 className="text-[1.75rem] font-bold leading-[1.15] tracking-tight text-[#080b53] sm:text-4xl lg:text-[2.75rem] 2xl:text-5xl">
-            Model a degree-cost scenario and its estimated payback period.
+            Compare a college&rsquo;s four-year cost with a modeled dual-credit path.
           </h1>
           <p className="mt-4 max-w-2xl text-base leading-relaxed text-slate-600 sm:text-lg">
-            Pick a school to compare a four-year cost estimate with a modeled two-year dual-credit scenario.
+            Pick a school to see the assumptions, estimated cost difference, and time-to-recoup comparison.
           </p>
           <p className="mt-3 max-w-2xl text-sm leading-relaxed text-slate-500">
             The model assumes 60 dual-credit hours at $80 per credit and two years enrolled at the selected college.
-            Transfer, degree applicability, residency, course availability, aid, and individual timelines vary. These
-            assumptions appear here before the email form so you can decide whether the estimate is useful.
+            Transfer, degree fit, residency, course availability, aid, and timing vary.
           </p>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500">
             College Scorecard net price is an average for federal-aid recipients, not your family&rsquo;s personalized aid
-            offer. The early-earnings and total-advantage figures add two years of College Scorecard median
-            post-enrollment earnings; they are not an individual wage forecast.
+            offer. Earnings figures use two years of College Scorecard median post-enrollment earnings; they are not a
+            wage forecast.
           </p>
         </header>
 

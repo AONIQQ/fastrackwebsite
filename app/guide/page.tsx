@@ -48,12 +48,12 @@ export default function Guide({ searchParams }: { searchParams: { checkout_ref?:
           <div className="mx-auto max-w-3xl px-4 py-16 text-center sm:px-6 md:py-24 lg:px-8">
             <p className="text-sm font-semibold uppercase tracking-wider text-[#605dba]">Fastrack Guide ($47)</p>
             <h1 className="mt-4 text-4xl font-semibold tracking-tight text-[#080b53] sm:text-5xl">
-              A starting framework for researching dual credit and college-course options
+              Check dual-credit options before your student enrolls
             </h1>
             <p className="mt-6 text-lg leading-relaxed text-gray-700">
-              The guide organizes the questions, sources, and planning steps families can use when exploring college
-              credit during high school. It is educational material, not a personalized course map or a promised
-              graduation, transfer, savings, or admission result.
+              Use the guide to compare credit options, research transfer policies, organize a term-by-term schedule,
+              and record the answers your family receives. It is educational material, not a personalized course map
+              or a promised graduation, transfer, savings, or admission result.
             </p>
             <p className="mt-4 text-sm leading-relaxed text-gray-600">
               Policies and course applicability vary by state, school, major, and catalog year. Confirm every course
@@ -64,7 +64,7 @@ export default function Guide({ searchParams }: { searchParams: { checkout_ref?:
 
         <section className="py-16">
           <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
-            <h2 className="text-3xl font-semibold text-[#080b53]">Topics covered</h2>
+            <h2 className="text-3xl font-semibold text-[#080b53]">What the guide helps you check</h2>
             <div className="mt-8 grid gap-6 md:grid-cols-2">
               {topics.map((topic) => (
                 <article key={topic.title} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -78,7 +78,7 @@ export default function Guide({ searchParams }: { searchParams: { checkout_ref?:
 
         <section className="bg-white py-16">
           <div className="mx-auto max-w-3xl space-y-5 px-4 sm:px-6 lg:px-8">
-            <h2 className="text-3xl font-semibold text-[#080b53]">Before you use the guide</h2>
+            <h2 className="text-3xl font-semibold text-[#080b53]">What the guide cannot decide for you</h2>
             <p className="leading-relaxed text-gray-700">
               Published transfer tables and catalogs can be incomplete, interpreted differently, or changed after
               publication. A course that transfers may still apply only as an elective. Residency, prerequisites,
@@ -95,7 +95,7 @@ export default function Guide({ searchParams }: { searchParams: { checkout_ref?:
           <div className="mx-auto max-w-3xl px-4 text-center sm:px-6 lg:px-8">
             <h2 className="text-3xl font-semibold">Review the guide for $47</h2>
             <p className="mx-auto mt-4 max-w-2xl text-blue-100">
-              The Whop checkout is for the Fastrack Guide. The price remains $47.
+              Continue to the one-time $47 checkout for the Fastrack Guide.
             </p>
             <GuideCheckoutButton checkoutRef={checkoutRef} fallbackUrl={WHOP_CHECKOUT_URL} />
           </div>

@@ -23,9 +23,9 @@ export default function AlexisCreatorHub({
     <main className="min-h-screen bg-[#080b53] px-4 py-10 text-white">
       <section className="mx-auto max-w-xl rounded-3xl bg-white p-6 text-[#080b53] shadow-2xl sm:p-8">
         <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#605dba]">@alexisfastrack</p>
-        <h1 className="mt-3 text-3xl font-black">Which video brought you here?</h1>
+        <h1 className="mt-3 text-3xl font-black">Run the calculator for the topic you watched</h1>
         <p className="mt-3 text-base leading-7 text-slate-700">
-          Choose the topic you watched. We will open Fastrack&rsquo;s free college cost calculator and use the selection only to measure which videos help families.
+          Choose the video, then compare costs for a college your family is considering. We use the selection only to understand which topics bring families to the calculator.
         </p>
 
         {!platform && (

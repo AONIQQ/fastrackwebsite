@@ -193,7 +193,7 @@ export default function Home() {
         <section className="container mx-auto px-4">
           <h2 className="text-3xl md:text-4xl font-semibold text-center">Frequently Asked Questions</h2>
           <p className="mt-4 max-w-3xl text-center text-gray-600 mx-auto">
-            We know that planning an accelerated college path comes with questions. Explore the most common topics below, and connect with us if you need more specifics for your family&rsquo;s situation.
+            Straight answers about eligibility, what the Credit Map includes, delivery, transfer limits, and refunds.
           </p>
           <div className="mt-10 grid gap-4">
             {faqs.map((faq) => (

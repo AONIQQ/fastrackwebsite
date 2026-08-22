@@ -8,10 +8,10 @@ const inter = Inter({ subsets: ['latin'] })
 export const metadata: Metadata = {
   metadataBase: new URL('https://www.fastrack.school'),
   title: 'Fastrack',
-  description: 'Dual credit planning that helps high school students earn real college credit, graduate sooner, and save on tuition.',
+  description: 'Free college-cost scenarios and sourced dual-credit planning for families comparing college options.',
   openGraph: {
     title: 'Fastrack',
-    description: 'Free tools and done-for-you plans that help students earn real college credit in high school, graduate sooner, and save on tuition.',
+    description: 'Free college-cost scenarios and sourced dual-credit planning for families comparing college options.',
     url: 'https://www.fastrack.school',
     siteName: 'Fastrack',
     type: 'website',
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'Fastrack',
-    description: 'Free tools and done-for-you plans that help students earn college credit in high school and save on tuition.',
+    description: 'Free college-cost scenarios and sourced dual-credit planning for families comparing college options.',
   },
 }
 

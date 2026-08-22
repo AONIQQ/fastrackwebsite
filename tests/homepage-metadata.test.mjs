@@ -48,6 +48,6 @@ test('homepage visible claims and calculator route support the metadata descript
   assert.match(home, /Dual-credit plan/i)
   assert.match(home, /target degree/i)
   assert.match(home, /href="\/calculator"/)
-  assert.match(calculator, /Free Tool &middot; College ROI Calculator/)
+  assert.match(calculator, /Free Tool &middot; College Cost Calculator/)
   assert.match(calculator, /Modeled dual-credit scenario/)
 })
