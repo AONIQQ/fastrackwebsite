@@ -98,6 +98,8 @@ test('click destinations are allowlisted and checkout URLs never prefill recipie
   assert.equal(guide.searchParams.get('utm_source'), 'email')
   assert.equal(guide.searchParams.get('utm_medium'), 'nurture')
   assert.equal(guide.searchParams.get('utm_campaign'), 'n2')
+  assert.equal(isCheckoutTokenShape(guide.searchParams.get('checkout_ref')), true)
+  assert.equal(new URL(resolvedDestination('guide', 'results', trackingId, Math.floor(Date.now() / 1000) + 600, secret)).searchParams.has('checkout_ref'), false)
   assert.equal(guide.searchParams.has('prefilled_email'), false)
 })
 

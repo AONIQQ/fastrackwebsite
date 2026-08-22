@@ -56,6 +56,9 @@ export function assertAdditiveSql(contents, filename = 'migration') {
     ) || (
       filename === '0020_guide_engagement_destination.sql'
         && /^alter\s+table\s+email_engagement_events\s+drop\s+constraint\s+if\s+exists\s+email_engagement_destination_check\s*;?$/i.test(safetySql.trim())
+    ) || (
+      filename === '0021_creator_video_attribution.sql'
+        && /^alter\s+table\s+calculator_funnel_sessions\s+drop\s+constraint\s+if\s+exists\s+calculator_funnel_sessions_content_check\s*;?$/i.test(safetySql.trim())
     )
 
     for (const rule of FORBIDDEN_SQL) {

@@ -134,3 +134,14 @@ destination. The click route already redirects guide clicks safely on a ledger
 write failure; this migration restores the missing aggregate engagement record
 without changing the destination, email content, checkout, recipient, or
 message lifecycle.
+
+`0021_creator_video_attribution.sql` permits only opaque `alexis-vNNN` creator
+video identifiers, and only when they are paired with a creator campaign,
+organic medium, and one of the four approved Alexis social platforms. It does
+not permit names, handles, free-form labels, viewer identifiers, or arbitrary
+content in the first-party session ledger.
+
+`0022_guide_checkout_sessions.sql` adds a non-PII idempotency and short-lease
+ledger for the signed day-five guide checkout. One email tracking identity can
+create or recover one Whop checkout configuration; the row stores no email,
+lead ID, viewer identity, request body, provider payload, or payment details.

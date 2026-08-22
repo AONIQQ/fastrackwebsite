@@ -1,5 +1,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
+import { isCheckoutTokenShape } from '@/lib/checkout-url.mjs'
+import { GuideCheckoutButton } from './GuideCheckoutButton'
 
 const WHOP_CHECKOUT_URL = 'https://whop.com/checkout/4DXyLzCDqEtib03t4d-fKRL-ukfw-a2np-khb2B9MVaq84/'
 
@@ -26,9 +28,8 @@ const topics = [
   },
 ]
 
-const buttonClasses = 'inline-flex items-center justify-center rounded-lg px-6 py-3 text-base font-semibold shadow-lg transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white'
-
-export default function Guide() {
+export default function Guide({ searchParams }: { searchParams: { checkout_ref?: string } }) {
+  const checkoutRef = isCheckoutTokenShape(searchParams.checkout_ref) ? searchParams.checkout_ref! : null
   return (
     <div className="min-h-screen bg-slate-50 text-gray-900">
       <header className="bg-[#080b53] shadow-sm">
@@ -96,9 +97,7 @@ export default function Guide() {
             <p className="mx-auto mt-4 max-w-2xl text-blue-100">
               The Whop checkout is for the Fastrack Guide. The price remains $47.
             </p>
-            <Link href={WHOP_CHECKOUT_URL} className={`${buttonClasses} mt-8 bg-white text-[#080b53] hover:bg-blue-50`}>
-              Continue to the Fastrack Guide checkout ($47)
-            </Link>
+            <GuideCheckoutButton checkoutRef={checkoutRef} fallbackUrl={WHOP_CHECKOUT_URL} />
           </div>
         </section>
       </main>

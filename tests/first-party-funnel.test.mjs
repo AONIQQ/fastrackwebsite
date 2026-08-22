@@ -62,11 +62,23 @@ test('contract accepts only exact events, UUIDv4, and bounded approved attributi
   assert.equal(normalizeFirstPartyAttribution({ source: 'direct', medium: 'organic', campaign: 'direct' }), null)
   assert.deepEqual(normalizeFirstPartyAttribution({}), { source: 'direct', medium: 'direct', campaign: 'direct', content: null })
   assert.equal(parseFirstPartyFunnelEventBody({ event: 'Calculator Intent', session: uuid, attribution: { source: 'reddit', medium: 'organic', campaign: 'qa-t230-live' } })?.trafficClass, 'qa')
-  for (const source of ['instagram', 'tiktok', 'youtube']) {
+  for (const source of ['instagram', 'tiktok', 'facebook', 'youtube']) {
     assert.deepEqual(normalizeFirstPartyAttribution({ source, medium: 'organic', campaign: 'creator-20260820', content: 'calculator' }), {
       source, medium: 'organic', campaign: 'creator-20260820', content: 'calculator',
     })
   }
+  for (const source of ['instagram', 'tiktok', 'facebook', 'youtube']) {
+    assert.deepEqual(normalizeFirstPartyAttribution({ source, medium: 'organic', campaign: 'creator-20260820', content: 'alexis-v001' }), {
+      source, medium: 'organic', campaign: 'creator-20260820', content: 'alexis-v001',
+    })
+  }
+  for (const attribution of [
+    { source: 'reddit', medium: 'organic', campaign: 'creator-20260820', content: 'alexis-v001' },
+    { source: 'tiktok', medium: 'partner', campaign: 'creator-20260820', content: 'alexis-v001' },
+    { source: 'tiktok', medium: 'organic', campaign: 'agent-20260820', content: 'alexis-v001' },
+    { source: 'tiktok', medium: 'organic', campaign: 'creator-20260820', content: 'alexis-v01' },
+    { source: 'tiktok', medium: 'organic', campaign: 'creator-20260820', content: 'alexis-riley' },
+  ]) assert.equal(normalizeFirstPartyAttribution(attribution)?.content, null)
   assert.deepEqual(normalizeFirstPartyAttribution({ source: 'referral', medium: 'referral', campaign: 'agent-20260820', content: 'calculator' }), {
     source: 'referral', medium: 'referral', campaign: 'agent-20260820', content: 'calculator',
   })

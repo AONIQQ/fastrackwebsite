@@ -93,8 +93,8 @@ test('exact production Whop SQL runs on PostgreSQL 17 with duplicate and reverse
     run(`insert into leads(id,email,is_fixture,created_at,utm_source,utm) values
         (1,'genuine@example.test',false,now(),'google','{"utm_medium":"cpc","utm_campaign":"validation","utm_content":"calculator"}'),
         (2,'fixture@example.test',true,now(),'reddit','{}'),
-        (3,'creator-one@example.test',false,now(),'tiktok','{"utm_medium":"organic","utm_campaign":"creator-20260820","utm_content":"calculator"}'),
-        (4,'creator-two@example.test',false,now(),'instagram','{"utm_medium":"organic","utm_campaign":"creator-20260820","utm_content":"calculator"}'),
+        (3,'creator-one@example.test',false,now(),'tiktok','{"utm_medium":"organic","utm_campaign":"creator-20260820","utm_content":"alexis-v001"}'),
+        (4,'creator-two@example.test',false,now(),'instagram','{"utm_medium":"organic","utm_campaign":"creator-20260820","utm_content":"alexis-v002"}'),
         (5,'podcast-listener@example.test',false,now(),'podcast','{"utm_medium":"partner","utm_campaign":"agent-20260820","utm_content":"partner-p0001"}');
       insert into email_messages(id,lead_id,kind,is_fixture) values(1,1,'results',true);
       insert into sales(provider,provider_payment_id,amount_cents,paid_at,refunded_cents,dispute_state,is_fixture,lead_id,raw)
@@ -110,7 +110,7 @@ test('exact production Whop SQL runs on PostgreSQL 17 with duplicate and reverse
           ('whop','pay_instagram',4700,now(),0,null,false,4,'{}'),
           ('whop','pay_podcast',4700,now(),0,null,false,5,'{}');`)
     assert.equal(run(PAYMENT_TOTALS_SQL), '6|103800')
-    assert.equal(run(PAYMENT_BY_PROVIDER_SOURCE_SQL), 'stripe|tiktok|organic|creator-20260820|calculator|1|49700\nstripe|google|cpc|validation|calculator|1|40000\nwhop|email|direct|direct||1|4700\nwhop|instagram|organic|creator-20260820|calculator|1|4700\nwhop|podcast|partner|agent-20260820|partner-p0001|1|4700\nwhop|direct|direct|direct||1|0')
+    assert.equal(run(PAYMENT_BY_PROVIDER_SOURCE_SQL), 'stripe|tiktok|organic|creator-20260820|alexis-v001|1|49700\nstripe|google|cpc|validation|calculator|1|40000\nwhop|email|direct|direct||1|4700\nwhop|instagram|organic|creator-20260820|alexis-v002|1|4700\nwhop|podcast|partner|agent-20260820|partner-p0001|1|4700\nwhop|direct|direct|direct||1|0')
     assert.equal(run(`prepare provider_totals(text) as ${PROVIDER_PAYMENT_TOTALS_SQL}; execute provider_totals('whop');`), '4|1|1|0|18800|6700|14100')
     run("insert into sales(provider,provider_payment_id) values('whop','pay_fixture')", false)
     run("insert into sales(provider,provider_payment_id) values('other','pay_other')", false)

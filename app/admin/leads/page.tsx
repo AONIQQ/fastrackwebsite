@@ -4,6 +4,7 @@ import { funnelHealthReport } from '@/lib/funnel-health'
 import { FunnelHealthPanel } from './FunnelHealthPanel'
 import { firstPartyFunnelReport } from '@/lib/first-party-funnel'
 import { FunnelMeasurementPanel } from './FunnelMeasurementPanel'
+import { AlexisCreatorPanel } from './AlexisCreatorPanel'
 
 export const dynamic = 'force-dynamic'
 
@@ -70,6 +71,7 @@ export default async function LeadsPage({
         </div>
 
       <FunnelHealthPanel report={health} />
+      <AlexisCreatorPanel rows={measurement.rows} sales={funnel.salesBySource} />
       <FunnelMeasurementPanel rows={measurement.rows} />
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
