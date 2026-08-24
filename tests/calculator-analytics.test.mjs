@@ -280,6 +280,6 @@ test('capture payload, attribution, and acknowledgement semantics remain intact'
   assert.match(handler, /payload: \{\s*captureId, email, phone: phoneNumber, smsConsent, state, residency,\s*collegeId: college\.id, referrer: attributionRef\.current\.referrer,\s*utm: attributionRef\.current\.utm, website,\s*\}/)
   assert.match(handler, /onAcknowledged:[\s\S]*setSessionStorageValue\(storage, 'session-capture-ack', '1'\)[\s\S]*trackCalculatorEvent\('Lead Captured'/)
   assert.match(handler, /setDisplayAcknowledgement\(captureId\)/)
-  assert.match(handler, /trackCalculatorEvent\('Capture Failed'\)[\s\S]*setCaptureError\('We could not save your request\./)
+  assert.match(handler, /catch \(error\)[\s\S]*trackCalculatorEvent\('Capture Failed'\)[\s\S]*setCaptureError\(captureRequestFailureMessage\(error\)\)/)
   assert.doesNotMatch(handler, /trackCalculatorEvent\([^\n]+,\s*\{/) // no analytics properties
 })

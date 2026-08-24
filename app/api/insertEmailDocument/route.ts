@@ -22,6 +22,7 @@ import { captureRolloutPlan, effectiveRolloutControls, rolloutControls } from '@
 import { captureFailureHttpResponse, captureFailureResponse } from '@/lib/capture-failure-diagnostics.mjs'
 import { scheduleCaptureDelivery } from '@/lib/capture-delivery-scheduling.mjs'
 import { fixedCaptureErrorResponse, inputCaptureErrorResponse } from '@/lib/capture-route-errors.mjs'
+import { slowCaptureDiagnostic } from '@/lib/capture-observability.mjs'
 import type { CaptureFailurePhase } from '@/lib/capture-failure-diagnostics.mjs'
 
 export const dynamic = 'force-dynamic'
@@ -38,6 +39,7 @@ async function recordRejected(reasonCode: string, attribution: CaptureReportEven
 }
 
 export async function POST(request: Request) {
+  const requestStartedAt = Date.now()
   let reportingAttribution: CaptureReportEvent['attributionValidity'] = 'unknown'
   let persistenceAttempted = false
   let failurePhase: CaptureFailurePhase | null = null
@@ -191,6 +193,8 @@ export async function POST(request: Request) {
       )
     }
 
+    const slowCapture = slowCaptureDiagnostic(Date.now() - requestStartedAt, 'acknowledged')
+    if (slowCapture !== null) console.warn(JSON.stringify(slowCapture))
     return NextResponse.json({ ok: true, id: lead.id, capture_id: input.captureId, roi: lead.snapshot })
   } catch (error) {
     if (error instanceof CaptureInputError) {
@@ -214,6 +218,8 @@ export async function POST(request: Request) {
     }
     const failure = captureFailureResponse(fixtureDiagnosticAuthorized, failurePhase, error)
     if (failure.diagnostic !== null) console.error(JSON.stringify(failure.diagnostic))
+    const slowCapture = slowCaptureDiagnostic(Date.now() - requestStartedAt, 'failed')
+    if (slowCapture !== null) console.warn(JSON.stringify(slowCapture))
     return captureFailureHttpResponse(failure)
   }
 }

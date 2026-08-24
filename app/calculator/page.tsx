@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Menu, X } from 'lucide-react'
 import Script from 'next/script'
 import { CollegeCombobox, type CollegeOption } from './CollegeCombobox'
-import { acknowledgeResultDisplay, completeCapture } from '@/lib/capture-client.mjs'
+import { acknowledgeResultDisplay, captureRequestFailureMessage, completeCapture } from '@/lib/capture-client.mjs'
 import { withAttributionQuery } from '@/lib/attribution-url.mjs'
 import {
   emitCalculatorAnalyticsEvent,
@@ -320,10 +320,10 @@ export default function Calculator() {
           captureAttemptRef.current = null
         },
       })
-    } catch {
+    } catch (error) {
       trackCalculatorEvent('Capture Failed')
       setResult(null)
-      setCaptureError('We could not save your request. Your information is still here. Please try again.')
+      setCaptureError(captureRequestFailureMessage(error))
     } finally {
       setIsSubmitting(false)
     }

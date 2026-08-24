@@ -262,6 +262,9 @@ test('capture route tracks exactly four named phases and logs only the structure
   assert.doesNotMatch(finalFailure, /console\.error\([^\n]*(error|message|stack|cause|request|captureId|leadId)/i)
   assert.doesNotMatch(finalFailure, /capture failed before lead persistence|capture persistence or response unconfirmed|capture failure unobservable/)
   assert.doesNotMatch(route, /console\.error\([^\n]*,\s*error\)/)
+  assert.match(route, /slowCaptureDiagnostic\(Date\.now\(\) - requestStartedAt, 'acknowledged'\)/)
+  assert.match(finalFailure, /slowCaptureDiagnostic\(Date\.now\(\) - requestStartedAt, 'failed'\)/)
+  assert.doesNotMatch(route, /capture_slow[^\n]*(email|phone|captureId|college|request)/i)
 })
 
 test('route derives diagnostic capability before parsing only from existing fixture authorization gates', async () => {

@@ -17,7 +17,9 @@ import {
   captureAbuseCleanupAuthorized,
   captureAbuseCleanupHasBacklog,
 } from '../lib/capture-abuse-cleanup.mjs'
-import { CaptureRequestError, completeCapture, postCapture } from '../lib/capture-client.mjs'
+import {
+  CaptureRequestError, captureRequestFailureMessage, completeCapture, postCapture,
+} from '../lib/capture-client.mjs'
 
 const captureId = '123e4567-e89b-42d3-a456-426614174000'
 const valid = (overrides = {}) => ({
@@ -204,10 +206,21 @@ test('acknowledgement must match the submitted durable capture identity', () => 
   assert.equal(captureResponseIsAcknowledged({ ok: true, id: 1, capture_id: captureId }, captureId), false)
 })
 
-test('non-2xx, network errors and timeouts fail without acknowledgement', async () => {
-  await assert.rejects(postCapture(async () => ({ ok: false }), valid()), (error) => error instanceof CaptureRequestError && error.code === 'non_2xx')
-  await assert.rejects(postCapture(async () => { throw new Error('offline') }, valid()), (error) => error instanceof CaptureRequestError && error.code === 'network')
-  await assert.rejects(postCapture((_url, options) => new Promise((_resolve, reject) => options.signal.addEventListener('abort', () => reject(new Error('aborted')))), valid(), { timeoutMs: 5 }), (error) => error instanceof CaptureRequestError && error.code === 'network')
+test('confirmed non-2xx fails once while persistent ambiguous failures exhaust one reconciliation replay', async () => {
+  let rejectedAttempts = 0
+  await assert.rejects(postCapture(async () => { rejectedAttempts += 1; return { ok: false, status: 429 } }, valid()), (error) => error instanceof CaptureRequestError && error.code === 'non_2xx')
+  assert.equal(rejectedAttempts, 1)
+
+  let networkAttempts = 0
+  await assert.rejects(postCapture(async () => { networkAttempts += 1; throw new Error('offline') }, valid()), (error) => error instanceof CaptureRequestError && error.code === 'network')
+  assert.equal(networkAttempts, 2)
+
+  let timeoutAttempts = 0
+  await assert.rejects(postCapture((_url, options) => {
+    timeoutAttempts += 1
+    return new Promise((_resolve, reject) => options.signal.addEventListener('abort', () => reject(new Error('aborted'))))
+  }, valid(), { timeoutMs: 5 }), (error) => error instanceof CaptureRequestError && error.code === 'network')
+  assert.equal(timeoutAttempts, 2)
 })
 
 test('only the exact server-returned ROI is revealed after matching acknowledgement', async () => {
@@ -225,7 +238,7 @@ test('only the exact server-returned ROI is revealed after matching acknowledgem
   assert.deepEqual(effects, [serverRoi])
 })
 
-test('retry reuses one identity and replay returns one durable id', async () => {
+test('a lost response is reconciled automatically with the same identity and one durable id', async () => {
   const payload = valid()
   const seen = []
   let attempts = 0
@@ -235,10 +248,50 @@ test('retry reuses one identity and replay returns one durable id', async () => 
     if (attempts === 1) throw new Error('response lost')
     return ok({ ok: true, id: 91, capture_id: captureId, roi: serverRoi })
   }
-  await assert.rejects(postCapture(fetcher, payload))
   const replay = await postCapture(fetcher, payload)
   assert.equal(replay.id, 91)
   assert.deepEqual(seen, [captureId, captureId])
+})
+
+test('a client timeout after persistence recovers the durable acknowledgement instead of showing failure', async () => {
+  const payload = valid()
+  const seen = []
+  let durable = false
+  const fetcher = async (_url, options) => {
+    seen.push(JSON.parse(options.body).captureId)
+    if (!durable) {
+      return new Promise((_resolve, reject) => options.signal.addEventListener('abort', () => {
+        durable = true
+        reject(new Error('response arrived after browser timeout'))
+      }))
+    }
+    return ok({ ok: true, id: 92, capture_id: captureId, roi: serverRoi })
+  }
+
+  const replay = await postCapture(fetcher, payload, { timeoutMs: 5 })
+  assert.equal(replay.id, 92)
+  assert.deepEqual(seen, [captureId, captureId])
+})
+
+test('5xx responses reconcile but 4xx responses do not', async () => {
+  let serverAttempts = 0
+  const response = await postCapture(async () => {
+    serverAttempts += 1
+    return serverAttempts === 1 ? { ok: false, status: 503 } : ok()
+  }, valid())
+  assert.equal(response.id, 7)
+  assert.equal(serverAttempts, 2)
+})
+
+test('capture failure copy never falsely claims an ambiguous request was not saved', () => {
+  assert.equal(
+    captureRequestFailureMessage(new CaptureRequestError('network')),
+    'We could not confirm the response. Your request may already be saved, so check your email or try again.',
+  )
+  assert.equal(
+    captureRequestFailureMessage(new CaptureRequestError('non_2xx')),
+    'We could not process your request. Your information is still here. Please try again.',
+  )
 })
 
 test('a materially changed submission uses a new capture identity', () => {
