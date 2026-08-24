@@ -141,7 +141,7 @@ test('capture route explicitly bounds rejection and unconfirmed persistence evid
   assert.doesNotMatch(route, /recordCaptureReportingEvents\(\[\{[\s\S]{0,250}eventType: 'attempt'[\s\S]{0,250}persistence_unconfirmed/)
 })
 
-test('fixture capture requires admin session plus bounded authorization and cannot be public-labeled', async () => {
+test('fixture capture requires admin session, stays labeled, and can acknowledge without dispatch when public capture is ready', async () => {
   const publicRoute = await read('../app/api/insertEmailDocument/route.ts')
   const authorizeRoute = await read('../app/api/admin/capture-fixture/authorize/route.ts')
   const calculator = await read('../app/calculator/page.tsx')
@@ -149,6 +149,8 @@ test('fixture capture requires admin session plus bounded authorization and cann
   assert.match(publicRoute, /fixtureDiagnosticAuthorization\(\{[\s\S]*token: fixtureAuthorization,[\s\S]*allowedOrigin,[\s\S]*admin: isFixture && isAdmin\(\),[\s\S]*secret: process\.env\.ADMIN_TOKEN/)
   assert.match(publicRoute, /isFixture && !fixtureDiagnosticAuthorized/)
   assert.match(publicRoute, /isFixture,/)
+  assert.match(publicRoute, /capturePlan\.acknowledge[\s\S]*fixture: true[\s\S]*capture_id: input\.captureId[\s\S]*roi: lead\.snapshot/)
+  assert.match(publicRoute, /isFixture[\s\S]*enqueueResults: capturePlan\.enqueueResults/)
   assert.match(authorizeRoute, /isAllowedCaptureOrigin[\s\S]*isAdmin\(\)/)
   assert.match(authorizeRoute, /createFixtureAuthorization\(process\.env\.ADMIN_TOKEN\)/)
   assert.match(calculator, /capture-fixture\/authorize[\s\S]*x-fastrack-fixture-authorization/)

@@ -158,6 +158,16 @@ export async function POST(request: Request) {
           rollout_stage: 'not_shadow',
         }, { status: 409, headers: { 'Cache-Control': 'no-store' } })
       }
+      if (capturePlan.acknowledge) {
+        return NextResponse.json({
+          ok: true,
+          fixture: true,
+          code: capturePlan.code,
+          id: lead.id,
+          capture_id: input.captureId,
+          roi: lead.snapshot,
+        }, { status: 200, headers: { 'Cache-Control': 'no-store' } })
+      }
       return NextResponse.json({
         ok: false,
         fixture: true,

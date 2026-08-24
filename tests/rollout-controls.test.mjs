@@ -198,8 +198,10 @@ test('capture rollout makes fixture shadow reachable while public persistence st
     persist: true, acknowledge: true, createShadowLedger: true,
     enqueueResults: true, status: 200, code: 'capture_acknowledged',
   })
-  assert.equal(captureRolloutPlan(publicReady, { fixture: true }).acknowledge, false)
-  assert.equal(captureRolloutPlan(publicReady, { fixture: true }).enqueueResults, false)
+  assert.deepEqual(captureRolloutPlan(publicReady, { fixture: true }), {
+    persist: true, acknowledge: true, createShadowLedger: true,
+    enqueueResults: false, status: 200, code: 'fixture_acknowledged',
+  })
 })
 
 test('effective dependency graph makes every partial transition fail closed', () => {
@@ -303,6 +305,7 @@ test('source binds each control to its state-changing boundary and aggregate-onl
   assert.match(route, /createShadowLedger: capturePlan\.createShadowLedger/)
   assert.match(route, /enqueueResults: capturePlan\.enqueueResults/)
   assert.match(route, /isFixture[\s\S]*fixture_shadow_recorded/)
+  assert.match(route, /isFixture[\s\S]*capturePlan\.acknowledge[\s\S]*fixture: true[\s\S]*capture_id: input\.captureId[\s\S]*roi: lead\.snapshot/)
   assert.doesNotMatch(route, /fixture_shadow_recorded[\s\S]{0,300}\broi\b/)
   assert.match(db, /where \$\{lead\.createShadowLedger\}/)
   assert.match(db, /rollout_dispatch_eligible[\s\S]*\$\{lead\.enqueueResults\}/)
