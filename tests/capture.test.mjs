@@ -201,9 +201,23 @@ test('SMS dispatch is disabled by default and requires exact explicit enablement
 
 test('acknowledgement must match the submitted durable capture identity', () => {
   assert.equal(captureResponseIsAcknowledged({ ok: true, id: 1, capture_id: captureId, roi: serverRoi }, captureId), true)
+  assert.equal(captureResponseIsAcknowledged({ ok: true, id: '144', capture_id: captureId, roi: serverRoi }, captureId), true)
   assert.equal(captureResponseIsAcknowledged({ ok: true, id: 1, capture_id: 'other', roi: serverRoi }, captureId), false)
   assert.equal(captureResponseIsAcknowledged({ ok: true, id: 0, capture_id: captureId, roi: serverRoi }, captureId), false)
+  assert.equal(captureResponseIsAcknowledged({ ok: true, id: '0', capture_id: captureId, roi: serverRoi }, captureId), false)
+  assert.equal(captureResponseIsAcknowledged({ ok: true, id: '0144', capture_id: captureId, roi: serverRoi }, captureId), false)
+  assert.equal(captureResponseIsAcknowledged({ ok: true, id: '92233720368547758070', capture_id: captureId, roi: serverRoi }, captureId), false)
   assert.equal(captureResponseIsAcknowledged({ ok: true, id: 1, capture_id: captureId }, captureId), false)
+})
+
+test('the exact Neon bigint wire shape acknowledges the production capture response', () => {
+  const productionResponse = {
+    ok: true,
+    id: '144',
+    capture_id: captureId,
+    roi: serverRoi,
+  }
+  assert.equal(captureResponseIsAcknowledged(productionResponse, captureId), true)
 })
 
 test('confirmed non-2xx fails once while persistent ambiguous failures exhaust one reconciliation replay', async () => {
