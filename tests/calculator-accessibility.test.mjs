@@ -63,7 +63,7 @@ test('loading and results are announced without weakening the capture gate', asy
   assert.match(page, /ref=\{resultHeadingRef\} tabIndex=\{-1\}/)
   assert.match(page, /if \(result\) resultHeadingRef\.current\?\.focus\(\)/)
   assert.match(page, /await completeCapture\(/)
-  assert.match(page, /onAcknowledged: \(\{ roi \}/)
+  assert.match(page, /onAcknowledged: \(\{ roi, acknowledgement \}/)
   assert.match(page, /setResult\(roi\)/)
   assert.match(page, /setIsEmailModalOpen\(false\)/)
 })

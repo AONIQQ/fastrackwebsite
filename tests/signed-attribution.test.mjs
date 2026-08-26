@@ -104,7 +104,7 @@ test('click destinations are allowlisted and checkout URLs never prefill recipie
 })
 
 test('migration and routes persist only verified logical-message engagement', async () => {
-  const [migration, guideDestinationMigration, click, open, ledger, nurture, mail, stripe, creditMap, db] = await Promise.all([
+  const [migration, guideDestinationMigration, click, open, ledger, nurture, mail, stripe, creditMap, db, captureRoute, calculator] = await Promise.all([
     read('../db/migrations/0005_signed_attribution.sql'),
     read('../db/migrations/0020_guide_engagement_destination.sql'),
     read('../app/api/t/c/route.ts'),
@@ -115,6 +115,8 @@ test('migration and routes persist only verified logical-message engagement', as
     read('../app/api/webhooks/stripe/route.ts'),
     read('../app/credit-map/page.tsx'),
     read('../lib/db.ts'),
+    read('../app/api/insertEmailDocument/route.ts'),
+    read('../app/calculator/page.tsx'),
   ])
   assert.match(migration, /email_message_identities/)
   assert.match(migration, /tracking_id uuid not null unique/)
@@ -137,4 +139,8 @@ test('migration and routes persist only verified logical-message engagement', as
   assert.match(stripe, /join leads on leads\.id = candidate\.lead_id[\s\S]*lower\(trim\(leads\.email\)\) = \$\{checkoutEmail\}/)
   assert.match(stripe, /'forwarded_unattributed'/)
   assert.match(stripe, /email_message_id, lead_id, touch_ref, attribution_outcome/)
+  assert.match(db, /result_identity as \([\s\S]*insert into email_message_identities[\s\S]*on conflict \(email_message_id\)/)
+  assert.match(captureRoute, /createCheckoutToken\([\s\S]*trackingId: lead\.tracking_id[\s\S]*step: 'results'/)
+  assert.match(captureRoute, /\.\.\.\(checkoutRef \? \{ checkout_ref: checkoutRef \} : \{\}\)/)
+  assert.match(calculator, /isCheckoutTokenShape\(acknowledgement\.checkout_ref\)[\s\S]*url\.searchParams\.set\('checkout_ref'/)
 })

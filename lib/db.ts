@@ -340,6 +340,7 @@ export async function cleanupCaptureRiskDecisions() {
 
 export async function insertLead(lead: {
   captureId: string;
+  trackingId: string;
   captureRequestHash: string;
   email: string;
   phone?: string | null;
@@ -420,15 +421,21 @@ export async function insertLead(lead: {
       from captured
       where ${lead.createShadowLedger}
       on conflict (logical_key) do nothing
-      returning lead_id, is_fixture, rollout_dispatch_eligible
+      returning id, lead_id, is_fixture, rollout_dispatch_eligible
     ), result_message as (
-      select lead_id, is_fixture, rollout_dispatch_eligible from message_work
+      select id, lead_id, is_fixture, rollout_dispatch_eligible from message_work
       union all
-      select message.lead_id, message.is_fixture, message.rollout_dispatch_eligible
+      select message.id, message.lead_id, message.is_fixture, message.rollout_dispatch_eligible
       from email_messages message
       join captured on captured.id = message.lead_id
       where message.kind = 'results'
         and not exists (select 1 from message_work where message_work.lead_id = captured.id)
+    ), result_identity as (
+      insert into email_message_identities (email_message_id, tracking_id)
+      select id, ${lead.trackingId}::uuid from result_message
+      on conflict (email_message_id) do update
+        set tracking_id = email_message_identities.tracking_id
+      returning email_message_id, tracking_id, created_at
     ), attempt_report as (
       insert into capture_reporting_buckets (
         bucket_start, event_type, reason_code, attribution_validity, traffic_class, event_count
@@ -455,18 +462,22 @@ export async function insertLead(lead: {
     select captured.id, captured.created_at, captured.snapshot,
       (message_work.lead_id is not null) as delivery_claimed, captured.sms_eligible,
       (result_message.is_fixture and not coalesce(result_message.rollout_dispatch_eligible, true)) as shadow_ready,
-      false as fixture_blocked
+      false as fixture_blocked, result_identity.tracking_id,
+      floor(extract(epoch from result_identity.created_at))::bigint as tracking_issued_at
     from captured
     left join message_work on message_work.lead_id = captured.id
     left join result_message on result_message.lead_id = captured.id
+    left join result_identity on result_identity.email_message_id = result_message.id
     cross join attempt_report
     cross join outcome_report
     union all
-    select null::bigint, null::timestamptz, null::jsonb, false, false, false, true
+    select null::bigint, null::timestamptz, null::jsonb, false, false, false, true,
+      null::uuid, null::bigint
     from eligible_risk cross join blocked_fixture
   `) as {
     id: number | null; created_at: string | null; snapshot: Record<string, unknown> | null
     delivery_claimed: boolean; sms_eligible: boolean; shadow_ready: boolean; fixture_blocked: boolean
+    tracking_id: string | null; tracking_issued_at: string | number | null
   }[];
   return rows[0];
 }

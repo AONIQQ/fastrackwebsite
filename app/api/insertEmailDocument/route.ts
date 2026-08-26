@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { waitUntil } from '@vercel/functions'
-import { createHash } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { claimCaptureRisk, getCollegeById, insertLead, recordCaptureReportingEvents } from '@/lib/db'
 import { notifyNewLead } from '@/lib/mail'
 import { sendSms, resultsSms } from '@/lib/sms'
@@ -28,6 +28,11 @@ import { scheduleCaptureDelivery } from '@/lib/capture-delivery-scheduling.mjs'
 import { fixedCaptureErrorResponse, inputCaptureErrorResponse } from '@/lib/capture-route-errors.mjs'
 import { slowCaptureDiagnostic } from '@/lib/capture-observability.mjs'
 import type { CaptureFailurePhase } from '@/lib/capture-failure-diagnostics.mjs'
+import {
+  ATTRIBUTION_TOKEN_TTL_SECONDS,
+  attributionSecret,
+  createCheckoutToken,
+} from '@/lib/attribution-tokens.mjs'
 
 export const dynamic = 'force-dynamic'
 
@@ -134,7 +139,7 @@ export async function POST(request: Request) {
     persistenceAttempted = true
     failurePhase = 'lead_insert'
     const lead = await insertLead({
-      captureId: input.captureId, captureRequestHash, email: input.email, phone: input.phone,
+      captureId: input.captureId, trackingId: randomUUID(), captureRequestHash, email: input.email, phone: input.phone,
       state: input.state, residency: input.residency, college: college.name,
       collegeId: college.id, snapshot: roi, userAgent,
       smsConsent: input.smsConsent, referrer: input.attribution.normalized_referrer,
@@ -209,7 +214,27 @@ export async function POST(request: Request) {
 
     const slowCapture = slowCaptureDiagnostic(Date.now() - requestStartedAt, 'acknowledged')
     if (slowCapture !== null) console.warn(JSON.stringify(slowCapture))
-    return NextResponse.json({ ok: true, id: lead.id, capture_id: input.captureId, roi: lead.snapshot })
+    let checkoutRef: string | null = null
+    try {
+      const trackingIssuedAt = Number(lead.tracking_issued_at)
+      if (lead.tracking_id && Number.isSafeInteger(trackingIssuedAt) && trackingIssuedAt > 0) {
+        checkoutRef = createCheckoutToken({
+          trackingId: lead.tracking_id,
+          step: 'results',
+          expiresAt: trackingIssuedAt + ATTRIBUTION_TOKEN_TTL_SECONDS,
+        }, attributionSecret())
+      }
+    } catch {
+      // Revenue attribution is additive. A signing configuration failure must
+      // never turn a durably captured lead into a customer-visible failure.
+    }
+    return NextResponse.json({
+      ok: true,
+      id: lead.id,
+      capture_id: input.captureId,
+      roi: lead.snapshot,
+      ...(checkoutRef ? { checkout_ref: checkoutRef } : {}),
+    })
   } catch (error) {
     if (error instanceof CaptureInputError) {
       await recordRejected(reportingReasonForInputError(error.code), error.code === 'invalid_attribution' || error.code === 'invalid_referrer' ? 'invalid' : reportingAttribution)

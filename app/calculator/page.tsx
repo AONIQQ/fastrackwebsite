@@ -12,6 +12,7 @@ import { Menu, X } from 'lucide-react'
 import Script from 'next/script'
 import { CollegeCombobox, type CollegeOption } from './CollegeCombobox'
 import { acknowledgeResultDisplay, captureRequestFailureMessage, completeCapture } from '@/lib/capture-client.mjs'
+import { isCheckoutTokenShape } from '@/lib/checkout-url.mjs'
 import { withAttributionQuery } from '@/lib/attribution-url.mjs'
 import {
   emitCalculatorAnalyticsEvent,
@@ -309,12 +310,19 @@ export default function Calculator() {
           collegeId: college.id, referrer: attributionRef.current.referrer,
           utm: attributionRef.current.utm, website,
         },
-        onAcknowledged: ({ roi }: { roi: RoiResult }) => {
+        onAcknowledged: ({ roi, acknowledgement }: { roi: RoiResult; acknowledgement: { checkout_ref?: unknown } }) => {
           const storage = getAnalyticsSessionStorage(window)
           setSessionStorageValue(storage, 'session-capture-ack', '1')
           removeSessionStorageValue(storage, 'session-email')
           trackCalculatorEvent('Lead Captured', 'fastrack:analytics:lead-captured')
           setResult(roi)
+          if (isCheckoutTokenShape(acknowledgement.checkout_ref)) {
+            setCreditMapHref((current) => {
+              const url = new URL(current, window.location.origin)
+              url.searchParams.set('checkout_ref', String(acknowledgement.checkout_ref))
+              return `${url.pathname}${url.search}${url.hash}`
+            })
+          }
           setDisplayAcknowledgement(captureId)
           setIsEmailModalOpen(false)
           captureAttemptRef.current = null
