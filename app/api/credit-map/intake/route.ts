@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
+import { randomUUID } from 'node:crypto'
 import { attributionSecret } from '@/lib/attribution-tokens.mjs'
 import { CREDIT_MAP_BUYER_COOKIE, parseCreditMapIntake, verifyBuyerStartToken } from '@/lib/credit-map-buyer-start.mjs'
 import { firstPartyRequestContextIsAllowed } from '@/lib/first-party-funnel-contract.mjs'
@@ -42,11 +43,19 @@ export async function POST(request: Request) {
       from candidate where intake.id = candidate.id and intake.status = 'awaiting_intake'
         and candidate.status = 'awaiting_intake'
       returning intake.id
+    ), owner_notification as (
+      insert into credit_map_owner_notifications (intake_id, provider_idempotency_key)
+      select candidate.id, ${randomUUID()}::uuid from candidate
+      where candidate.status in ('awaiting_intake', 'submitted', 'in_progress', 'delivered')
+        and (exists(select 1 from saved) or candidate.status in ('submitted', 'in_progress', 'delivered'))
+      on conflict (intake_id) do nothing
+      returning intake_id
     )
     select case when exists(select 1 from saved) then 'submitted'
       when exists(select 1 from candidate where status <> 'awaiting_intake') then 'already_submitted'
-      else 'invalid' end as outcome
-  ` as { outcome: 'submitted' | 'already_submitted' | 'invalid' }[]
+      else 'invalid' end as outcome,
+      (select count(*)::int from owner_notification) as owner_notification_created
+  ` as { outcome: 'submitted' | 'already_submitted' | 'invalid'; owner_notification_created: number }[]
   if (rows[0]?.outcome === 'invalid') return NextResponse.json({ error: 'Start link expired' }, { status: 401, headers: noStore })
   if (!rows[0]) return NextResponse.json({ error: 'Unable to save intake' }, { status: 503, headers: noStore })
   const response = NextResponse.json({ status: 'submitted', duplicate: rows[0].outcome === 'already_submitted' }, { headers: noStore })

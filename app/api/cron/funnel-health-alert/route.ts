@@ -4,6 +4,8 @@ import { runFunnelHealthAlert } from '@/lib/funnel-health-alerts.mjs'
 import { claimFunnelHealthAlert, completeFunnelHealthAlert, releaseFunnelHealthAlert } from '@/lib/funnel-health-alert-state'
 import { sendViaResend } from '@/lib/mail'
 import { verifyStripeWebhookRegistration } from '@/lib/stripe-registration.mjs'
+import { runCreditMapOwnerAlerts } from '@/lib/credit-map-owner-alerts.mjs'
+import { claimCreditMapOwnerAlert, completeCreditMapOwnerAlert, releaseCreditMapOwnerAlert } from '@/lib/credit-map-owner-alert-state'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -18,6 +20,25 @@ export async function GET(request: Request) {
   if (!process.env.RESEND_API_KEY) {
     return NextResponse.json({ ok: false, failure: 'provider_not_configured' }, { status: 503 })
   }
+
+  const creditMapOrders = await runCreditMapOwnerAlerts({
+    claim: claimCreditMapOwnerAlert,
+    complete: completeCreditMapOwnerAlert,
+    release: releaseCreditMapOwnerAlert,
+    send: async ({ subject, text, idempotencyKey }: { subject: string; text: string; idempotencyKey: string }) => {
+      const receipt = await sendViaResend({
+        to: OWNER_INBOX,
+        replyTo: OWNER_INBOX,
+        subject,
+        text,
+        idempotencyKey,
+        requireIdempotentProvider: true,
+      })
+      if (!receipt.messageId) throw new Error('owner_alert_provider_receipt_missing')
+      return receipt
+    },
+  })
+  if (!creditMapOrders.ok) return NextResponse.json({ ok: false, credit_map_orders: creditMapOrders }, { status: 502 })
 
   const result = await runFunnelHealthAlert({
     report: async () => ({
@@ -40,5 +61,5 @@ export async function GET(request: Request) {
       return receipt
     },
   })
-  return NextResponse.json(result, { status: result.ok ? 200 : 502 })
+  return NextResponse.json({ ...result, credit_map_orders: creditMapOrders }, { status: result.ok ? 200 : 502 })
 }

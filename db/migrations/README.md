@@ -152,3 +152,9 @@ signed webhook ledger proves a genuine paid, non-fixture order. The table stores
 only the minimum planning inputs needed to start the purchased Credit Map and
 never stores a raw Checkout Session ID, buyer-start token, URL, log payload, or
 provider response.
+
+`0025_credit_map_owner_notifications.sql` adds one owner-notification ledger row
+per submitted Credit Map intake. It keeps a random provider idempotency key, a
+short retry lease, an exact privacy-bounded message snapshot, and the provider
+acceptance receipt. It stores no buyer identity, student detail, checkout
+identifier, payment identifier, access token, URL, or provider payload.
