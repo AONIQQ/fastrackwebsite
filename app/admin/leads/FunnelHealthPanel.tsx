@@ -58,6 +58,7 @@ export function FunnelHealthPanel({ report }: { report: FunnelHealthReport }) {
           <p className="text-sm">Freshness: {report.nurture_cron.freshness_hours == null ? 'unknown' : `${Number(report.nurture_cron.freshness_hours).toFixed(1)}h`}</p>
           <p className="text-sm">Newest success: {report.nurture_cron.latest_successful?.completed_at ? new Date(String(report.nurture_cron.latest_successful.completed_at)).toLocaleString() : 'none'}</p>
           <p className="text-sm">Newest failure: {report.nurture_cron.latest_failed?.started_at ? new Date(String(report.nurture_cron.latest_failed.started_at)).toLocaleString() : 'none recorded'}</p>
+          <p className="text-sm">Latest enqueue: <strong>{value(report.nurture_cron.latest?.nurture_enqueued)}</strong> created, <strong>{value(report.nurture_cron.latest?.nurture_eligible_without_row)}</strong> eligible still missing</p>
           <p className="text-sm">Leases: {value(report.leases.active)} active, <strong>{value(report.leases.expired)} expired</strong></p>
           <p className="text-sm">Results: {value(report.messages.results.due)} due, {value(report.messages.results.retryable)} retryable, {value(report.messages.results.terminal_failed)} terminal failures</p>
           <p className="text-sm">Nurture: {value(report.messages.nurture.due)} due, {value(report.messages.nurture.retryable)} retryable, {value(report.messages.nurture.terminal_failed)} terminal failures</p>

@@ -146,7 +146,7 @@ test('valid cron configuration preserves the bounded operational path', async ()
       createRun: async () => { calls.push('create'); return 7 },
       projectResendEvents: async () => { calls.push('project'); return { considered: 2, projected: 1 } },
       enqueueShadowResults: async () => { calls.push('promote'); return 3 },
-      enqueueDueNurture: async () => { calls.push('enqueue') },
+      enqueueDueNurture: async (enabled) => { calls.push(`enqueue:${enabled}`); return { enqueued: 2, eligibleWithoutRow: 0 } },
       claimNextMessage: async (kind) => { calls.push(`claim:${kind}`); return null },
       dispatchClaimedMessage: async () => { calls.push('dispatch'); return 'accepted' },
       messageBacklog: async () => { calls.push('backlog'); return 4 },
@@ -155,9 +155,43 @@ test('valid cron configuration preserves the bounded operational path', async ()
   })
   assert.equal(result.status, 200)
   assert.equal(result.body.configuration_status, 'valid')
-  assert.deepEqual(calls, ['create', 'project', 'promote', 'enqueue', 'claim:results', 'claim:nurture', 'backlog', 'complete:7'])
+  assert.deepEqual(calls, ['create', 'project', 'promote', 'enqueue:true', 'claim:results', 'claim:nurture', 'backlog', 'complete:7'])
   assert.equal(result.body.results_enqueued, 3)
+  assert.equal(result.body.nurture_enqueued, 2)
+  assert.equal(result.body.nurture_eligible_without_row, 0)
   assert.equal(result.body.backlog, 4)
+})
+
+test('nurture enqueue postcondition makes a completed run unhealthy without exposing lead detail', async () => {
+  const env = Object.fromEntries(Object.values(ROLLOUT_CONTROL_NAMES).map((name) => [name, '1']))
+  let completion = null
+  const result = await runNurtureCron({
+    preflight: nurtureCronPreflight(env),
+    maxMessages: 80,
+    dependencies: {
+      createRun: async () => 11,
+      projectResendEvents: async () => ({ considered: 0, projected: 0 }),
+      enqueueShadowResults: async () => 0,
+      enqueueDueNurture: async () => ({ enqueued: 0, eligibleWithoutRow: 1 }),
+      claimNextMessage: async () => null,
+      dispatchClaimedMessage: async () => 'accepted',
+      messageBacklog: async () => 0,
+      completeRun: async (runId, metrics, failureCategory) => { completion = { runId, metrics, failureCategory } },
+    },
+  })
+  assert.equal(result.status, 500)
+  assert.equal(result.body.nurture_enqueued, 0)
+  assert.equal(result.body.nurture_eligible_without_row, 1)
+  assert.deepEqual(completion, {
+    runId: 11,
+    metrics: {
+      considered: 0, claimed: 0, accepted: 0, retried: 0, failed: 0, backlog: 0,
+      results_enqueued: 0, nurture_enqueued: 0, nurture_eligible_without_row: 1,
+      delivery_events_considered: 0, delivery_states_projected: 0,
+    },
+    failureCategory: 'nurture_enqueue_invariant',
+  })
+  assert.doesNotMatch(JSON.stringify(result.body), /email|phone|lead_id|recipient/i)
 })
 
 test('capture acknowledgement requires durable shadow creation and results enqueue', () => {
@@ -314,7 +348,7 @@ test('source binds each control to its state-changing boundary and aggregate-onl
   assert.match(db, /fixture_blocked/)
   assert.match(ledger, /canClaimMessage\(kind, 'pending', controls\)/)
   assert.match(ledger, /coalesce\(m\.rollout_dispatch_eligible, true\)/)
-  assert.match(ledger, /if \(!controls\.nurtureEnqueue\) return 0/)
+  assert.match(ledger, /enqueueDueNurture\(enabled = effectiveControls\(\)\.nurtureEnqueue\)[\s\S]*if \(!enabled\) return \{ enqueued: 0, eligibleWithoutRow: 0 \}/)
   assert.match(ledger, /enqueueShadowResults[\s\S]*effectiveControls\(\)[\s\S]*if \(!controls\.resultsEnqueue\) return 0[\s\S]*for update skip locked/)
   assert.match(cron, /preflight: nurtureCronPreflight\(\)/)
   assert.match(cron, /createRun:[\s\S]*projectResendEvents:[\s\S]*enqueueShadowResults[\s\S]*claimNextMessage[\s\S]*dispatchClaimedMessage/)

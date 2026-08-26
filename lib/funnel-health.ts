@@ -82,16 +82,19 @@ export async function funnelHealthReport(now = new Date()) {
     sql`
       select
         (select row_to_json(run) from (
-          select started_at, completed_at, failure_category, considered, claimed, accepted, retried, failed, backlog
+          select started_at, completed_at, failure_category, considered, claimed, accepted, retried, failed, backlog,
+            nurture_enqueued, nurture_eligible_without_row
           from nurture_runs order by started_at desc limit 1
         ) run) as latest,
         (select row_to_json(run) from (
-          select started_at, completed_at, failure_category, considered, claimed, accepted, retried, failed, backlog
+          select started_at, completed_at, failure_category, considered, claimed, accepted, retried, failed, backlog,
+            nurture_enqueued, nurture_eligible_without_row
           from nurture_runs where completed_at is not null and failure_category is null and failed = 0
           order by started_at desc limit 1
         ) run) as latest_successful,
         (select row_to_json(run) from (
-          select started_at, completed_at, failure_category, considered, claimed, accepted, retried, failed, backlog
+          select started_at, completed_at, failure_category, considered, claimed, accepted, retried, failed, backlog,
+            nurture_enqueued, nurture_eligible_without_row
           from nurture_runs where failure_category is not null or failed > 0
           order by started_at desc limit 1
         ) run) as latest_failed

@@ -38,6 +38,8 @@ export async function GET(request: Request) {
         await sql`
           update nurture_runs set completed_at = now(), considered = ${metrics.considered}, claimed = ${metrics.claimed},
             accepted = ${metrics.accepted}, retried = ${metrics.retried}, failed = ${metrics.failed}, backlog = ${metrics.backlog},
+            nurture_enqueued = ${metrics.nurture_enqueued},
+            nurture_eligible_without_row = ${metrics.nurture_eligible_without_row},
             failure_category = ${failureCategory}
           where id = ${runId}
         `

@@ -68,6 +68,7 @@ test('report is fixed aggregate-only and excludes identity columns', async () =>
   assert.match(source, /cronCompletedAt: typeof latestSuccessfulRun\?\.completed_at/)
   assert.match(source, /cronFailed: Boolean\(latestRun && \(latestRun\.failure_category/)
   assert.match(source, /from nurture_runs where failure_category is not null or failed > 0/)
+  assert.match(source, /nurture_enqueued, nurture_eligible_without_row/)
   assert.match(source, /result_ready\.ready_at/)
   assert.match(source, /n\.nurture_stage = l\.nurture_stage \+ 1/)
   assert.doesNotMatch(source, /from nurture_runs where completed_at is null or failure_category/)

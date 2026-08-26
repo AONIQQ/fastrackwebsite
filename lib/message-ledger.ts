@@ -10,6 +10,11 @@ import {
 } from './fixture-result-dispatch.mjs'
 import { RESERVED_FIXTURE_RESULT_CLAIM_SQL } from './fixture-result-claim-sql.mjs'
 import { RESERVED_FIXTURE_RESULT_QUARANTINE_SQL } from './fixture-result-quarantine-sql.mjs'
+import {
+  NURTURE_ELIGIBLE_WITHOUT_ROW_SQL,
+  NURTURE_ENQUEUE_LOCK_SQL,
+  NURTURE_ENQUEUE_SQL,
+} from './nurture-enqueue-sql.mjs'
 
 const effectiveControls = () => effectiveRolloutControls(rolloutControls())
 
@@ -339,31 +344,23 @@ export async function enqueueShadowResults(limit = 500) {
   return rows[0]?.promoted ?? 0
 }
 
-export async function enqueueDueNurture() {
-  const controls = effectiveControls()
-  if (!controls.nurtureEnqueue) return 0
-  const rows = (await sql`
-    with eligible as (
-      select l.id as lead_id, l.nurture_stage + 1 as stage, l.is_fixture
-      from leads l
-      where l.created_at >= '2026-08-06'
-        and l.nurture_stage < 4 and l.unsubscribed_at is null
-        and exists (
-          select 1 from email_messages r
-          where r.lead_id = l.id and r.kind = 'results' and r.status in ('accepted', 'terminal')
-        )
-        and extract(epoch from (now() - l.created_at)) / 86400 >=
-          case l.nurture_stage + 1 when 1 then 2 when 2 then 5 when 3 then 8 when 4 then 12 end
-    ), inserted as (
-      insert into email_messages (
-        lead_id, kind, nurture_stage, logical_key, provider_idempotency_key, is_fixture,
-        rollout_dispatch_eligible
-      ) select lead_id, 'nurture', stage, 'lead:' || lead_id || ':nurture:' || stage,
-        'ft-lead-' || lead_id || '-n' || stage, coalesce(is_fixture, false), true
-      from eligible on conflict (logical_key) do nothing returning id
-    ) select count(*)::int as inserted from inserted
-  `) as { inserted: number }[]
-  return rows[0]?.inserted ?? 0
+export async function enqueueDueNurture(enabled = effectiveControls().nurtureEnqueue) {
+  if (!enabled) return { enqueued: 0, eligibleWithoutRow: 0 }
+  const database = sql
+  if (typeof database.transaction !== 'function') throw new Error('nurture enqueue transaction unavailable')
+  const [, enqueueRows, invariantRows] = await database.transaction((txn) => [
+    txn.query(NURTURE_ENQUEUE_LOCK_SQL),
+    txn.query(NURTURE_ENQUEUE_SQL, [true, null]),
+    txn.query(NURTURE_ELIGIBLE_WITHOUT_ROW_SQL, [true, null]),
+  ], { isolationLevel: 'ReadCommitted' }) as unknown as [
+    unknown,
+    Array<{ enqueued: number }>,
+    Array<{ eligible_without_row: number }>,
+  ]
+  return {
+    enqueued: enqueueRows[0]?.enqueued ?? 0,
+    eligibleWithoutRow: invariantRows[0]?.eligible_without_row ?? 0,
+  }
 }
 
 export async function messageBacklog() {
