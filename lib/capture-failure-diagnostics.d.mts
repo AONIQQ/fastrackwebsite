@@ -53,6 +53,10 @@ export type CaptureFailureDiagnostic = Readonly<
 >
 
 export function captureFailureDiagnostic(phase: CaptureFailurePhase, error: unknown): CaptureFailureDiagnostic
+export function captureFailureLogDiagnostic(
+  phase: CaptureFailurePhase | null,
+  error: unknown,
+): CaptureFailureDiagnostic | null
 
 export type CaptureFailureResponse = Readonly<
   | {

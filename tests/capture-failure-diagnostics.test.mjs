@@ -4,6 +4,7 @@ import test from 'node:test'
 import {
   captureFailureDiagnostic,
   captureFailureHttpResponse,
+  captureFailureLogDiagnostic,
   captureFailureResponse,
 } from '../lib/capture-failure-diagnostics.mjs'
 import { fixedCaptureErrorResponse, inputCaptureErrorResponse } from '../lib/capture-route-errors.mjs'
@@ -90,6 +91,35 @@ test('public and nonfixture failures retain exact current body despite body or q
     assert.equal(response.diagnostic, null)
     assert.equal(response.noStore, false)
   }
+})
+
+test('ordinary public failures keep the generic response while emitting only the bounded log diagnostic', () => {
+  const hostile = Object.assign(new Error(`${visitor} ${secret}`), {
+    code: '23514',
+    constraint: 'leads_capture_state_check',
+    message: `${visitor} ${secret}`,
+    stack: `${visitor}\n${secret}`,
+    cause: { visitor, secret },
+    requestId: visitor,
+    captureId: visitor,
+    email: visitor,
+    phone: '5551212',
+    payload: { visitor, secret },
+  })
+
+  const response = captureFailureResponse(false, 'lead_insert', hostile)
+  const diagnostic = captureFailureLogDiagnostic('lead_insert', hostile)
+
+  assert.equal(JSON.stringify(response.body), '{"error":"Failed to capture results","code":"capture_failed"}')
+  assert.equal(response.diagnostic, null)
+  assert.equal(response.noStore, false)
+  assert.deepEqual(diagnostic, {
+    event: 'capture_failure', version: 1, phase: 'lead_insert',
+    sqlstate: '23514', constraint: 'leads_capture_state_check',
+  })
+  assert.deepEqual(Object.keys(diagnostic), ['event', 'version', 'phase', 'sqlstate', 'constraint'])
+  assert.doesNotMatch(JSON.stringify(diagnostic), /parent|visitor|secret|example|5551212/i)
+  assert.equal(captureFailureLogDiagnostic(null, hostile), null)
 })
 
 test('diagnostic authorization rejects missing, wrong-origin, non-admin, tampered, and expired tokens', () => {
@@ -257,7 +287,8 @@ test('capture route tracks exactly four named phases and logs only the structure
   assert.equal((route.match(/failurePhase = null/g) ?? []).length, 4)
   const finalFailure = route.slice(route.lastIndexOf('  } catch (error) {'))
   assert.match(route, /let failurePhase: CaptureFailurePhase \| null = null/)
-  assert.match(finalFailure, /console\.error\(JSON\.stringify\(failure\.diagnostic\)\)/)
+  assert.match(finalFailure, /diagnostic = captureFailureLogDiagnostic\(failurePhase, error\)/)
+  assert.match(finalFailure, /console\.error\(JSON\.stringify\(diagnostic\)\)/)
   assert.equal((finalFailure.match(/console\.error\(/g) ?? []).length, 1)
   assert.doesNotMatch(finalFailure, /console\.error\([^\n]*(error|message|stack|cause|request|captureId|leadId)/i)
   assert.doesNotMatch(finalFailure, /capture failed before lead persistence|capture persistence or response unconfirmed|capture failure unobservable/)
@@ -277,6 +308,7 @@ test('route derives diagnostic capability before parsing only from existing fixt
   assert.match(gate, /if \(isFixture && !fixtureDiagnosticAuthorized\)/)
   assert.doesNotMatch(gate, /request\.(text|json)|body|searchParams|query/)
   const finalFailure = route.slice(route.lastIndexOf('  } catch (error) {'))
+  assert.match(finalFailure, /captureFailureLogDiagnostic\(failurePhase, error\)/)
   assert.match(finalFailure, /captureFailureResponse\(fixtureDiagnosticAuthorized, failurePhase, error\)/)
   assert.match(finalFailure, /return captureFailureHttpResponse\(failure\)/)
 })

@@ -19,7 +19,11 @@ import {
   CaptureRiskConfigurationError, buildCaptureRiskKeys, captureNetworkAddress, smsDispatchEnabled,
 } from '@/lib/capture-abuse.mjs'
 import { captureRolloutPlan, effectiveRolloutControls, rolloutControls } from '@/lib/rollout-controls.mjs'
-import { captureFailureHttpResponse, captureFailureResponse } from '@/lib/capture-failure-diagnostics.mjs'
+import {
+  captureFailureHttpResponse,
+  captureFailureLogDiagnostic,
+  captureFailureResponse,
+} from '@/lib/capture-failure-diagnostics.mjs'
 import { scheduleCaptureDelivery } from '@/lib/capture-delivery-scheduling.mjs'
 import { fixedCaptureErrorResponse, inputCaptureErrorResponse } from '@/lib/capture-route-errors.mjs'
 import { slowCaptureDiagnostic } from '@/lib/capture-observability.mjs'
@@ -226,8 +230,9 @@ export async function POST(request: Request) {
         }])
       } catch { /* The final failure log below is the only permitted diagnostic. */ }
     }
+    const diagnostic = captureFailureLogDiagnostic(failurePhase, error)
+    if (diagnostic !== null) console.error(JSON.stringify(diagnostic))
     const failure = captureFailureResponse(fixtureDiagnosticAuthorized, failurePhase, error)
-    if (failure.diagnostic !== null) console.error(JSON.stringify(failure.diagnostic))
     const slowCapture = slowCaptureDiagnostic(Date.now() - requestStartedAt, 'failed')
     if (slowCapture !== null) console.warn(JSON.stringify(slowCapture))
     return captureFailureHttpResponse(failure)
