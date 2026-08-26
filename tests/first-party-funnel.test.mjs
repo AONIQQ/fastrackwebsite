@@ -11,6 +11,7 @@ import {
 } from '../lib/first-party-funnel-contract.mjs'
 import { firstPartyNetworkDigest, firstPartySessionDigest, issueFirstPartyFunnelToken, verifyFirstPartyFunnelToken } from '../lib/first-party-funnel-auth.mjs'
 import { emitFirstPartyFunnelEvent } from '../lib/first-party-funnel-client.mjs'
+import { ALEXIS_CREATOR_VIDEOS } from '../lib/alexis-creator.mjs'
 
 const uuid = '123e4567-e89b-42d3-a456-426614174000'
 const secret = 'a'.repeat(32)
@@ -68,9 +69,11 @@ test('contract accepts only exact events, UUIDv4, and bounded approved attributi
     })
   }
   for (const source of ['instagram', 'tiktok', 'facebook', 'youtube']) {
-    assert.deepEqual(normalizeFirstPartyAttribution({ source, medium: 'organic', campaign: 'creator-20260820', content: 'alexis-v001' }), {
-      source, medium: 'organic', campaign: 'creator-20260820', content: 'alexis-v001',
-    })
+    for (const { id } of ALEXIS_CREATOR_VIDEOS) {
+      assert.deepEqual(normalizeFirstPartyAttribution({ source, medium: 'organic', campaign: 'creator-20260820', content: `alexis-${id}` }), {
+        source, medium: 'organic', campaign: 'creator-20260820', content: `alexis-${id}`,
+      })
+    }
   }
   for (const attribution of [
     { source: 'reddit', medium: 'organic', campaign: 'creator-20260820', content: 'alexis-v001' },

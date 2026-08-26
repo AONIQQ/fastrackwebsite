@@ -12,7 +12,10 @@ import {
 
 test('Alexis links emit only bounded platform and opaque video attribution', () => {
   assert.equal(ALEXIS_CREATOR_CAMPAIGN, 'creator-20260820')
-  assert.equal(ALEXIS_CREATOR_VIDEOS.length, 7)
+  assert.deepEqual(
+    ALEXIS_CREATOR_VIDEOS.map(({ id }) => id),
+    Array.from({ length: 12 }, (_, index) => `v${String(index + 1).padStart(3, '0')}`),
+  )
   const link = new URL(alexisCalculatorUrl({ platform: 'TikTok', video: 'V001' }))
   assert.equal(link.origin + link.pathname, 'https://www.fastrack.school/calculator')
   assert.deepEqual(Object.fromEntries(link.searchParams), {
@@ -23,8 +26,26 @@ test('Alexis links emit only bounded platform and opaque video attribution', () 
   assert.equal(alexisCreatorContent('Alexis Luhr'), null)
   assert.equal(alexisCreatorPlatform('facebook'), 'facebook')
   assert.equal(alexisCreatorVideoLabel('alexis-v007'), 'Model a college-specific cost path')
+  assert.equal(alexisCreatorVideoLabel('alexis-v008'), 'The email to send before enrolling')
+  assert.equal(alexisCreatorVideoLabel('alexis-v012'), 'Test the plan against a major change')
   assert.equal(alexisCreatorVideoLabel('alexis-v999'), 'Video V999')
   assert.equal(alexisCreatorVideoLabel('person-5551234567'), null)
+})
+
+test('every registered Alexis direct-video route has exact platform attribution', () => {
+  for (const platform of ['instagram', 'tiktok', 'facebook', 'youtube']) {
+    for (const { id } of ALEXIS_CREATOR_VIDEOS) {
+      const destination = new URL(alexisCalculatorUrl({ platform, video: id }))
+      assert.equal(destination.origin + destination.pathname, 'https://www.fastrack.school/calculator')
+      assert.deepEqual(Object.fromEntries(destination.searchParams), {
+        utm_source: platform,
+        utm_medium: 'organic',
+        utm_campaign: 'creator-20260820',
+        utm_content: `alexis-${id}`,
+      })
+    }
+  }
+  assert.equal(alexisCalculatorUrl({ platform: 'tiktok', video: 'v013' }), null)
 })
 
 test('Alexis route and hub use only the bounded shared contract', async () => {
@@ -36,5 +57,6 @@ test('Alexis route and hub use only the bounded shared contract', async () => {
   assert.match(hub, /ALEXIS_CREATOR_VIDEOS\.map/)
   assert.match(route, /alexisCalculatorUrl/)
   assert.match(route, /NextResponse\.redirect\(new URL\('\/alexis'/)
+  assert.match(route, /NextResponse\.redirect\(destination, 302\)/)
   assert.doesNotMatch(hub + route, /email|phone|viewer|gclid|fbclid/i)
 })
