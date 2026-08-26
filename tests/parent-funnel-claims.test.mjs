@@ -71,11 +71,12 @@ test('homepage describes only the approved Credit Map offer', async () => {
 })
 
 test('Credit Map preserves price and bounded refund without transfer absolutes', async () => {
-  const [source, layout] = await Promise.all([
+  const [source, checkoutButton, layout] = await Promise.all([
     read('../app/credit-map/page.tsx'),
+    read('../app/credit-map/CreditMapCheckoutButton.tsx'),
     read('../app/credit-map/layout.tsx'),
   ])
-  assert.match(source, /Get Your Credit Map \(\$497\)/)
+  assert.match(checkoutButton, /Get Your Credit Map \(\$497\)/)
   assert.match(source, /30-day refund, no questions asked/)
   assert.match(source, /Final\s+transfer decisions always rest with the receiving college/)
   assert.doesNotMatch(source, /CalBookingButton|Book a Free Fit Check/)

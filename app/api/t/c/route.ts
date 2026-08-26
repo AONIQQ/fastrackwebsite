@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server'
 import { sql } from '@/lib/db'
-import { attributionSecret, verifyEngagementToken } from '@/lib/attribution-tokens.mjs'
-import { resolvedDestination, SITE } from '@/lib/tracking-links.mjs'
+import { randomUUID } from 'node:crypto'
+import { attributionSecret, createUniqueCheckoutToken, verifyEngagementToken } from '@/lib/attribution-tokens.mjs'
+import { CREDIT_MAP_CHECKOUT_COOKIE } from '@/lib/credit-map-buyer-start.mjs'
+import { withCheckoutReference } from '@/lib/checkout-url.mjs'
+import { CREDIT_MAP_CHECKOUT, resolvedDestination, SITE } from '@/lib/tracking-links.mjs'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,11 +32,20 @@ export async function GET(request: Request) {
       returning email_message_id
     ) select email_message_id from inserted
   `.catch(() => null) as { email_message_id: number }[] | null
-  const destination = resolvedDestination(
+  let destination = resolvedDestination(
     claims.destination, claims.step, claims.trackingId, claims.expiresAt, attributionSecret(),
   )
   if (rows === null) return NextResponse.redirect(destination, 302)
   if (!rows.length) return NextResponse.redirect(SITE, 302)
 
+  if (claims.destination === 'checkout') {
+    const reference = createUniqueCheckoutToken({ ...claims, expiresAt: Math.floor(Date.now() / 1000) + 90 * 24 * 60 * 60, nonce: randomUUID() }, attributionSecret())
+    destination = withCheckoutReference(CREDIT_MAP_CHECKOUT, reference)
+    const response = NextResponse.redirect(destination, 302)
+    response.cookies.set(CREDIT_MAP_CHECKOUT_COOKIE, reference, {
+      httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/', maxAge: 60 * 60 * 2,
+    })
+    return response
+  }
   return NextResponse.redirect(destination, 302)
 }

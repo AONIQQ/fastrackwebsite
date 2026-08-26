@@ -104,7 +104,7 @@ test('click destinations are allowlisted and checkout URLs never prefill recipie
 })
 
 test('migration and routes persist only verified logical-message engagement', async () => {
-  const [migration, guideDestinationMigration, click, open, ledger, nurture, mail, stripe, creditMap, db, captureRoute, calculator] = await Promise.all([
+  const [migration, guideDestinationMigration, click, open, ledger, nurture, mail, stripe, creditMap, creditMapCheckout, db, captureRoute, calculator] = await Promise.all([
     read('../db/migrations/0005_signed_attribution.sql'),
     read('../db/migrations/0020_guide_engagement_destination.sql'),
     read('../app/api/t/c/route.ts'),
@@ -114,6 +114,7 @@ test('migration and routes persist only verified logical-message engagement', as
     read('../lib/mail.ts'),
     read('../app/api/webhooks/stripe/route.ts'),
     read('../app/credit-map/page.tsx'),
+    read('../app/api/checkout/credit-map/route.ts'),
     read('../lib/db.ts'),
     read('../app/api/insertEmailDocument/route.ts'),
     read('../app/calculator/page.tsx'),
@@ -132,8 +133,9 @@ test('migration and routes persist only verified logical-message engagement', as
   assert.doesNotMatch(mail + nurture, /lead_ref=|lead-\$\{|prefilled_email/)
   assert.match(db, /from email_engagement_events/)
   assert.doesNotMatch(db, /count\(distinct email\)/)
-  assert.match(creditMap, /return CHECKOUT_URL/)
-  assert.doesNotMatch(creditMap, /utm_source.*client_reference_id|lead_ref/)
+  assert.match(creditMap, /CreditMapCheckoutButton/)
+  assert.match(creditMapCheckout, /withCheckoutReference\(checkoutUrl, reference\)/)
+  assert.doesNotMatch(creditMap + creditMapCheckout, /utm_source.*client_reference_id|lead_ref/)
   assert.match(stripe, /verifyCheckoutToken\(rawReference, attributionSecret\(\)\)/)
   assert.match(stripe, /identity\.tracking_id = \$\{claims\?\.trackingId \?\? null\}::uuid/)
   assert.match(stripe, /join leads on leads\.id = candidate\.lead_id[\s\S]*lower\(trim\(leads\.email\)\) = \$\{checkoutEmail\}/)

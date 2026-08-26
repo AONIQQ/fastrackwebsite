@@ -5,6 +5,8 @@ import { FunnelHealthPanel } from './FunnelHealthPanel'
 import { firstPartyFunnelReport } from '@/lib/first-party-funnel'
 import { FunnelMeasurementPanel } from './FunnelMeasurementPanel'
 import { AlexisCreatorPanel } from './AlexisCreatorPanel'
+import { CreditMapIntakePanel } from './CreditMapIntakePanel'
+import { listCreditMapIntakes } from '@/lib/credit-map-admin'
 
 export const dynamic = 'force-dynamic'
 
@@ -46,8 +48,8 @@ export default async function LeadsPage({
 }) {
   if (!isAdmin()) return <LoginForm error={searchParams.error === '1'} />
 
-  const [leads, stats, funnel, health, measurement] = await Promise.all([
-    listLeads(1000), leadStats(), funnelStats(), funnelHealthReport(), firstPartyFunnelReport(),
+  const [leads, stats, funnel, health, measurement, creditMapIntakes] = await Promise.all([
+    listLeads(1000), leadStats(), funnelStats(), funnelHealthReport(), firstPartyFunnelReport(), listCreditMapIntakes(),
   ])
 
   const tiles = [
@@ -71,6 +73,7 @@ export default async function LeadsPage({
         </div>
 
       <FunnelHealthPanel report={health} />
+      <CreditMapIntakePanel rows={creditMapIntakes} />
       <AlexisCreatorPanel rows={measurement.rows} sales={funnel.salesBySource} />
       <FunnelMeasurementPanel rows={measurement.rows} />
 

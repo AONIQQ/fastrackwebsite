@@ -145,3 +145,10 @@ content in the first-party session ledger.
 ledger for the signed day-five guide checkout. One email tracking identity can
 create or recover one Whop checkout configuration; the row stores no email,
 lead ID, viewer identity, request body, provider payload, or payment details.
+
+`0024_credit_map_intakes.sql` adds one durable buyer-intake row per paid Stripe
+sale. A short-lived HMAC-derived buyer lookup key can be issued only after the
+signed webhook ledger proves a genuine paid, non-fixture order. The table stores
+only the minimum planning inputs needed to start the purchased Credit Map and
+never stores a raw Checkout Session ID, buyer-start token, URL, log payload, or
+provider response.

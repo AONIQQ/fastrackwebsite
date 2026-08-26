@@ -155,6 +155,14 @@ export async function POST(request: Request) {
         raw = excluded.raw, updated_at = now()
     `
     if (paymentIntent) await reconcilePaymentIntent(paymentIntent)
+    if (state === 'paid' && claims?.nonce && object.mode === 'payment' && object.id) {
+      await sql`
+        insert into credit_map_intakes (sale_id)
+        select id from sales
+        where checkout_session_id = ${object.id} and paid_at is not null and coalesce(is_fixture, false) = false
+        on conflict (sale_id) do nothing
+      `
+    }
   } else if (event.type === 'charge.refunded') {
     await sql`
       with incoming as (
