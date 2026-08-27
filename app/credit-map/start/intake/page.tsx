@@ -8,7 +8,7 @@ import { CreditMapIntakeForm } from './CreditMapIntakeForm'
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Start your Credit Map | Fastrack', robots: { index: false, follow: false } }
 
-export default async function CreditMapStartIntake() {
+export default async function CreditMapStartIntake({ searchParams }: { searchParams: { status?: string } }) {
   let claims = null
   try { claims = verifyBuyerStartToken(cookies().get(CREDIT_MAP_BUYER_COOKIE)?.value, attributionSecret()) } catch {}
   const rows = claims ? await sql`
@@ -19,12 +19,13 @@ export default async function CreditMapStartIntake() {
       and coalesce(sale.dispute_state, '') not in ('open', 'lost') limit 1
   ` as { status: string }[] : []
   const authorized = rows.length === 1
+  const paymentPending = searchParams.status === 'pending'
   return <main className="min-h-screen bg-slate-50 px-4 py-12 text-[#080b53]">
     <div className="mx-auto max-w-2xl">
       <Link href="/" className="text-sm underline">Fastrack home</Link>
       <h1 className="mt-6 text-4xl font-bold">Start your Credit Map</h1>
       <p className="mt-4 text-slate-700">Share the minimum details needed to prepare your term-by-term plan. You will receive a spreadsheet and PDF within 7 business days. No call is required.</p>
-      <div className="mt-8">{authorized && rows[0].status === 'awaiting_intake' ? <CreditMapIntakeForm /> : authorized ? <div className="rounded-xl border border-emerald-300 bg-emerald-50 p-6 text-emerald-950"><h2 className="text-2xl font-bold">Your intake is saved</h2><p className="mt-3">We will use these details to prepare your spreadsheet and PDF. Delivery is within 7 business days, and no call is required.</p></div> : <div className="rounded-xl border border-amber-300 bg-amber-50 p-6 text-amber-950"><h2 className="text-xl font-bold">We could not open this order yet</h2><p className="mt-2">Return to your Stripe confirmation and use its start link. If payment was just completed, wait a moment and try that link again.</p><p className="mt-2">If the problem continues, email info@fastrack.school from the address used at checkout.</p></div>}</div>
+      <div className="mt-8">{authorized && rows[0].status === 'awaiting_intake' ? <CreditMapIntakeForm /> : authorized ? <div className="rounded-xl border border-emerald-300 bg-emerald-50 p-6 text-emerald-950"><h2 className="text-2xl font-bold">Your intake is saved</h2><p className="mt-3">We will use these details to prepare your spreadsheet and PDF. Delivery is within 7 business days, and no call is required.</p></div> : paymentPending ? <div className="rounded-xl border border-amber-300 bg-amber-50 p-6 text-amber-950"><h2 className="text-xl font-bold">We are confirming your payment</h2><p className="mt-2">Payment confirmation can take a moment. Wait a few seconds, then try opening your intake again.</p><Link href="/credit-map/start" className="mt-4 inline-flex rounded-lg bg-[#080b53] px-5 py-3 font-semibold text-white">Try again</Link><p className="mt-3">If the form still does not open after a few minutes, email info@fastrack.school from the address used at checkout.</p></div> : <div className="rounded-xl border border-amber-300 bg-amber-50 p-6 text-amber-950"><h2 className="text-xl font-bold">We could not open this order</h2><p className="mt-2">Start from the Credit Map checkout so Fastrack can securely match this browser to a paid order.</p><Link href="/credit-map" className="mt-4 inline-flex rounded-lg bg-[#080b53] px-5 py-3 font-semibold text-white">Return to the Credit Map</Link><p className="mt-3">If you already paid and the form still does not open, email info@fastrack.school from the address used at checkout.</p></div>}</div>
     </div>
   </main>
 }
