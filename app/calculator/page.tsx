@@ -381,19 +381,17 @@ export default function Calculator() {
             Free Tool &middot; College Cost Calculator
           </p>
           <h1 className="text-[1.75rem] font-bold leading-[1.15] tracking-tight text-[#080b53] sm:text-4xl lg:text-[2.75rem] 2xl:text-5xl">
-            Compare a college&rsquo;s four-year cost with a modeled dual-credit path.
+            How much could college credits earned in high school reduce your college costs?
           </h1>
           <p className="mt-4 max-w-2xl text-base leading-relaxed text-slate-600 sm:text-lg">
-            Pick a school to see the assumptions, estimated cost difference, and time-to-recoup comparison.
+            See how a shorter college path could lower your college costs and let you start earning two years earlier.
           </p>
           <p className="mt-3 max-w-2xl text-sm leading-relaxed text-slate-500">
-            The model assumes 60 dual-credit hours at $80 per credit and two years enrolled at the selected college.
-            Transfer, degree fit, residency, course availability, aid, and timing vary.
+            This example assumes 60 college credits earned in high school at $80 per credit.
+            Those credits must count toward your degree, and your remaining classes must fit into two years.
           </p>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500">
-            College Scorecard net price is an average for federal-aid recipients, not your family&rsquo;s personalized aid
-            offer. Earnings figures use two years of College Scorecard median post-enrollment earnings; they are not a
-            wage forecast.
+            The estimate uses federal college-cost data. Your financial-aid offer and actual course costs may be different.
           </p>
         </header>
 
@@ -493,14 +491,13 @@ export default function Calculator() {
                       Four years
                     </th>
                     <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-[#1a6b3c] sm:px-5 sm:text-xs">
-                      Modeled dual-credit scenario
+                      With credits earned in high school
                     </th>
                   </tr>
                 </thead>
                 <tbody>
                   {([
-                    ['Total cost of the degree', money(result.standard.totalCost), money(result.fastrack.totalCost)],
-                    ['Years of income to earn it back', result.standard.recoupLabel, result.fastrack.recoupLabel],
+                    ['Estimated college costs', money(result.standard.totalCost), money(result.fastrack.totalCost)],
                   ] as const).map(([label, a, b], i) => (
                     <React.Fragment key={label}>
                       <tr className="sm:hidden">
@@ -524,46 +521,58 @@ export default function Calculator() {
             </section>
 
             <section className="rounded-xl bg-[#080b53] px-6 py-7 text-white">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/60">Estimated scenario advantage</p>
+              <p className="text-sm font-semibold text-white/80">Estimated college costs saved</p>
               <p className="mt-1.5 text-4xl md:text-5xl font-bold tracking-tight tabular-nums">
-                {money(result.totalAdvantage)}
+                {money(result.savings)}
               </p>
-              <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 border-t border-white/15 pt-5">
-                <div className="flex items-baseline justify-between">
-                  <span className="text-sm text-white/70">Modeled cost difference</span>
-                  <span className="text-base font-semibold tabular-nums">{money(result.savings)}</span>
-                </div>
-                <div className="flex items-baseline justify-between">
-                  <span className="text-sm text-white/70">Two modeled years of median earnings</span>
-                  <span className="text-base font-semibold tabular-nums">{money(result.earlyEarnings)}</span>
-                </div>
-              </div>
+              <p className="mt-4 text-sm leading-relaxed text-white/80">
+                Four years at this college compared with 60 credits earned in high school at $80 per credit
+                and {result.fastrack.years} years at this college. Your actual costs depend on aid, course costs,
+                and how many semesters your credits help you replace.
+              </p>
             </section>
 
             {/* Grid gap + inner borders rather than `divide-*`, which only draws
                 between DOM siblings and so leaves the 2-column mobile layout with
                 horizontal rules but no vertical one. */}
-            <section className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-slate-200 bg-slate-200 sm:grid-cols-4">
-              {([
-                ['Cost per year', money(result.annualCost)],
-                ['Scorecard median earnings', money(result.averageSalary)],
-                ['Cost of living', money(result.costOfLiving)],
-                ['Left over yearly', money(result.discretionaryIncome)],
-              ] as const).map(([label, value]) => (
-                <div key={label} className="bg-white px-4 py-4 sm:px-5">
-                  <p className="text-[11px] uppercase tracking-wider text-slate-500 sm:text-xs">{label}</p>
-                  <p className="mt-1 text-base font-semibold tabular-nums sm:text-lg">{value}</p>
-                </div>
-              ))}
+            <section className="rounded-xl border border-slate-200 bg-white px-6 py-6">
+              <h2 className="text-base font-semibold text-[#080b53]">Plus: potential earnings from working two years earlier</h2>
+              <p className="mt-2 text-3xl font-bold tabular-nums text-[#1a6b3c]">{money(result.earlyEarnings)}</p>
+              <p className="mt-3 text-sm leading-relaxed text-slate-600">
+                {result.earlyEarnings == null ? 'Earnings data is unavailable for this college.' :
+                  `Two years at ${money(result.averageSalary)} per year, before taxes and living expenses.`}
+                {' '}This assumes you finish college and start working two years earlier.
+                Actual pay and when you find work will vary.
+              </p>
+            </section>
+
+            <section className="rounded-xl border-2 border-[#605dba] bg-[#605dba]/5 px-6 py-7">
+              <h2 className="text-lg font-semibold text-[#080b53]">Total potential financial benefit</h2>
+              <p className="mt-2 text-4xl font-bold tracking-tight tabular-nums text-[#080b53] md:text-5xl">{money(result.totalAdvantage)}</p>
+              <p className="mt-4 text-base leading-relaxed text-slate-700">
+                {money(result.savings)} in estimated college costs saved
+                {' + '}{money(result.earlyEarnings)} in potential earlier earnings.
+              </p>
+              <p className="mt-3 text-sm leading-relaxed text-slate-600">
+                {result.totalAdvantage == null ? 'A combined estimate is unavailable without earnings data. ' : ''}
+                This combines lower college costs with potential income. The full amount is not a reduction in your college bill.
+              </p>
+              <details className="mt-4 text-sm text-slate-600">
+                <summary className="cursor-pointer font-semibold">Where the earnings estimate comes from</summary>
+                <p className="mt-2 leading-relaxed">
+                  The annual figure averages College Scorecard median earnings measured six and ten years after students
+                  started college. It is a comparison figure, not a starting salary or a personal wage forecast.
+                </p>
+              </details>
             </section>
 
             <section className="rounded-xl border border-[#605dba]/30 bg-[#605dba]/5 px-6 py-7 text-center">
               <h2 className="text-xl md:text-2xl font-bold tracking-tight">
-                Modeled difference: {money(result.totalAdvantage)} across a {result.yearsSaved}-year scenario.
+                Find out which credits could count toward your degree.
               </h2>
               <p className="mx-auto mt-2.5 max-w-lg text-slate-600 leading-relaxed">
-                This is an estimate, not a promised result. Credits must transfer and apply to the intended degree,
-                and a receiving college can change or interpret its rules. A two-year path may not be available.
+                The next step is checking your courses against the degree requirements.
+                The receiving college decides which credits count. Finishing in two years may not be possible for your degree.
               </p>
               <Link href={creditMapHref} className="mt-5 inline-block">
                 <Button className="h-12 rounded-lg bg-[#605dba] px-7 text-base font-semibold text-white hover:bg-[#080b53] transition-colors">
@@ -576,11 +585,10 @@ export default function Calculator() {
               {result.notes.map((n) => <li key={n}>{n}</li>)}
               <li>
                 Cost and earnings data from the U.S. Department of Education College Scorecard. Net price is an average
-                for federal-aid recipients, not a personalized aid offer. The early-earnings and total-advantage figures
-                add two years of Scorecard median post-enrollment earnings and are not an individual wage forecast.
-                The modeled scenario assumes {result.fastrack.years} years of enrollment plus 60 dual-credit
-                hours at $80 per credit. Individual results vary with residency, aid, state, school, degree,
-                transfer decisions, course availability, and course selection.
+                for federal-aid recipients. Check the college&rsquo;s net-price calculator or your financial-aid offer
+                for a more personal estimate. This comparison assumes {result.fastrack.years} years at the college
+                plus 60 credits earned in high school at $80 per credit. Your costs and graduation date depend on
+                your aid, residency, degree, course choices, and the college&rsquo;s credit policies.
               </li>
             </ul>
           </div>
@@ -607,7 +615,7 @@ export default function Calculator() {
             </DialogTitle>
             <DialogDescription className="text-slate-600 leading-relaxed">
               Your numbers appear as soon as you submit. We&apos;ll also email you a copy along with
-              a short series on how families actually capture these savings.
+              a short series about choosing courses and planning college costs.
             </DialogDescription>
           </DialogHeader>
 
