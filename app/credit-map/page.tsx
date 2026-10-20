@@ -1,11 +1,10 @@
 'use client'
 
-import Image from 'next/image'
-import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import SiteFooter from '@/components/SiteFooter'
 import { Check } from 'lucide-react'
 import { CreditMapCheckoutButton } from './CreditMapCheckoutButton'
+import SiteHeader from '@/components/SiteHeader'
 
 const CHECKOUT_URL = process.env.NEXT_PUBLIC_CREDIT_MAP_CHECKOUT_URL
 
@@ -36,35 +35,17 @@ const guarantees = [
 export default function CreditMap() {
   return (
     <div className="flex min-h-screen flex-col bg-gray-100 text-gray-900">
-      <header className="bg-[#080b53] text-white p-4 sticky top-0 z-50">
-        <div className="container mx-auto flex justify-between items-center">
-          <Link href="/" className="flex items-center space-x-2">
-            <Image src="/logo.png" alt="Fastrack Logo" width={180} height={180} className="rounded-full" />
-          </Link>
-          <nav className="hidden md:flex items-center space-x-4">
-            <Link href="/calculator">
-              <Button variant="ghost" className="text-white text-base">
-                Calculator
-              </Button>
-            </Link>
-            <Link href="/">
-              <Button variant="ghost" className="text-white text-base">
-                Home
-              </Button>
-            </Link>
-          </nav>
-        </div>
-      </header>
+      <SiteHeader />
 
       <main className="pb-20">
-        <section className="bg-[#080b53] text-white">
+        <section className="bg-white text-gray-900">
           <div className="container mx-auto px-4 py-16 md:py-24">
             <div className="mx-auto max-w-3xl text-center">
-              <p className="uppercase text-sm tracking-wider text-blue-200">The Fastrack Credit Map</p>
-              <h1 className="mt-4 text-3xl sm:text-4xl md:text-5xl font-bold leading-tight">
+              <p className="uppercase text-sm tracking-wider text-[#605dba]">The Fastrack Credit Map</p>
+              <h1 className="mt-4 text-3xl sm:text-4xl md:text-5xl font-bold leading-tight text-gray-900">
                 A sourced, done-for-you dual credit plan with open questions clearly flagged
               </h1>
-              <p className="mt-6 text-lg text-blue-100">
+              <p className="mt-6 text-lg text-gray-700">
                 A dual-enrollment course can be denied at transfer or accepted only as an elective when it does not fit
                 the student&rsquo;s degree. We build your student&rsquo;s complete course-by-course plan against the real
                 catalogs, transfer agreements, and degree requirements. We identify what the sources support and what
@@ -72,10 +53,10 @@ export default function CreditMap() {
               </p>
               <div className="mt-8 flex flex-col justify-center gap-4 sm:flex-row">
                 {CHECKOUT_URL ? (
-                  <CreditMapCheckoutButton />
+                  <CreditMapCheckoutButton tone="light" />
                 ) : <Button disabled className="px-8 py-6 text-lg">Checkout unavailable</Button>}
               </div>
-              <p className="mt-4 text-sm text-blue-200">
+              <p className="mt-4 text-sm text-gray-500">
                 For 11th and 12th graders (including homeschool). Currently serving select state and college pathways.
                 If the selected pathway is not one we can currently serve, we will say so rather than guess.
               </p>
@@ -101,7 +82,7 @@ export default function CreditMap() {
             <div className="mt-8 grid gap-6 md:grid-cols-3">
               {guarantees.map((g) => (
                 <div key={g.title} className="rounded-2xl border border-gray-200 bg-gray-50 p-6">
-                  <h3 className="text-xl font-semibold text-[#080b53]">{g.title}</h3>
+                  <h3 className="text-xl font-semibold text-gray-900">{g.title}</h3>
                   <p className="mt-3 text-gray-700">{g.body}</p>
                 </div>
               ))}
@@ -115,15 +96,15 @@ export default function CreditMap() {
         </section>
 
         <section className="container mx-auto px-4 py-16">
-          <div className="rounded-2xl bg-[#080b53] p-10 text-white shadow-xl text-center">
-            <h2 className="text-3xl font-semibold">Ready to stop guessing?</h2>
-            <p className="mx-auto mt-4 max-w-2xl text-blue-100">
+          <div className="rounded-2xl border border-gray-200 bg-white p-10 text-center">
+            <h2 className="text-3xl font-semibold text-gray-900">Ready to stop guessing?</h2>
+            <p className="mx-auto mt-4 max-w-2xl text-gray-700">
               One plan, built once, that your family can execute without us. If your pathway isn&rsquo;t one we can
               verify yet, we&rsquo;ll say so up front.
             </p>
             <div className="mt-8 flex justify-center">
               {CHECKOUT_URL ? (
-                <CreditMapCheckoutButton />
+                <CreditMapCheckoutButton tone="light" />
               ) : <Button disabled className="px-8 py-6 text-lg">Checkout unavailable</Button>}
             </div>
           </div>

@@ -121,7 +121,7 @@ export function CollegeCombobox({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-labelledby={`${labelId} college-trigger-value`}
-        className="flex h-12 w-full items-center justify-between rounded-lg border border-slate-300 bg-white px-3 text-left text-base text-[#080b53] transition-shadow focus:outline-none focus:ring-2 focus:ring-[#605dba]/30 disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex h-12 w-full items-center justify-between rounded-lg border border-slate-300 bg-white px-3 text-left text-base text-gray-900 transition-shadow focus:outline-none focus:ring-2 focus:ring-[#605dba]/30 disabled:cursor-not-allowed disabled:opacity-50"
       >
         <span id="college-trigger-value" className={value ? 'truncate' : 'truncate text-slate-400'}>
           {loading ? 'Loading colleges…' : value ? value.name : placeholder}
@@ -139,7 +139,7 @@ export function CollegeCombobox({
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={onKeyDown}
               placeholder="Type to search…"
-              className="w-full bg-transparent text-base text-[#080b53] outline-none placeholder:text-slate-400"
+              className="w-full bg-transparent text-base text-gray-900 outline-none placeholder:text-slate-400"
               aria-labelledby={labelId}
               aria-controls="college-options"
               aria-expanded="true"
@@ -165,7 +165,7 @@ export function CollegeCombobox({
                 onMouseEnter={() => setHighlight(i)}
                 onClick={() => commit(o)}
                 className={`cursor-pointer px-3 py-2.5 text-base ${
-                  i === highlight ? 'bg-[#605dba] text-white' : 'text-[#080b53]'
+                  i === highlight ? 'bg-[#605dba] text-white' : 'text-gray-900'
                 }`}
               >
                 <span className="block truncate">{o.name}</span>

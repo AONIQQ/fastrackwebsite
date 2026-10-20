@@ -1,4 +1,3 @@
-import Image from 'next/image'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
@@ -9,6 +8,7 @@ import { STATE_NAMES, codeFromSlug, collegeSlug, stateSlug } from '@/lib/states'
 import { withAttributionQuery } from '@/lib/attribution-url.mjs'
 import { stateBreadcrumbData } from '@/lib/structured-data.mjs'
 import { statePageMetadata } from '@/lib/state-page-metadata.mjs'
+import SiteHeader from '@/components/SiteHeader'
 
 // ISR: rendered on first request (the DB is only reachable in the deployed
 // environment), then cached for a day.
@@ -47,26 +47,16 @@ export default async function StateSavingsPage({ params, searchParams }: { param
   return (
     <div className="flex min-h-screen flex-col bg-gray-100 text-gray-900">
       <StructuredData data={breadcrumbData} />
-      <header className="bg-[#080b53] text-white p-4 sticky top-0 z-50">
-        <div className="container mx-auto flex justify-between items-center">
-          <Link href="/" className="flex items-center space-x-2">
-            <Image src="/logo.png" alt="Fastrack Logo" width={180} height={180} className="rounded-full" />
-          </Link>
-          <nav className="hidden md:flex items-center space-x-6 text-base">
-            <Link href="/calculator" className="hover:text-blue-200">Calculator</Link>
-            <Link href="/credit-map" className="hover:text-blue-200">Credit Map</Link>
-          </nav>
-        </div>
-      </header>
+      <SiteHeader />
 
       <main className="pb-20">
-        <section className="bg-[#080b53] text-white">
+        <section className="bg-white text-gray-900">
           <div className="container mx-auto px-4 py-16 text-center">
-            <p className="uppercase text-sm tracking-wider text-blue-200">Dual Credit Savings by State</p>
-            <h1 className="mx-auto mt-4 max-w-3xl text-3xl sm:text-4xl md:text-5xl font-bold leading-tight">
+            <p className="uppercase text-sm tracking-wider text-[#605dba]">Dual Credit Savings by State</p>
+            <h1 className="mx-auto mt-4 max-w-3xl text-3xl sm:text-4xl md:text-5xl font-bold leading-tight text-gray-900">
               Model a dual-credit cost scenario for your family in {name}
             </h1>
-            <p className="mx-auto mt-6 max-w-2xl text-lg text-blue-100">
+            <p className="mx-auto mt-6 max-w-2xl text-lg text-gray-700">
               {stats?.avg_net_price
                 ? `For federal-aid recipients, the College Scorecard average net price at a ${name} college is about ${fmt(stats.avg_net_price)} per year. It is not a family’s personalized aid offer. The calculator compares that figure with a modeled dual-credit scenario.`
                 : `Explore college costs in ${name} and compare them with a modeled dual-credit scenario.`}
@@ -74,7 +64,7 @@ export default async function StateSavingsPage({ params, searchParams }: { param
             <div className="mt-8">
               <Link
                 href={calculatorHref()}
-                className="inline-block rounded-lg bg-white px-8 py-4 text-lg font-semibold text-[#080b53] hover:bg-blue-100"
+                className="inline-block rounded-lg bg-[#605dba] px-8 py-4 text-lg font-semibold text-white hover:bg-[#4e4a9e]"
               >
                 Run your student&rsquo;s numbers for free
               </Link>
@@ -124,7 +114,7 @@ export default async function StateSavingsPage({ params, searchParams }: { param
           </div>
           {directoryColleges.length > 0 && (
             <details className="mx-auto mt-8 max-w-4xl rounded-xl border border-gray-200 bg-white px-5 py-4">
-              <summary className="cursor-pointer font-semibold text-[#080b53] marker:text-[#605dba]">
+              <summary className="cursor-pointer font-semibold text-gray-900 marker:text-[#605dba]">
                 Browse {directoryColleges.length} more {name} colleges
               </summary>
               <p className="mt-3 text-sm text-gray-600">

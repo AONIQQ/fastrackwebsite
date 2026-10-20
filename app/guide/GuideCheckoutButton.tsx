@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 
-const buttonClasses = 'inline-flex min-h-12 items-center justify-center rounded-lg bg-white px-6 py-3 text-base font-semibold text-[#080b53] shadow-lg transition hover:bg-blue-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-wait disabled:opacity-70'
+const buttonClasses = 'inline-flex min-h-12 items-center justify-center rounded-lg bg-[#605dba] px-6 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-[#4e4a9e] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#605dba] disabled:cursor-wait disabled:opacity-70'
 
 export function GuideCheckoutButton({ checkoutRef, fallbackUrl }: { checkoutRef: string | null; fallbackUrl: string }) {
   const [loading, setLoading] = useState(false)
@@ -33,7 +33,7 @@ export function GuideCheckoutButton({ checkoutRef, fallbackUrl }: { checkoutRef:
       <button type="button" onClick={openCheckout} disabled={loading} className={buttonClasses}>
         {loading ? 'Preparing checkout…' : 'Continue to the Fastrack Guide checkout ($47)'}
       </button>
-      {error && <p role="alert" className="mt-3 text-sm text-red-200">{error}</p>}
+      {error && <p role="alert" className="mt-3 text-sm text-red-700">{error}</p>}
     </div>
   )
 }

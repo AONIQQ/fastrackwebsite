@@ -4,8 +4,10 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Menu, X } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
+import SiteFooter from '@/components/SiteFooter'
 import { withAttributionQuery } from '@/lib/attribution-url.mjs'
+import SiteHeader from '@/components/SiteHeader'
 
 const stats = [
   {
@@ -56,89 +58,54 @@ const membershipLogos = [
 ]
 
 export default function Home() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [offerHref, setOfferHref] = useState('/credit-map')
 
   useEffect(() => {
     setOfferHref(withAttributionQuery('/credit-map', window.location.search))
   }, [])
 
-  const toggleMenu = () => setIsMenuOpen((prev) => !prev)
-
   return (
-    <div className="min-h-screen bg-gray-100 text-gray-900">
-      <header className="bg-[#080b53] text-white p-4 sticky top-0 z-50">
-        <div className="container mx-auto flex justify-between items-center">
-          <div className="flex items-center space-x-2">
-            <Link href="/">
-              <Image src="/logo.png" alt="Fastrack Logo" width={160} height={160} className="rounded-full" />
-            </Link>
-          </div>
-          <nav className="hidden md:flex items-center space-x-4">
-            <Link href={offerHref}>
-              <Button variant="ghost" className="text-white text-base">
-                Credit Map
-              </Button>
-            </Link>
-            <Link href="/calculator">
-              <Button variant="ghost" className="text-white text-base">
-                Calculator
-              </Button>
-            </Link>
-          </nav>
-          <Button variant="ghost" className="md:hidden text-white p-2" onClick={toggleMenu} aria-label="Toggle menu">
-            {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-          </Button>
-        </div>
-        {isMenuOpen && (
-          <div className="md:hidden mt-4 flex flex-col items-center space-y-2">
-            <Link href={offerHref}>
-              <Button variant="ghost" className="text-white text-base">
-                Credit Map
-              </Button>
-            </Link>
-            <Link href="/calculator">
-              <Button variant="ghost" className="text-white text-base">
-                Calculator
-              </Button>
-            </Link>
-          </div>
-        )}
-      </header>
+    <div className="flex min-h-screen flex-col bg-gray-100 text-gray-900">
+      <SiteHeader />
 
-      <main className="space-y-16 pb-20">
-        <section className="bg-[#080b53] text-white">
-          <div className="container mx-auto px-4 py-16 md:py-24">
+      <main className="space-y-16">
+        <section className="bg-white text-gray-900">
+          <div className="mx-auto max-w-6xl px-5 sm:px-6 py-16 md:py-24">
             <div className="max-w-3xl">
-              <p className="uppercase text-sm tracking-wider text-blue-200">For 11th and 12th graders</p>
-              <h1 className="mt-4 text-3xl sm:text-4xl md:text-5xl font-bold leading-tight">
+              <p className="uppercase text-sm tracking-wider text-[#605dba]">For 11th and 12th graders</p>
+              <h1 className="mt-4 text-3xl sm:text-4xl md:text-5xl font-bold leading-tight text-gray-900">
                 A sourced dual-credit plan built around your student&rsquo;s target degree
               </h1>
-              <p className="mt-6 text-lg text-blue-100">
+              <p className="mt-6 text-lg text-gray-700">
                 The $497 Fastrack Credit Map is a term-by-term planning document for select pathways. It identifies
                 sources, flags open questions, and shows what to confirm before a student enrolls.
               </p>
               <div className="mt-8 flex flex-col sm:flex-row gap-4">
-                <Link href={offerHref}>
-                  <Button className="bg-white text-[#080b53] hover:bg-blue-100 font-semibold px-8 py-6 text-lg">
+                <Link href={offerHref} className="w-full sm:w-auto">
+                  <Button className="w-full bg-[#605dba] text-white hover:bg-[#4e4a9e] font-semibold px-8 py-6 text-lg">
                     Explore the Credit Map ($497)
+                  </Button>
+                </Link>
+                <Link href="/calculator" className="w-full sm:w-auto">
+                  <Button variant="outline" className="w-full border-gray-300 bg-white text-gray-900 hover:bg-gray-50 font-semibold px-8 py-6 text-lg">
+                    Try the free cost calculator
                   </Button>
                 </Link>
               </div>
             </div>
             <div className="mt-12 grid gap-6 sm:grid-cols-2">
               {stats.map((stat) => (
-                <div key={stat.value} className="rounded-xl bg-white/10 p-6 backdrop-blur">
-                  <p className="text-3xl font-bold">{stat.value}</p>
-                  <p className="mt-2 text-lg font-semibold text-blue-100">{stat.label}</p>
-                  <p className="mt-2 text-sm text-blue-200">{stat.subLabel}</p>
+                <div key={stat.value} className="rounded-xl border border-gray-200 bg-gray-100 p-6">
+                  <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
+                  <p className="mt-2 text-lg font-semibold text-gray-900">{stat.label}</p>
+                  <p className="mt-2 text-sm text-gray-500">{stat.subLabel}</p>
                 </div>
               ))}
             </div>
           </div>
         </section>
 
-        <section className="container mx-auto px-4">
+        <section className="mx-auto max-w-6xl px-5 sm:px-6">
           <div className="grid gap-12 md:grid-cols-2 md:items-start">
             <div className="space-y-6">
               <h2 className="text-3xl md:text-4xl font-semibold">About Fastrack</h2>
@@ -153,7 +120,7 @@ export default function Home() {
               </p>
             </div>
             <div className="rounded-2xl bg-white p-8 shadow-lg">
-              <p className="mt-4 text-lg font-semibold">
+              <p className="text-lg font-semibold">
                 Get a term-by-term schedule with real course codes, delivered as a spreadsheet and PDF summary within 7 business days.
               </p>
               <p className="mt-3 text-gray-600">
@@ -167,7 +134,7 @@ export default function Home() {
         </section>
 
         <section className="bg-white py-16">
-          <div className="container mx-auto px-4">
+          <div className="mx-auto max-w-6xl px-5 sm:px-6">
             <div className="rounded-2xl border border-gray-200 bg-gray-50 p-8 shadow-sm">
               <h3 className="text-2xl font-semibold">How the Credit Map works</h3>
               <p className="mt-4 text-gray-700">
@@ -190,16 +157,17 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="container mx-auto px-4">
-          <h2 className="text-3xl md:text-4xl font-semibold text-center">Frequently Asked Questions</h2>
+        <section className="mx-auto max-w-6xl px-5 sm:px-6">
+          <h2 className="text-3xl md:text-4xl font-semibold text-center">Frequently asked questions</h2>
           <p className="mt-4 max-w-3xl text-center text-gray-600 mx-auto">
             Straight answers about eligibility, what the Credit Map includes, delivery, transfer limits, and refunds.
           </p>
-          <div className="mt-10 grid gap-4">
+          <div className="mx-auto mt-10 grid max-w-4xl gap-3">
             {faqs.map((faq) => (
               <details key={faq.question} className="group rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-                <summary className="cursor-pointer text-lg font-semibold text-gray-900 focus:outline-none group-open:text-[#605dba]">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-lg font-semibold text-gray-900 focus:outline-none group-open:text-[#605dba] [&::-webkit-details-marker]:hidden">
                   {faq.question}
+                  <ChevronDown className="h-5 w-5 flex-shrink-0 text-gray-400 transition-transform group-open:rotate-180" aria-hidden />
                 </summary>
                 <p className="mt-4 text-gray-700">{faq.answer}</p>
               </details>
@@ -207,38 +175,21 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="bg-white py-16">
-          <div className="container mx-auto px-4 text-center">
-            <h2 className="text-3xl md:text-4xl font-semibold">We Are Proud Members Of</h2>
-            <div className="mt-10 grid gap-6 sm:grid-cols-2 md:grid-cols-4">
+        <section className="bg-white py-12">
+          <div className="mx-auto max-w-6xl px-5 sm:px-6 text-center">
+            <p className="text-sm font-semibold uppercase tracking-wider text-gray-500">Professional memberships</p>
+            <div className="mt-8 grid grid-cols-2 items-center gap-8 md:grid-cols-4">
               {membershipLogos.map((logo) => (
-                <div key={logo.src} className="flex items-center justify-center rounded-xl border border-gray-200 bg-gray-50 p-6">
-                  <Image src={logo.src} alt={logo.alt} width={160} height={80} className="object-contain" />
+                <div key={logo.src} className="flex h-16 items-center justify-center">
+                  <Image src={logo.src} alt={logo.alt} width={160} height={64} className="max-h-16 w-auto object-contain" />
                 </div>
               ))}
             </div>
           </div>
         </section>
 
-        <section id="contact" className="container mx-auto px-4 pb-20">
-          <div className="rounded-2xl bg-[#080b53] p-10 text-white shadow-xl">
-            <h2 className="text-3xl md:text-4xl font-semibold">Contact</h2>
-            <div className="mt-6 grid gap-6 md:grid-cols-3">
-              <div>
-                <p className="text-sm uppercase tracking-widest text-blue-200">Address</p>
-                <p className="mt-2 text-lg font-semibold">1007 N Orange St</p>
-                <p className="text-lg">Wilmington, Delaware</p>
-              </div>
-              <div>
-                <p className="text-sm uppercase tracking-widest text-blue-200">Email</p>
-                <a href="mailto:info@fastrack.school" className="mt-2 block text-lg font-semibold text-white underline">
-                  info@fastrack.school
-                </a>
-              </div>
-            </div>
-          </div>
-        </section>
       </main>
+      <SiteFooter />
     </div>
   )
 }

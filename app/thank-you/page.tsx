@@ -1,58 +1,16 @@
 'use client'
 
-import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Button } from "@/components/ui/button"
 import CalBookingButton from '@/components/cal/CalBookingButton'
 import { Card, CardContent } from "@/components/ui/card"
-import { Menu, X } from "lucide-react"
+import SiteHeader from '@/components/SiteHeader'
 
 export default function ThankYou() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false)
-
-  const toggleMenu = () => {
-    setIsMenuOpen(!isMenuOpen)
-  }
-
   return (
     <div className="min-h-screen bg-gray-100 text-gray-900 transition-colors duration-300">
-      <header className="bg-[#080b53] text-white p-4 sticky top-0 z-50">
-        <div className="container mx-auto flex justify-between items-center">
-          <Link href="/" className="flex items-center space-x-2">
-            <Image src="/logo.png" alt="Fastrack Logo" width={180} height={180} className="rounded-full" />
-          </Link>
-          <nav className="hidden md:flex items-center space-x-4">
-            <Link href="/calculator">
-              <Button variant="ghost" className="text-white text-base">
-                Calculator
-              </Button>
-            </Link>
-            <Link href="/">
-              <Button variant="ghost" className="text-white text-base">
-                Home
-              </Button>
-            </Link>
-          </nav>
-          <Button variant="ghost" className="md:hidden text-white p-2" onClick={toggleMenu} aria-label="Toggle menu">
-            {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-          </Button>
-        </div>
-        {isMenuOpen && (
-          <div className="md:hidden mt-4 flex flex-col items-center space-y-2">
-            <Link href="/calculator">
-              <Button variant="ghost" className="text-white text-base">
-                Calculator
-              </Button>
-            </Link>
-            <Link href="/">
-              <Button variant="ghost" className="text-white text-base">
-                Home
-              </Button>
-            </Link>
-          </div>
-        )}
-      </header>
+      <SiteHeader />
 
       <main className="container mx-auto px-4 py-8 flex items-center justify-center" style={{ minHeight: 'calc(100vh - 80px - 200px)' }}>
         <Card className="w-full max-w-md">
@@ -68,10 +26,10 @@ export default function ThankYou() {
         </Card>
       </main>
 
-      <footer className="bg-[#080b53] text-white py-8">
+      <footer className="border-t border-gray-200 bg-gray-100 text-gray-700 py-8">
         <div className="container mx-auto px-4">
           <div className="flex flex-col items-center">
-            <Image src="/logo.png" alt="Fastrack Logo" width={200} height={200} className="mb-4" />
+            <Image src="/logo-color.png" alt="Fastrack Logo" width={200} height={200} className="mb-4" />
             <CalBookingButton className="text-white mb-4 text-base bg-[#605dba] hover:bg-[#4e4a9e]">
               Contact Us
             </CalBookingButton>

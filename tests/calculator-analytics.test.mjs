@@ -274,7 +274,7 @@ test('calculator gates Clarity, Google scripts, and every custom event on exact 
 
 test('capture payload, attribution, and acknowledgement semantics remain intact', async () => {
   const page = await read('../app/calculator/page.tsx')
-  const handler = page.slice(page.indexOf('const handleEmailSubmit'), page.indexOf('\n  const navLinks'))
+  const handler = page.slice(page.indexOf('const handleEmailSubmit'), page.indexOf('\n  const hint'))
 
   assert.match(handler, /e\.preventDefault\(\)\s*if \(!college \|\| !residency\) return/)
   assert.match(handler, /payload: \{\s*captureId, email, phone: phoneNumber, smsConsent, state, residency,\s*collegeId: college\.id, referrer: attributionRef\.current\.referrer,\s*utm: attributionRef\.current\.utm, website,\s*\}/)

@@ -1,4 +1,3 @@
-import Image from 'next/image'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
@@ -10,6 +9,7 @@ import { withAttributionQuery } from '@/lib/attribution-url.mjs'
 import { collegeSeoMetadata, collegeSeoOpening } from '@/lib/college-seo-experiment.mjs'
 import { collegeDefaultMetadata } from '@/lib/college-default-metadata.mjs'
 import { collegeBreadcrumbData } from '@/lib/structured-data.mjs'
+import SiteHeader from '@/components/SiteHeader'
 
 // ISR: rendered on first request, cached for a week. The underlying federal
 // data refreshes rarely, and there are ~5,000 of these pages.
@@ -62,32 +62,21 @@ export default async function CollegePage({ params, searchParams }: { params: { 
   return (
     <div className="flex min-h-screen flex-col bg-gray-100 text-gray-900">
       <StructuredData data={breadcrumbData} />
-      <header className="bg-[#080b53] text-white p-4 sticky top-0 z-50">
-        <div className="container mx-auto flex justify-between items-center">
-          <Link href="/" className="flex items-center space-x-2">
-            <Image src="/logo.png" alt="Fastrack Logo" width={180} height={180} className="rounded-full" />
-          </Link>
-          <nav className="hidden md:flex items-center space-x-6 text-base">
-            <Link href="/calculator" className="hover:text-blue-200">Calculator</Link>
-            <Link href="/credit-map" className="hover:text-blue-200">Credit Map</Link>
-            <Link href="/savings" className="hover:text-blue-200">By State</Link>
-          </nav>
-        </div>
-      </header>
+      <SiteHeader />
 
       <main className="pb-20">
-        <section className="bg-[#080b53] text-white">
+        <section className="bg-white text-gray-900">
           <div className="container mx-auto px-4 py-14 text-center">
-            <p className="uppercase text-sm tracking-wider text-blue-200">
+            <p className="uppercase text-sm tracking-wider text-[#605dba]">
               {stateHref ? (
-                <Link href={stateHref} className="hover:underline">{stateName}</Link>
+                <Link href={stateHref} className="hover:underline text-[#605dba]">{stateName}</Link>
               ) : stateName}{' '}
               &middot; College Costs
             </p>
-            <h1 className="mx-auto mt-4 max-w-3xl text-3xl sm:text-4xl md:text-5xl font-bold leading-tight">
+            <h1 className="mx-auto mt-4 max-w-3xl text-3xl sm:text-4xl md:text-5xl font-bold leading-tight text-gray-900">
               {experiment?.heading ?? `College Scorecard cost data for ${c.name}`}
             </h1>
-            <p className="mx-auto mt-6 max-w-2xl text-lg text-blue-100">
+            <p className="mx-auto mt-6 max-w-2xl text-lg text-gray-700">
               {experiment?.answer ?? (c.net_price
                 ? `The College Scorecard reports an average net price of about ${fmt(c.net_price)} per year at ${c.name} for federal-aid recipients. It is not your family’s personalized aid offer. The calculator compares that figure with a modeled dual-credit scenario.`
                 : `Here is the available cost picture for ${c.name}, plus a modeled dual-credit scenario.`)}
@@ -95,7 +84,7 @@ export default async function CollegePage({ params, searchParams }: { params: { 
             <div className="mt-8">
               <Link
                 href={trackedCalcHref}
-                className="inline-block rounded-lg bg-white px-8 py-4 text-lg font-semibold text-[#080b53] hover:bg-blue-100"
+                className="inline-block rounded-lg bg-[#605dba] px-8 py-4 text-lg font-semibold text-white hover:bg-[#4e4a9e]"
               >
                 {experiment?.calculatorCta ?? <>Model your family&rsquo;s costs at {c.name.length > 30 ? 'this school' : c.name}</>}
               </Link>

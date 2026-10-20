@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { track } from '@vercel/analytics'
 import { Button } from '@/components/ui/button'
 
-export function CreditMapCheckoutButton() {
+export function CreditMapCheckoutButton({ tone = 'dark' }: { tone?: 'dark' | 'light' } = {}) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   async function begin() {
@@ -26,9 +26,9 @@ export function CreditMapCheckoutButton() {
     }
   }
   return <div>
-    <Button onClick={begin} disabled={loading} className="bg-white text-[#080b53] hover:bg-blue-100 font-semibold px-8 py-6 text-lg">
+    <Button onClick={begin} disabled={loading} className={tone === 'light' ? 'bg-[#605dba] text-white hover:bg-[#4e4a9e] font-semibold px-8 py-6 text-lg' : 'bg-white text-[#080b53] hover:bg-blue-100 font-semibold px-8 py-6 text-lg'}>
       {loading ? 'Opening secure checkout...' : 'Get Your Credit Map ($497)'}
     </Button>
-    {error && <p role="alert" className="mt-3 text-sm text-red-200">{error}</p>}
+    {error && <p role="alert" className={`mt-3 text-sm ${tone === 'light' ? 'text-red-700' : 'text-red-200'}`}>{error}</p>}
   </div>
 }

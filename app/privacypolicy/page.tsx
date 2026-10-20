@@ -2,10 +2,8 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { useState } from 'react'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Menu, X } from 'lucide-react'
+import SiteHeader from '@/components/SiteHeader'
 
 const policyHighlights = [
   {
@@ -110,60 +108,14 @@ const policySections = [
 ]
 
 export default function PrivacyPolicy() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false)
-
-  const toggleMenu = () => {
-    setIsMenuOpen((prev) => !prev)
-  }
-
   return (
     <div className="min-h-screen bg-gray-100 text-gray-900 transition-colors duration-300">
-      <header className="bg-[#080b53] text-white p-4 sticky top-0 z-50">
-        <div className="container mx-auto flex justify-between items-center">
-          <Link href="/" className="flex items-center space-x-2">
-            <Image src="/logo.png" alt="Fastrack Logo" width={180} height={180} className="rounded-full" />
-          </Link>
-          <nav className="hidden md:flex items-center space-x-4">
-            <Link href="/">
-              <Button variant="ghost" className="text-white text-base">
-                Home
-              </Button>
-            </Link>
-            <Link href="/calculator">
-              <Button variant="ghost" className="text-white text-base">
-                Calculator
-              </Button>
-            </Link>
-          </nav>
-          <Button
-            variant="ghost"
-            className="md:hidden text-white p-2"
-            onClick={toggleMenu}
-            aria-label="Toggle menu"
-          >
-            {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-          </Button>
-        </div>
-        {isMenuOpen && (
-          <div className="md:hidden mt-4 flex flex-col items-center space-y-2">
-            <Link href="/" className="w-full flex justify-center">
-              <Button variant="ghost" className="text-white text-base">
-                Home
-              </Button>
-            </Link>
-            <Link href="/calculator" className="w-full flex justify-center">
-              <Button variant="ghost" className="text-white text-base">
-                Calculator
-              </Button>
-            </Link>
-          </div>
-        )}
-      </header>
+      <SiteHeader />
 
       <main className="container mx-auto px-4 py-12 md:py-16">
         <section className="max-w-4xl mx-auto text-center space-y-4">
           <p className="uppercase tracking-[0.3em] text-xs sm:text-sm text-[#605dba]">Privacy Policy</p>
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-[#080b53]">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-900">
             Privacy Policy for FASTRACK EDU LLC
           </h1>
           <p className="text-sm sm:text-base text-gray-500">Last updated: August 7, 2026</p>
@@ -182,10 +134,10 @@ export default function PrivacyPolicy() {
             {policyHighlights.map((highlight) => (
               <div
                 key={highlight.title}
-                className="rounded-xl bg-[#605dba] text-white p-6 shadow-lg border border-[#4f4cab]"
+                className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm"
               >
                 <h3 className="text-xl font-semibold">{highlight.title}</h3>
-                <p className="mt-3 text-sm sm:text-base text-blue-100">{highlight.description}</p>
+                <p className="mt-3 text-sm sm:text-base text-gray-600">{highlight.description}</p>
               </div>
             ))}
           </div>
@@ -195,7 +147,7 @@ export default function PrivacyPolicy() {
           {policySections.map((section) => (
             <Card key={section.title} className="rounded-xl bg-white shadow-lg border border-gray-200">
               <CardHeader>
-                <CardTitle className="text-2xl font-semibold text-[#080b53]">{section.title}</CardTitle>
+                <CardTitle className="text-2xl font-semibold text-gray-900">{section.title}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4 text-base text-gray-700">
                 {section.paragraphs?.map((paragraph) => (
@@ -203,7 +155,7 @@ export default function PrivacyPolicy() {
                 ))}
                 {section.subsections?.map((subsection) => (
                   <div key={subsection.subtitle} className="space-y-2">
-                    <h3 className="text-lg font-semibold text-[#080b53]">{subsection.subtitle}</h3>
+                    <h3 className="text-lg font-semibold text-gray-900">{subsection.subtitle}</h3>
                     {subsection.paragraphs.map((paragraph) => (
                       <p key={paragraph}>{paragraph}</p>
                     ))}
@@ -230,10 +182,10 @@ export default function PrivacyPolicy() {
         </section>
       </main>
 
-      <footer className="bg-[#080b53] text-white py-8">
+      <footer className="border-t border-gray-200 bg-gray-100 text-gray-700 py-8">
         <div className="container mx-auto px-4">
           <div className="flex flex-col items-center">
-            <Image src="/logo.png" alt="Fastrack Logo" width={200} height={200} className="mb-4" />
+            <Image src="/logo-color.png" alt="Fastrack Logo" width={200} height={200} className="mb-4" />
             <address className="text-center not-italic text-sm sm:text-base">
               1007 N Orange St<br />
               Wilmington, Delaware<br />

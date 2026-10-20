@@ -1,7 +1,6 @@
-import Image from 'next/image'
-import Link from 'next/link'
 import { isCheckoutTokenShape } from '@/lib/checkout-url.mjs'
 import { GuideCheckoutButton } from './GuideCheckoutButton'
+import SiteHeader from '@/components/SiteHeader'
 
 const WHOP_CHECKOUT_URL = 'https://whop.com/checkout/4DXyLzCDqEtib03t4d-fKRL-ukfw-a2np-khb2B9MVaq84/'
 
@@ -32,22 +31,13 @@ export default function Guide({ searchParams }: { searchParams: { checkout_ref?:
   const checkoutRef = isCheckoutTokenShape(searchParams.checkout_ref) ? searchParams.checkout_ref! : null
   return (
     <div className="min-h-screen bg-slate-50 text-gray-900">
-      <header className="bg-[#080b53] shadow-sm">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-          <Link href="/" className="flex items-center">
-            <Image src="/logo.png" alt="Fastrack logo" width={160} height={160} className="rounded-full object-cover" />
-          </Link>
-          <Link href="/calculator" className="text-sm font-semibold text-white/80 hover:text-white">
-            Free calculator
-          </Link>
-        </div>
-      </header>
+      <SiteHeader />
 
       <main>
         <section className="bg-white">
           <div className="mx-auto max-w-3xl px-4 py-16 text-center sm:px-6 md:py-24 lg:px-8">
             <p className="text-sm font-semibold uppercase tracking-wider text-[#605dba]">Fastrack Guide ($47)</p>
-            <h1 className="mt-4 text-4xl font-semibold tracking-tight text-[#080b53] sm:text-5xl">
+            <h1 className="mt-4 text-4xl font-semibold tracking-tight text-gray-900 sm:text-5xl">
               Check dual-credit options before your student enrolls
             </h1>
             <p className="mt-6 text-lg leading-relaxed text-gray-700">
@@ -64,11 +54,11 @@ export default function Guide({ searchParams }: { searchParams: { checkout_ref?:
 
         <section className="py-16">
           <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
-            <h2 className="text-3xl font-semibold text-[#080b53]">What the guide helps you check</h2>
+            <h2 className="text-3xl font-semibold text-gray-900">What the guide helps you check</h2>
             <div className="mt-8 grid gap-6 md:grid-cols-2">
               {topics.map((topic) => (
                 <article key={topic.title} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                  <h3 className="text-xl font-semibold text-[#080b53]">{topic.title}</h3>
+                  <h3 className="text-xl font-semibold text-gray-900">{topic.title}</h3>
                   <p className="mt-3 leading-relaxed text-gray-700">{topic.body}</p>
                 </article>
               ))}
@@ -78,7 +68,7 @@ export default function Guide({ searchParams }: { searchParams: { checkout_ref?:
 
         <section className="bg-white py-16">
           <div className="mx-auto max-w-3xl space-y-5 px-4 sm:px-6 lg:px-8">
-            <h2 className="text-3xl font-semibold text-[#080b53]">What the guide cannot decide for you</h2>
+            <h2 className="text-3xl font-semibold text-gray-900">What the guide cannot decide for you</h2>
             <p className="leading-relaxed text-gray-700">
               Published transfer tables and catalogs can be incomplete, interpreted differently, or changed after
               publication. A course that transfers may still apply only as an elective. Residency, prerequisites,
@@ -91,10 +81,10 @@ export default function Guide({ searchParams }: { searchParams: { checkout_ref?:
           </div>
         </section>
 
-        <section className="bg-[#080b53] py-16 text-white">
+        <section className="border-t border-gray-200 bg-white py-16">
           <div className="mx-auto max-w-3xl px-4 text-center sm:px-6 lg:px-8">
             <h2 className="text-3xl font-semibold">Review the guide for $47</h2>
-            <p className="mx-auto mt-4 max-w-2xl text-blue-100">
+            <p className="mx-auto mt-4 max-w-2xl text-gray-600">
               Continue to the one-time $47 checkout for the Fastrack Guide.
             </p>
             <GuideCheckoutButton checkoutRef={checkoutRef} fallbackUrl={WHOP_CHECKOUT_URL} />

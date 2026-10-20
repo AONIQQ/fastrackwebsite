@@ -8,7 +8,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
-import { Menu, X } from 'lucide-react'
 import Script from 'next/script'
 import { CollegeCombobox, type CollegeOption } from './CollegeCombobox'
 import { acknowledgeResultDisplay, captureRequestFailureMessage, completeCapture } from '@/lib/capture-client.mjs'
@@ -24,6 +23,7 @@ import {
   setSessionStorageValue,
 } from '@/lib/calculator-analytics.mjs'
 import { emitFirstPartyFunnelEvent } from '@/lib/first-party-funnel-client.mjs'
+import SiteHeader from '@/components/SiteHeader'
 
 type CalculatorAnalyticsEvent =
   | 'Calculator Intent'
@@ -100,7 +100,6 @@ export default function Calculator() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [captureError, setCaptureError] = useState<string | null>(null)
   const [website, setWebsite] = useState('')
-  const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [creditMapHref, setCreditMapHref] = useState('/credit-map')
   const [displayAcknowledgement, setDisplayAcknowledgement] = useState<string | null>(null)
   const [isProductionAnalyticsHost, setIsProductionAnalyticsHost] = useState(false)
@@ -337,40 +336,14 @@ export default function Calculator() {
     }
   }
 
-  const navLinks = [['/', 'Home'], ['/credit-map', 'Credit Map']]
-
   const hint = !state ? 'Choose a state to begin.'
     : !residency ? 'Now choose your residency status.'
     : !college ? 'Now pick a college. You can type to search.'
     : ''
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50 text-[#080b53] antialiased">
-      <header className="bg-[#080b53] sticky top-0 z-40">
-        <div className="mx-auto max-w-6xl px-5 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center">
-            <Image src="/logo.png" alt="Fastrack" width={140} height={40} className="h-9 w-auto" priority />
-          </Link>
-          <nav className="hidden md:flex items-center gap-1">
-            {navLinks.map(([href, label]) => (
-              <Link key={href} href={href}
-                className="px-3 py-2 text-sm font-medium text-white/80 hover:text-white transition-colors">
-                {label}
-              </Link>
-            ))}
-          </nav>
-          <button className="md:hidden text-white p-2 -mr-2" onClick={() => setIsMenuOpen(!isMenuOpen)} aria-label="Toggle menu">
-            {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
-        </div>
-        {isMenuOpen && (
-          <nav className="md:hidden border-t border-white/10 px-5 pb-3 pt-1">
-            {navLinks.map(([href, label]) => (
-              <Link key={href} href={href} className="block py-2.5 text-sm font-medium text-white/80">{label}</Link>
-            ))}
-          </nav>
-        )}
-      </header>
+    <div className="flex min-h-screen flex-col bg-slate-50 text-gray-900 antialiased">
+      <SiteHeader />
 
       {/* Caps at 4xl on laptops but keeps growing a little on large monitors and
           TVs, where a 768px column stranded in the middle of a 2560px screen
@@ -380,7 +353,7 @@ export default function Calculator() {
           <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#605dba] sm:text-xs">
             Free Tool &middot; College Cost Calculator
           </p>
-          <h1 className="text-[1.75rem] font-bold leading-[1.15] tracking-tight text-[#080b53] sm:text-4xl lg:text-[2.75rem] 2xl:text-5xl">
+          <h1 className="text-[1.75rem] font-bold leading-[1.15] tracking-tight text-gray-900 sm:text-4xl lg:text-[2.75rem] 2xl:text-5xl">
             How much could college credits earned in high school reduce your college costs?
           </h1>
           <p className="mt-4 max-w-2xl text-base leading-relaxed text-slate-600 sm:text-lg">
@@ -399,7 +372,7 @@ export default function Calculator() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Field id="state-label" label="State">
               <Select name="state" required value={state || undefined} onValueChange={(v) => { userIntentRef.current = true; trackCalculatorEvent('Calculator Intent', 'fastrack:analytics:calculator-intent'); setState(v) }}>
-                <SelectTrigger aria-labelledby="state-label" aria-required="true" className="h-12 w-full rounded-lg border-slate-300 bg-white text-base text-[#080b53] focus:ring-2 focus:ring-[#605dba]/30">
+                <SelectTrigger aria-labelledby="state-label" aria-required="true" className="h-12 w-full rounded-lg border-slate-300 bg-white text-base text-gray-900 focus:ring-2 focus:ring-[#605dba]/30">
                   <SelectValue placeholder="Select" />
                 </SelectTrigger>
                 <SelectContent className="max-h-[300px]">
@@ -412,7 +385,7 @@ export default function Calculator() {
 
             <Field id="residency-label" label="Residency">
               <Select name="residency" required value={residency || undefined} onValueChange={(v) => { userIntentRef.current = true; trackCalculatorEvent('Calculator Intent', 'fastrack:analytics:calculator-intent'); modalReturnFocusRef.current = residencyActionRef.current; setResidency(v as 'inState' | 'outOfState') }}>
-                <SelectTrigger ref={residencyActionRef} aria-labelledby="residency-label" aria-required="true" className="h-12 w-full rounded-lg border-slate-300 bg-white text-base text-[#080b53] focus:ring-2 focus:ring-[#605dba]/30">
+                <SelectTrigger ref={residencyActionRef} aria-labelledby="residency-label" aria-required="true" className="h-12 w-full rounded-lg border-slate-300 bg-white text-base text-gray-900 focus:ring-2 focus:ring-[#605dba]/30">
                   <SelectValue placeholder="Select" />
                 </SelectTrigger>
                 <SelectContent>
@@ -507,7 +480,7 @@ export default function Calculator() {
                       </tr>
                       <tr className={i > 0 ? 'sm:border-t sm:border-slate-100' : ''}>
                         <td className="hidden px-5 py-4 text-sm text-slate-600 sm:table-cell">{label}</td>
-                        <td className="px-4 pb-4 pt-1 text-right text-lg font-semibold tabular-nums text-[#080b53] sm:px-5 sm:py-4 sm:text-2xl lg:text-[1.75rem]">
+                        <td className="px-4 pb-4 pt-1 text-right text-lg font-semibold tabular-nums text-gray-900 sm:px-5 sm:py-4 sm:text-2xl lg:text-[1.75rem]">
                           {a}
                         </td>
                         <td className="px-4 pb-4 pt-1 text-right text-lg font-semibold tabular-nums text-[#1a6b3c] sm:px-5 sm:py-4 sm:text-2xl lg:text-[1.75rem]">
@@ -520,12 +493,12 @@ export default function Calculator() {
               </table>
             </section>
 
-            <section className="rounded-xl bg-[#080b53] px-6 py-7 text-white">
-              <p className="text-sm font-semibold text-white/80">Estimated college costs saved</p>
+            <section className="rounded-xl border border-gray-200 bg-[#f0f0f8] px-6 py-7 text-gray-900">
+              <p className="text-sm font-semibold text-gray-600">Estimated college costs saved</p>
               <p className="mt-1.5 text-4xl md:text-5xl font-bold tracking-tight tabular-nums">
                 {money(result.savings)}
               </p>
-              <p className="mt-4 text-sm leading-relaxed text-white/80">
+              <p className="mt-4 text-sm leading-relaxed text-gray-600">
                 Four years at this college compared with 60 credits earned in high school at $80 per credit
                 and {result.fastrack.years} years at this college. Your actual costs depend on aid, course costs,
                 and how many semesters your credits help you replace.
@@ -536,7 +509,7 @@ export default function Calculator() {
                 between DOM siblings and so leaves the 2-column mobile layout with
                 horizontal rules but no vertical one. */}
             <section className="rounded-xl border border-slate-200 bg-white px-6 py-6">
-              <h2 className="text-base font-semibold text-[#080b53]">Plus: potential earnings from working two years earlier</h2>
+              <h2 className="text-base font-semibold text-gray-900">Plus: potential earnings from working two years earlier</h2>
               <p className="mt-2 text-3xl font-bold tabular-nums text-[#1a6b3c]">{money(result.earlyEarnings)}</p>
               <p className="mt-3 text-sm leading-relaxed text-slate-600">
                 {result.earlyEarnings == null ? 'Earnings data is unavailable for this college.' :
@@ -547,8 +520,8 @@ export default function Calculator() {
             </section>
 
             <section className="rounded-xl border-2 border-[#605dba] bg-[#605dba]/5 px-6 py-7">
-              <h2 className="text-lg font-semibold text-[#080b53]">Total potential financial benefit</h2>
-              <p className="mt-2 text-4xl font-bold tracking-tight tabular-nums text-[#080b53] md:text-5xl">{money(result.totalAdvantage)}</p>
+              <h2 className="text-lg font-semibold text-gray-900">Total potential financial benefit</h2>
+              <p className="mt-2 text-4xl font-bold tracking-tight tabular-nums text-gray-900 md:text-5xl">{money(result.totalAdvantage)}</p>
               <p className="mt-4 text-base leading-relaxed text-slate-700">
                 {money(result.savings)} in estimated college costs saved
                 {' + '}{money(result.earlyEarnings)} in potential earlier earnings.
@@ -575,7 +548,7 @@ export default function Calculator() {
                 The receiving college decides which credits count. Finishing in two years may not be possible for your degree.
               </p>
               <Link href={creditMapHref} className="mt-5 inline-block">
-                <Button className="h-12 rounded-lg bg-[#605dba] px-7 text-base font-semibold text-white hover:bg-[#080b53] transition-colors">
+                <Button className="h-12 rounded-lg bg-[#605dba] px-7 text-base font-semibold text-white hover:bg-[#4e4a9e] transition-colors">
                   Explore the $497 Credit Map
                 </Button>
               </Link>
@@ -596,21 +569,21 @@ export default function Calculator() {
       </main>
 
       {/* Navy, not white, the logo artwork is white and disappears on a light ground. */}
-      <footer className="mt-auto bg-[#080b53] pt-0">
+      <footer className="mt-auto border-t border-gray-200 bg-gray-100 pt-0">
         <div className="mx-auto max-w-6xl px-5 py-10 flex flex-col items-center gap-4 text-center">
-          <Image src="/logo.png" alt="Fastrack" width={140} height={40} className="h-8 w-auto" />
-          <address className="not-italic text-sm leading-relaxed text-white/60">
+          <Image src="/logo-color.png" alt="Fastrack" width={140} height={40} className="h-8 w-auto" />
+          <address className="not-italic text-sm leading-relaxed text-gray-600">
             1007 N Orange St, Wilmington, Delaware<br />
-            <a href="mailto:info@fastrack.school" className="hover:text-white">info@fastrack.school</a>
+            <a href="mailto:info@fastrack.school" className="hover:text-gray-900">info@fastrack.school</a>
           </address>
-          <Link href="/privacypolicy" className="text-xs text-white/40 hover:text-white">Privacy Policy</Link>
+          <Link href="/privacypolicy" className="text-xs text-gray-500 hover:text-gray-900">Privacy Policy</Link>
         </div>
       </footer>
 
       <Dialog open={isEmailModalOpen} onOpenChange={handleEmailModalOpenChange}>
         <DialogContent onCloseAutoFocus={handleEmailModalCloseAutoFocus} className="sm:max-w-md rounded-xl border-slate-200 bg-white p-6">
           <DialogHeader className="space-y-2 text-left">
-            <DialogTitle className="text-xl font-bold tracking-tight text-[#080b53]">
+            <DialogTitle className="text-xl font-bold tracking-tight text-gray-900">
               Where should we send your results?
             </DialogTitle>
             <DialogDescription className="text-slate-600 leading-relaxed">
@@ -661,7 +634,7 @@ export default function Calculator() {
             )}
 
             <Button type="submit" disabled={isSubmitting}
-              className="h-11 w-full rounded-lg bg-[#605dba] text-base font-semibold text-white hover:bg-[#080b53] transition-colors disabled:opacity-60">
+              className="h-11 w-full rounded-lg bg-[#605dba] text-base font-semibold text-white hover:bg-[#4e4a9e] transition-colors disabled:opacity-60">
               {isSubmitting ? 'Calculating…' : 'Show my results'}
             </Button>
 
